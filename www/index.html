@@ -11754,7 +11754,8 @@ function applySyncProviderUI() {
 }
 
 /**
- * 测试 WebDAV 连通性：对目标文件所在目录发 PROPFIND。
+ * 测试 WebDAV 连通性：对目标文件本身发 GET 探测（安卓原生 HTTP 层只允许标准方法，
+ * PROPFIND 会被 CapacitorHttp/OkHttp 直接拒绝，不能用作探测；GET/PUT 是同步真实路径，已被验证可用）。
  * 使用界面上尚未保存的输入值临时覆盖运行期配置，测试结束后还原，避免未点保存就落盘。
  */
 async function testWebdavConnection() {
@@ -11778,8 +11779,8 @@ async function testWebdavConnection() {
     if (btn) btn.disabled = true;
     if (res) { res.textContent = '测试中…'; res.style.color = '#6B7280'; }
     try {
-        const dirUrl = webdavFileUrl(webdavSettings.path).replace(/\/[^/]*$/, '/');
-        const r = await httpRequest('PROPFIND', dirUrl, Object.assign({ 'Depth': '0' }, webdavAuthHeaders()), undefined);
+        const fileUrl = webdavFileUrl(webdavSettings.path);
+        const r = await httpRequest('GET', fileUrl, webdavAuthHeaders(), undefined);
         if (r.status === 401 || r.status === 403) {
             if (res) { res.textContent = '认证失败：请检查用户名与「应用密码」是否正确'; res.style.color = '#EF4444'; }
             setConnState(false, '认证失败：请检查用户名与「应用密码」是否正确');
@@ -11787,18 +11788,18 @@ async function testWebdavConnection() {
             if (res) { res.textContent = '服务器可达，但不支持 WebDAV（405）'; res.style.color = '#F59E0B'; }
             setConnState(false, '服务器可达，但不支持 WebDAV（405）');
         } else if (r.status === 404 || (r.status >= 200 && r.status < 400)) {
-            if (res) { res.textContent = '连接成功 ✓ 认证通过' + (r.status === 404 ? '（目录尚不存在，首次上传会自动创建）' : ''); res.style.color = '#10B981'; }
-            setConnState(true, 'WebDAV 连接成功，认证通过' + (r.status === 404 ? '（目录将首次上传时自动创建）' : ''));
+            if (res) { res.textContent = '连接成功 ✓ 认证通过' + (r.status === 404 ? '（文件尚不存在，首次上传会自动创建）' : ''); res.style.color = '#10B981'; }
+            setConnState(true, 'WebDAV 连接成功，认证通过' + (r.status === 404 ? '（文件将首次上传时自动创建）' : ''));
         } else {
             if (res) { res.textContent = '连接失败（HTTP ' + r.status + '）：请检查服务器地址'; res.style.color = '#EF4444'; }
             setConnState(false, '连接失败（HTTP ' + r.status + '）：请检查服务器地址');
         }
     } catch (e) {
         const msg = String(e && e.message ? e.message : e);
-        // PROPFIND 在目录不存在时，某些原生层会抛出 404 异常而非返回响应；统一按「目录待创建」处理
+        // GET 在文件不存在时，某些原生层会抛出 404 异常而非返回响应；统一按「文件待创建」处理
         if (/404|Not Found|ObjectNotFound|不存在/.test(msg)) {
-            if (res) { res.textContent = '连接成功 ✓ 认证通过（目录尚不存在，首次上传会自动创建）'; res.style.color = '#10B981'; }
-            setConnState(true, 'WebDAV 连接成功，认证通过（目录将首次上传时自动创建）');
+            if (res) { res.textContent = '连接成功 ✓ 认证通过（文件尚不存在，首次上传会自动创建）'; res.style.color = '#10B981'; }
+            setConnState(true, 'WebDAV 连接成功，认证通过（文件将首次上传时自动创建）');
         } else {
             if (res) { res.textContent = '连接失败：' + msg; res.style.color = '#EF4444'; }
             setConnState(false, '连接失败：' + msg);
@@ -12181,7 +12182,12 @@ async function webdavMkcolDirs(fileName) {
     let cur = '';
     for (let i = 0; i < segs.length; i++) {
         cur += (cur ? '/' : '') + segs[i];
-        try { await httpRequest('MKCOL', webdavFileUrl(cur), webdavAuthHeaders(), undefined); } catch (e) { /* 已存在则忽略 */ }
+        try {
+            await httpRequest('MKCOL', webdavFileUrl(cur), webdavAuthHeaders(), undefined);
+        } catch (e1) {
+            // 安卓 CapacitorHttp（OkHttp）默认拒绝 MKCOL 这类非标准方法；带空 body 再尽力试一次，仍失败则忽略
+            try { await httpRequest('MKCOL', webdavFileUrl(cur), webdavAuthHeaders(), ''); } catch (e2) { /* 已存在或仍不支持则忽略 */ }
+        }
     }
 }
 
@@ -12203,7 +12209,13 @@ async function webdavPutText(fileName, content) {
         await webdavMkcolDirs(fileName);
         r = await httpRequest('PUT', url, headers, content);
     }
-    if (!r.ok) throw new Error(_webdavErrText(r));
+    if (!r.ok) {
+        if (r.status === 409 || r.status === 404) {
+            const dir = String(fileName || '').replace(/\/[^/]*$/, '');
+            throw new Error('WebDAV ' + r.status + '：目录「' + dir + '」不存在且无法自动创建（当前环境不支持自动建目录），请先在网盘中手动创建该目录再同步');
+        }
+        throw new Error(_webdavErrText(r));
+    }
     return r;
 }
 
