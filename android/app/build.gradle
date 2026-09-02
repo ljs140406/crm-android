@@ -18,7 +18,9 @@ android {
     }
     signingConfigs {
         release {
-            // 这些属性由 CI（GitHub Actions）在构建时通过 -P 注入，本地不写死
+            // 这些属性由 CI（GitHub Actions）在构建时通过 ORG_GRADLE_PROJECT_* 环境变量注入。
+            // 注意：release buildType 不在此处直接应用签名，而是产出未签名 APK，
+            // 由 CI 的 apksigner 在 zipalign 之后统一签名（签名必须晚于对齐）。
             storeFile file("$projectDir/crm-release.keystore")
             storePassword KEYSTORE_PASSWORD
             keyAlias KEY_ALIAS
@@ -29,7 +31,8 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            // 不在此应用 signingConfig：Gradle 产出 app-release-unsigned.apk，
+            // 由 CI 步骤用 apksigner 签名成 crm-android-<ver>.apk。
         }
     }
 }
