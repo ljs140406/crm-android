@@ -85,18 +85,19 @@ jobs:
             exit 1
           fi
 
-      # ---- 前端依赖 + 同步 web 资源 ----
+      # ---- 前端依赖 ----
       - name: Install npm deps
         run: npm ci || npm install
 
-      - name: Sync web assets
-        run: npx cap sync android
-
-      # ---- 注入版本号到更新脚本 ----
+      # ---- 注入版本号到更新脚本（必须在 cap sync 之前，否则 APK 内仍是占位符）----
       - name: Inject app version into update script
         run: |
           sed -i "s/__APP_VERSION__/${{ steps.ver.outputs.versionName }}/g" www/android-update.js
           grep -o "APP_VERSION = '[^']*'" www/android-update.js
+
+      # ---- 同步 web 资源到安卓工程 ----
+      - name: Sync web assets
+        run: npx cap sync android
 
       # ---- 构建 release APK（先出未对齐的 release 包）----
       - name: Build release APK
