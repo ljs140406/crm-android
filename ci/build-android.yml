@@ -100,16 +100,20 @@ jobs:
         run: npx cap sync android
 
       # ---- 构建 release APK（先出未对齐的 release 包）----
+      # 注意：用 ORG_GRADLE_PROJECT_ 前缀的环境变量注入，Gradle 会自动将其识别为
+      # 名为 KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD 的项目属性，
+      # 与 android/app/build.gradle 中的 signingConfigs 引用一致。
       - name: Build release APK
+        env:
+          ORG_GRADLE_PROJECT_appVersionName: ${{ steps.ver.outputs.versionName }}
+          ORG_GRADLE_PROJECT_appVersionCode: ${{ steps.ver.outputs.versionCode }}
+          ORG_GRADLE_PROJECT_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          ORG_GRADLE_PROJECT_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          ORG_GRADLE_PROJECT_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           cd android
           chmod +x ./gradlew
-          ./gradlew assembleRelease \
-            -PappVersionName="${{ steps.ver.outputs.versionName }}" \
-            -PappVersionCode="${{ steps.ver.outputs.versionCode }}" \
-            -PKEYSTORE_PASSWORD="$KEYSTORE_PASSWORD" \
-            -PKEY_ALIAS="$KEY_ALIAS" \
-            -PKEY_PASSWORD="$KEY_PASSWORD"
+          ./gradlew assembleRelease
 
       # ---- 用官方 apksigner 重新签名对齐 ----
       - name: Zipalign + apksigner
