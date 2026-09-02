@@ -16,7 +16,9 @@
     // __APP_VERSION__ 会在 GitHub Actions 构建时被替换成真实版本号
     var APP_VERSION = '__APP_VERSION__';
     var REPO = 'ljs140406/crm-android';
-    var API_LATEST = 'https://api.github.com/repos/' + REPO + '/releases/latest';
+    // 双源检查：GitHub 兜底，Gitee 下载更快（国内）
+    var API_LATEST_GITHUB = 'https://api.github.com/repos/' + REPO + '/releases/latest';
+    var API_LATEST_GITEE = 'https://gitee.com/api/v5/repos/' + REPO + '/releases/latest';
     var SKIP_KEY = 'crm_android_skip_version';
     var LAST_CHECK_KEY = 'crm_android_last_check';
     var AUTO_CHECK_INTERVAL = 6 * 60 * 60 * 1000; // 自动检查最多 6 小时一次
@@ -180,51 +182,75 @@
     }
 
     // ---------------------------------------------------------------
-    // 检查更新
+    // 检查更新（GitHub + Gitee 双源，下载优先 Gitee 以提速）
     // ---------------------------------------------------------------
     var checking = false;
+
+    function fetchJson(url) {
+        return fetch(url, {
+            headers: { Accept: 'application/json' },
+            cache: 'no-store'
+        }).then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        });
+    }
+
+    // 把 release JSON 归一化为 {version, body, apkUrl, htmlUrl}
+    function parseRelease(j) {
+        var tag = String(j.tag_name || j.name || '').replace(/^v/i, '');
+        var apk = null;
+        (j.assets || []).forEach(function (a) {
+            if (!apk && /\.apk$/i.test(a.name || '')) apk = a.browser_download_url;
+        });
+        return { version: tag, body: j.body || '', apkUrl: apk, htmlUrl: j.html_url || '' };
+    }
 
     function checkUpdate(manual) {
         if (checking) return;
         checking = true;
         if (manual) toast('正在检查更新…', 1200);
 
-        fetch(API_LATEST, {
-            headers: { Accept: 'application/vnd.github+json' },
-            cache: 'no-store'
-        })
-            .then(function (r) {
-                if (!r.ok) throw new Error('HTTP ' + r.status);
-                return r.json();
-            })
-            .then(function (j) {
-                try { localStorage.setItem(LAST_CHECK_KEY, String(Date.now())); } catch (e) {}
-                var latest = String(j.tag_name || j.name || '').replace(/^v/i, '');
-                if (!latest) throw new Error('未取到版本号');
+        // 两个源并行查，任一失败都降级为 null，不影响另一源
+        var pGithub = fetchJson(API_LATEST_GITHUB).then(parseRelease).catch(function () { return null; });
+        var pGitee = fetchJson(API_LATEST_GITEE).then(parseRelease).catch(function () { return null; });
 
-                var apk = null;
-                (j.assets || []).forEach(function (a) {
-                    if (!apk && /\.apk$/i.test(a.name || '')) apk = a.browser_download_url;
-                });
+        Promise.all([pGithub, pGitee]).then(function (res) {
+            try { localStorage.setItem(LAST_CHECK_KEY, String(Date.now())); } catch (e) {}
+            var github = res[0], gitee = res[1];
 
-                if (cmpVersion(latest, APP_VERSION) > 0) {
-                    var skipped = '';
-                    try { skipped = localStorage.getItem(SKIP_KEY) || ''; } catch (e) {}
-                    if (!manual && skipped && cmpVersion(latest, skipped) <= 0) return; // 静默检查尊重「跳过」
-                    showUpdateModal({
-                        version: latest,
-                        body: j.body || '',
-                        apkUrl: apk,
-                        htmlUrl: j.html_url
-                    });
-                } else if (manual) {
-                    toast('已是最新版本 v' + APP_VERSION, 2000);
+            // 取较新版本；Gitee 与 GitHub 同版本时优先 Gitee
+            var best = null;
+            if (github && cmpVersion(github.version, APP_VERSION) > 0) best = github;
+            if (gitee && cmpVersion(gitee.version, APP_VERSION) > 0 &&
+                (!best || cmpVersion(gitee.version, best.version) >= 0)) {
+                best = gitee;
+            }
+
+            if (best) {
+                // 下载链接优先 Gitee：若较新版本来自 GitHub，但 Gitee 也有同版本 APK，则改用 Gitee 直链
+                var dl = best.apkUrl;
+                if (best === github && gitee && gitee.apkUrl &&
+                    cmpVersion(gitee.version, best.version) >= 0) {
+                    dl = gitee.apkUrl;
                 }
-            })
-            .catch(function (e) {
-                if (manual) toast('检查更新失败：' + (e && e.message ? e.message : '网络异常'), 2600);
-            })
-            .then(function () { checking = false; }, function () { checking = false; });
+                var skipped = '';
+                try { skipped = localStorage.getItem(SKIP_KEY) || ''; } catch (e) {}
+                if (!manual && skipped && cmpVersion(best.version, skipped) <= 0) { checking = false; return; }
+                showUpdateModal({
+                    version: best.version,
+                    body: best.body,
+                    apkUrl: dl,
+                    htmlUrl: best.htmlUrl
+                });
+            } else if (manual) {
+                toast('已是最新版本 v' + APP_VERSION, 2000);
+            }
+            checking = false;
+        }).catch(function (e) {
+            if (manual) toast('检查更新失败：' + (e && e.message ? e.message : '网络异常'), 2600);
+            checking = false;
+        });
     }
 
     // ---------------------------------------------------------------
