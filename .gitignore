@@ -1,0 +1,25 @@
+# 依赖
+node_modules/
+
+# 本地签名（绝不入库！真实 keystore 通过 CI Secret 注入）
+*.keystore
+crm-release.p12
+crm-release.p12.base64.txt
+
+# 本地 Python 缓存
+__pycache__/
+
+# Android 构建产物
+android/.gradle/
+android/app/build/
+android/build/
+*.apk
+
+# Android Studio / 本地环境
+.idea/
+*.iml
+local.properties
+captures/
+
+# OS
+.DS_Store
