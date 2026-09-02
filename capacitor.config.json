@@ -1,0 +1,17 @@
+{
+  "appId": "cn.ljs140406.crm",
+  "appName": "客户跟进管理",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false
+  },
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": false
+    }
+  }
+}
