@@ -13,6 +13,13 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- 沉浸式状态栏：让 WebView 铺到状态栏/导航栏下方，CSS env(safe-area-inset-*) 生效 -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowTranslucentStatus">true</item>
+        <item name="android:windowLightStatusBar">false</item>    <!-- 白色状态栏图标（配合紫色 header） -->
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowTranslucentNavigation">true</item>
+        <item name="android:windowLightNavigationBar">true</item>  <!-- 深色导航键/手势条（配合浅色 App 背景） -->
     </style>
 
 
