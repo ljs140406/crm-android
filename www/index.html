@@ -196,6 +196,7 @@ textarea { resize: vertical; }
 .sync-status-card.status-pending { background: #fffbeb; border-color: #fde68a; color: #92400e; }
 .sync-status-card.status-info { background: #eff6ff; border-color: #bfdbfe; color: #1e40af; }
 .sync-status-card.status-success { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+.sync-status-card.status-error { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
 .sync-status-icon {
     width: 40px; height: 40px;
     border-radius: 50%;
@@ -4655,6 +4656,15 @@ tr.customer-row.starred:hover td { background-color: #fde68a; }
                         <span class="form-tip" id="webdavTestResult" style="display:inline-block;margin-left:8px;"></span>
                     </div>
                 </div>
+                <div class="sync-status-card status-pending" id="syncConnCard">
+                    <div class="sync-status-icon" id="syncConnIcon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    </div>
+                    <div class="sync-status-info">
+                        <div class="sync-status-title" id="syncConnTitle">连接状态：未测试</div>
+                        <div class="sync-status-desc" id="syncConnDesc">点击「测试连接」验证同步后端是否可连通</div>
+                    </div>
+                </div>
                 <div id="gistPanel">
                 <div class="sync-status-card" id="syncStatusCard">
                     <div class="sync-status-icon" id="syncStatusIcon">
@@ -4679,6 +4689,10 @@ tr.customer-row.starred:hover td { background-color: #fde68a; }
                     <label>数据文件名</label>
                     <input type="text" id="syncFilename" value="crm-data.json" placeholder="crm-data.json">
                     <div class="form-tip">Gist 单文件上限 1MB，数据接近上限时请改用 WebDAV。</div>
+                </div>
+                <div class="form-group">
+                    <button class="btn btn-sm" id="gistTestBtn" type="button">测试连接</button>
+                    <span class="form-tip" id="gistTestResult" style="display:inline-block;margin-left:8px;"></span>
                 </div>
                 </div><!-- /gistPanel -->
                 <div class="usage-grid">
@@ -11079,7 +11093,7 @@ function clearOperationLog() {
 
 // ==================== 同步核心 ====================
 // ==================== 备份 Gist 操作（手动触发） ====================
-function getBackupGistApiUrl() { return 'https://api.github.com/gists/' + backupSettings.gistId; }
+function getBackupGistApiUrl() { return 'https://api.github.com/gists/' + normalizeGistId(backupSettings.gistId); }
 let _backupArrCache = null; // 备份列表缓存：写操作后直接内存重绘，避免重复回云端拉取
 // 周计划条目计数：网页端与云函数统一算法（只数 thisWeek/nextWeek 周期对象里有内容的格子）
 function countWorkPlanItems(plan) {
@@ -11722,6 +11736,7 @@ function applySyncProviderUI() {
     if (rSub && isWd) rSub.textContent = 'WebDAV 无单文件大小限制';
     const bSub = document.getElementById('backupUsageSub');
     if (bSub && isWd) bSub.textContent = 'crm-backups.json · WebDAV 无限制';
+    renderConnStatus();
 }
 
 /**
@@ -11753,15 +11768,20 @@ async function testWebdavConnection() {
         const r = await httpRequest('PROPFIND', dirUrl, Object.assign({ 'Depth': '0' }, webdavAuthHeaders()), undefined);
         if (r.status === 401 || r.status === 403) {
             if (res) { res.textContent = '认证失败：请检查用户名与「应用密码」是否正确'; res.style.color = '#EF4444'; }
+            setConnState(false, '认证失败：请检查用户名与「应用密码」是否正确');
         } else if (r.status === 405) {
             if (res) { res.textContent = '服务器可达，但不支持 WebDAV（405）'; res.style.color = '#F59E0B'; }
+            setConnState(false, '服务器可达，但不支持 WebDAV（405）');
         } else if (r.status === 404 || (r.status >= 200 && r.status < 400)) {
             if (res) { res.textContent = '连接成功 ✓ 认证通过' + (r.status === 404 ? '（目录尚不存在，首次上传会自动创建）' : ''); res.style.color = '#10B981'; }
+            setConnState(true, 'WebDAV 连接成功，认证通过' + (r.status === 404 ? '（目录将首次上传时自动创建）' : ''));
         } else {
             if (res) { res.textContent = '连接失败（HTTP ' + r.status + '）：请检查服务器地址'; res.style.color = '#EF4444'; }
+            setConnState(false, '连接失败（HTTP ' + r.status + '）：请检查服务器地址');
         }
     } catch (e) {
         if (res) { res.textContent = '连接失败：' + (e && e.message ? e.message : String(e)); res.style.color = '#EF4444'; }
+        setConnState(false, '连接失败：' + (e && e.message ? e.message : String(e)));
     } finally {
         webdavSettings.url = prev.url; webdavSettings.user = prev.user; webdavSettings.path = prev.path;
         _webdavPassCache = prev.pass;
@@ -11799,6 +11819,7 @@ function openSyncModal() {
     document.getElementById('syncToken').value = syncSettings.token;
     document.getElementById('syncGistId').value = syncSettings.gistId;
     document.getElementById('syncFilename').value = syncSettings.filename;
+    loadConnState();
     updateSyncStatusUI();
     // 渲染本地/云端存储占用进度条
     renderStorageBars();
@@ -11894,6 +11915,103 @@ function updateSyncStatusUI() {
         title.textContent = '已配置，尚未同步';
         desc.textContent = '点击"保存并同步"开始第一次同步';
     }
+    renderConnStatus();
+}
+
+// ============ 连接状态（Gist / WebDAV 实际连通性）============
+const CONN_SVG_PENDING = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+const CONN_SVG_OK = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+const CONN_SVG_ERR = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+
+// 最近一次连接测试/同步连通结果；持久化到本地（不进同步数据，属设备私有状态）
+let lastConnState = { backend: '', ok: null, msg: '', time: '' };
+
+function loadConnState() {
+    try {
+        const raw = CRMStore.getItem('crm_conn_state');
+        if (raw) { const o = JSON.parse(raw); if (o && typeof o === 'object') lastConnState = o; }
+    } catch (e) {}
+}
+function saveConnState() {
+    try { CRMStore.setItem('crm_conn_state', JSON.stringify(lastConnState)); } catch (e) {}
+}
+
+/** 记录一次连通结果并刷新连接状态卡片 */
+function setConnState(ok, msg) {
+    lastConnState = { backend: syncBackendLabel(), ok: ok, msg: msg || '', time: new Date().toISOString() };
+    saveConnState();
+    renderConnStatus();
+}
+
+/** 渲染"连接状态"卡片（与"配置状态"卡片并列） */
+function renderConnStatus() {
+    const card = document.getElementById('syncConnCard');
+    if (!card) return;
+    const icon = document.getElementById('syncConnIcon');
+    const title = document.getElementById('syncConnTitle');
+    const desc = document.getElementById('syncConnDesc');
+    const backend = syncBackendLabel();
+    // 仅当已记录的连通结果属于「当前后端」时才展示；切换后端后旧后端的状态不相关，按未测试显示
+    const st = (lastConnState.backend && lastConnState.backend === backend) ? lastConnState : { ok: null, msg: '', time: '' };
+    const timeStr = st.time ? formatDateTime(st.time) : '';
+    if (st.ok === true) {
+        card.className = 'sync-status-card status-success';
+        if (icon) icon.innerHTML = CONN_SVG_OK;
+        if (title) title.textContent = '✓ ' + backend + ' 连接成功';
+        if (desc) desc.textContent = (st.msg ? st.msg + ' · ' : '') + (timeStr ? '测试于 ' + timeStr : '');
+    } else if (st.ok === false) {
+        card.className = 'sync-status-card status-error';
+        if (icon) icon.innerHTML = CONN_SVG_ERR;
+        if (title) title.textContent = '✕ ' + backend + ' 连接失败';
+        if (desc) desc.textContent = (st.msg ? st.msg + ' · ' : '') + (timeStr ? '测试于 ' + timeStr : '');
+    } else {
+        card.className = 'sync-status-card status-pending';
+        if (icon) icon.innerHTML = CONN_SVG_PENDING;
+        if (title) title.textContent = '连接状态：未测试';
+        if (desc) desc.textContent = '点击「测试连接」验证 ' + backend + ' 是否可连通';
+    }
+}
+
+/** 统一测试连接：按当前 provider 分发到 WebDAV / Gist 测试 */
+async function testConnection() {
+    if (!syncReady()) {
+        const need = isWebdavProvider() ? 'WebDAV 服务器地址、用户名和密码' : 'Token 和 Gist ID';
+        setConnState(false, '未填写完整配置（' + need + '）');
+        showToast('请先填写 ' + need);
+        return;
+    }
+    if (isWebdavProvider()) await testWebdavConnection();
+    else await testGistConnection();
+}
+
+/** 测试 GitHub Gist 连通性：GET 单个 gist，依据 HTTP 状态判定 */
+async function testGistConnection() {
+    const btn = document.getElementById('gistTestBtn');
+    if (btn) btn.disabled = true;
+    const tokenEl = document.getElementById('syncToken');
+    const gidEl = document.getElementById('syncGistId');
+    const token = (tokenEl && tokenEl.value || '').trim() || syncSettings.token;
+    const gid = normalizeGistId((gidEl && gidEl.value) || syncSettings.gistId);
+    setConnState(null, '正在测试 ' + syncBackendLabel() + ' 连接…');
+    try {
+        const r = await httpRequest('GET', 'https://api.github.com/gists/' + gid, {
+            'Authorization': 'token ' + token,
+            'Accept': 'application/vnd.github.v3+json'
+        });
+        if (r.status === 401 || r.status === 403) {
+            setConnState(false, 'GitHub Token 无效或已失效（请确认 Token 含 gist 权限且未过期）');
+        } else if (r.status === 404) {
+            setConnState(false, 'Gist ID 不存在或无权访问（请确认 ID 正确，且 Gist 属于此 Token 账号）');
+        } else if (r.status >= 200 && r.status < 300) {
+            setConnState(true, 'Gist 可正常访问');
+        } else {
+            setConnState(false, 'GitHub 返回 HTTP ' + r.status);
+        }
+    } catch (e) {
+        setConnState(false, '连接失败：' + (e && e.message ? e.message : String(e)));
+    } finally {
+        if (btn) btn.disabled = false;
+    }
 }
 
 function logSync(msg, type) {
@@ -11901,8 +12019,20 @@ function logSync(msg, type) {
     logSyncGlobal(msg, type);
 }
 
+// 规范化 Gist ID：支持直接粘贴完整 gist 链接（https://gist.github.com/xxx/<id> 或
+// https://api.github.com/gists/<id>），自动提取其中的十六进制 ID 段；否则原样返回去空格结果。
+// 避免用户把整条链接当 ID 粘贴，或粘贴时带入首尾空格，导致请求打到错误的 URL。
+function normalizeGistId(raw) {
+    if (!raw) return '';
+    const s = String(raw).trim();
+    const m = s.match(/gist\.github\.com\/(?:[\w.-]+\/)?([0-9a-f]{20,})/i)
+           || s.match(/api\.github\.com\/gists\/([0-9a-f]{20,})/i)
+           || s.match(/^([0-9a-f]{20,})$/i);
+    return m ? m[1] : s;
+}
+
 function getGistApiUrl() {
-    return 'https://api.github.com/gists/' + syncSettings.gistId;
+    return 'https://api.github.com/gists/' + normalizeGistId(syncSettings.gistId);
 }
 
 // ==================== 同步后端抽象：GitHub Gist / WebDAV ====================
@@ -11967,6 +12097,7 @@ function backupReady() {
     return isWebdavProvider() ? syncReady() : !!(backupSettings.token && backupSettings.gistId);
 }
 function syncBackendLabel() { return isWebdavProvider() ? 'WebDAV' : 'GitHub Gist'; }
+function syncTag() { return '[' + syncBackendLabel() + '] '; }
 
 /** 拼接远端文件完整 URL：基址去尾斜杠 + 逐段编码的相对路径 */
 function webdavFileUrl(fileName) {
@@ -12161,9 +12292,13 @@ async function updateGist(content) {
         showToast('云端数据约 ' + formatBytes(_bytes) + ' 将超过 Gist 1MB 安全上限，已阻止上传。请先清理历史记录或缩小数据。');
         throw new Error('云端数据约 ' + formatBytes(_bytes) + ' 已超过安全上限，已阻止上传（请先清理历史）');
     }
+    const gid = normalizeGistId(syncSettings.gistId);
+    if (!gid) throw new Error('未配置 Gist ID，请到「设置中心 → 同步」选择 GitHub Gist 并填写 Gist ID');
+    if (!syncSettings.token) throw new Error('未配置 GitHub Token，请到「设置中心 → 同步」填写');
+    const fname = (syncSettings.filename || 'crm-data.json').trim() || 'crm-data.json';
     const body = {
         description: '客户跟进管理系统数据同步',
-        files: { [syncSettings.filename]: { content: content } }
+        files: { [fname]: { content: content } }
     };
     const res = await fetch(getGistApiUrl(), {
         method: 'PATCH',
@@ -12176,16 +12311,30 @@ async function updateGist(content) {
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || ('请求失败 ' + res.status));
+        let msg = err.message || ('请求失败 ' + res.status);
+        if (res.status === 401) msg = 'GitHub Token 无效或已失效（请确认 Token 含 gist 权限且未过期）';
+        else if (res.status === 404) msg = 'Gist ID 不存在或无权访问（请确认 ID 正确，且该 Gist 属于此 Token 账号）';
+        else if (res.status === 422) msg = 'GitHub 拒绝请求：文件名「' + fname + '」非法或请求体异常（文件名不要含空格/特殊字符）';
+        throw new Error(msg);
     }
-    // 更新 ETag
+    // 更新 ETag 并固化规范化后的文件名（避免再次拼接空/非法文件名导致 422）
+    syncSettings.filename = fname;
     syncSettings._etag = res.headers.get('ETag') || '';
     saveSyncSettings();
     return await res.json();
 }
 
 function parseRemoteGist(gist) {
-    const file = gist.files && gist.files[syncSettings.filename];
+    if (!gist || !gist.files) return null;
+    let file = gist.files[syncSettings.filename];
+    // 兜底：若按预期文件名找不到，但 Gist 内恰好只有一个文件，则自动采用其实际文件名，
+    // 避免「Gist 文件名与 crm-data.json 不一致」时被误判为「云端无数据」而触发无效上传。
+    if (!file && Object.keys(gist.files).length === 1) {
+        const onlyName = Object.keys(gist.files)[0];
+        file = gist.files[onlyName];
+        syncSettings.filename = onlyName;
+        saveSyncSettings();
+    }
     if (!file) return null;
     try {
         const data = gistDecode(file.content || '{}');
@@ -12535,19 +12684,19 @@ async function doAutoSync() {
     isAutoSyncing = true;
     setSyncButtonSyncing(true);
     const syncStart = Date.now();
-    logSyncGlobal('自动同步：获取云端数据...', 'info');
+    logSyncGlobal(syncTag() + '自动同步：获取云端数据...', 'info');
 
     try {
         const gist = await fetchRemoteFile();
         if (remoteFileTruncated(gist)) {
-            logSyncGlobal('云端数据已截断（超过 1MB），已阻断同步以防数据损坏，请先从备份恢复', 'error');
+            logSyncGlobal(syncTag() + '云端数据已截断（超过 1MB），已阻断同步以防数据损坏，请先从备份恢复', 'error');
             showToast('云端数据已截断，请勿同步，请先从备份恢复！');
             return;
         }
         const remoteData = parseRemoteGist(gist);
 
         if (!remoteData) {
-            logSyncGlobal('云端无数据，上传本地...', 'info');
+            logSyncGlobal(syncTag() + '云端无数据，上传本地...', 'info');
             await pushToGistSilent();
             return;
         }
@@ -12563,7 +12712,7 @@ async function doAutoSync() {
                 renderConflictModal();
             }
             showConflictBanner(trueConflicts.length);
-            logSyncGlobal('自动同步：检测到 ' + trueConflicts.length + ' 处两端冲突，已暂停并等待选择', 'warning');
+            logSyncGlobal(syncTag() + '自动同步：检测到 ' + trueConflicts.length + ' 处两端冲突，已暂停并等待选择', 'warning');
             logOperation('自动同步检测到 ' + trueConflicts.length + ' 处两端冲突，已暂停并等待手动合并', 'warning');
             return;
         }
@@ -12578,18 +12727,19 @@ async function doAutoSync() {
         const statusFilterChanged = prevStatusFilter !== curStatusFilter;
 
         if (hadPending || changes.length > 0 || statusFilterChanged) {
-            logSyncMergeResult('自动同步：', changes, syncStart);
+            logSyncMergeResult(syncTag() + '自动同步：', changes, syncStart);
             await pushToGistSilent();
             refreshCurrentPage();
         } else {
             // 真正无任何变更
             state._meta.lastSyncedAt = new Date().toISOString();
             saveData(true);
-            logSyncGlobal('数据一致，无需同步（耗时 ' + ((Date.now() - syncStart) / 1000).toFixed(1) + ' 秒）', 'success');
+            logSyncGlobal(syncTag() + '数据一致，无需同步（耗时 ' + ((Date.now() - syncStart) / 1000).toFixed(1) + ' 秒）', 'success');
         }
 
     } catch(e) {
-        logSyncGlobal('自动同步失败：' + e.message, 'error');
+        logSyncGlobal(syncTag() + '自动同步失败：' + e.message, 'error');
+        setConnState(false, e.message);
     } finally {
         isAutoSyncing = false;
         setSyncButtonSyncing(false);
@@ -12597,6 +12747,10 @@ async function doAutoSync() {
 }
 
 async function pushToGistSilent() {
+    // 自动同步守卫：未配置完成（尤其 gistId 为空）时不要向 api.github.com/gists/ 发 PATCH，
+    // 否则会得到 422 Validation Failed。与手动同步（doSync 的 syncReady 校验）保持一致。
+    if (!syncReady()) return;
+    if (!syncSettings.filename) syncSettings.filename = 'crm-data.json';
     const syncStartTime = new Date().toISOString();
     const pending = getPendingChanges();
     const payload = getSyncPayload();
@@ -12609,12 +12763,14 @@ async function pushToGistSilent() {
         markChangesSynced(syncStartTime);
         recordSyncBasis();
         saveData(true);
+        setConnState(true, '最近一次自动同步上传成功');
         if (pending.length > 0) {
             const detail = formatChangesSummary(pending);
-            logSyncGlobal('自动同步：上传 ' + pending.length + ' 条 → ' + detail, 'success');
+            logSyncGlobal(syncTag() + '自动同步：上传 ' + pending.length + ' 条 → ' + detail, 'success');
         }
     } catch(e) {
-        logSyncGlobal('上传失败：' + e.message, 'error');
+        logSyncGlobal(syncTag() + '上传失败：' + e.message, 'error');
+        setConnState(false, e.message);
         throw e;
     }
 }
@@ -12792,25 +12948,26 @@ async function doSync(force) {
     setSyncButtonSyncing(true);
     const syncStart = Date.now();
     try {
-        logSyncGlobal('手动同步：获取云端数据...', 'info');
+        logSyncGlobal(syncTag() + '手动同步：获取云端数据...', 'info');
         let gist;
         try {
             gist = await fetchRemoteFile();
         } catch(e) {
-            logSyncGlobal('手动同步失败：' + e.message, 'error');
+            logSyncGlobal(syncTag() + '手动同步失败：' + e.message, 'error');
+            setConnState(false, e.message);
             showToast('同步失败：' + e.message);
             return;
         }
 
         if (remoteFileTruncated(gist)) {
-            logSyncGlobal('云端数据已截断（超过 1MB），已阻断同步以防数据损坏，请先从备份恢复', 'error');
+            logSyncGlobal(syncTag() + '云端数据已截断（超过 1MB），已阻断同步以防数据损坏，请先从备份恢复', 'error');
             showToast('云端数据已截断，请勿同步，请先从备份恢复！');
             return;
         }
 
         const remoteData = parseRemoteGist(gist);
         if (!remoteData) {
-            logSyncGlobal('手动同步：云端无数据，上传中...', 'info');
+            logSyncGlobal(syncTag() + '手动同步：云端无数据，上传中...', 'info');
             await pushToGist();
             return;
         }
@@ -12826,7 +12983,8 @@ async function doSync(force) {
         if (force === 'pull') {
             const changes = applyRemoteData(remoteData);
             const summary = _summarizePullChanges(changes);
-            logSyncGlobal('手动同步：拉取云端 → ' + summary, 'success');
+            logSyncGlobal(syncTag() + '手动同步：拉取云端 → ' + summary, 'success');
+            setConnState(true, '已从云端拉取成功');
             logOperation('从云端拉取数据（' + summary + '）', 'success');
             showToast('已从云端拉取数据');
             refreshCurrentPage();
@@ -12837,7 +12995,7 @@ async function doSync(force) {
         // （避免仅本地改动、云端为旧值时也弹框，误选「全部使用云端」会丢失本地数据）
         const trueConflicts = detectTrueConflicts(remoteData);
         if (trueConflicts.length > 0) {
-            logSyncGlobal('检测到 ' + trueConflicts.length + ' 处两端都修改过的记录，等待选择', 'info');
+            logSyncGlobal(syncTag() + '检测到 ' + trueConflicts.length + ' 处两端都修改过的记录，等待选择', 'info');
             showConflictModal(remoteData);
             // 只保留真冲突记录，过滤掉单端变更造成的差异项（与自动同步一致）
             if (pendingConflict && pendingConflict.records) {
@@ -12856,14 +13014,14 @@ async function doSync(force) {
 
         if (hadPending || changes.length > 0) {
             // 本地有 pending 变更 或 远端有变更 → 上传合并结果
-            logSyncMergeResult('手动同步：', changes, syncStart);
+            logSyncMergeResult(syncTag() + '手动同步：', changes, syncStart);
             await pushToGist();
             refreshCurrentPage();
         } else {
             // 真正无任何变更
             state._meta.lastSyncedAt = new Date().toISOString();
             saveData(true);
-            logSyncGlobal('手动同步：数据一致', 'success');
+            logSyncGlobal(syncTag() + '手动同步：数据一致', 'success');
             showToast('数据已是最新');
         }
         return;
@@ -12889,14 +13047,16 @@ async function pushToGist() {
         // 详细日志：列出本次同步的所有变更
         if (pending.length > 0) {
             const detail = formatChangesSummary(pending);
-            logSyncGlobal('手动同步：上传 ' + pending.length + ' 条 → ' + detail, 'success');
+            logSyncGlobal(syncTag() + '手动同步：上传 ' + pending.length + ' 条 → ' + detail, 'success');
         } else {
-            logSyncGlobal('手动同步：上传成功（无变更）', 'success');
+            logSyncGlobal(syncTag() + '手动同步：上传成功（无变更）', 'success');
         }
         showToast(pending.length > 0 ? `已上传 ${pending.length} 条变更` : '已上传到云端');
+        setConnState(true, '最近一次同步上传成功');
         updateSyncStatusUI();
     } catch(e) {
-        logSyncGlobal('手动同步失败：' + e.message, 'error');
+        logSyncGlobal(syncTag() + '手动同步失败：' + e.message, 'error');
+        setConnState(false, e.message);
         showToast('上传失败：' + e.message);
     }
 }
@@ -13659,7 +13819,12 @@ function bindEvents() {
     const _testBtn = document.getElementById('webdavTestBtn');
     if (_testBtn && !_testBtn.dataset.bound) {
         _testBtn.dataset.bound = '1';
-        _testBtn.addEventListener('click', function () { testWebdavConnection(); });
+        _testBtn.addEventListener('click', function () { testConnection(); });
+    }
+    const _gistTestBtn = document.getElementById('gistTestBtn');
+    if (_gistTestBtn && !_gistTestBtn.dataset.bound) {
+        _gistTestBtn.dataset.bound = '1';
+        _gistTestBtn.addEventListener('click', function () { testConnection(); });
     }
     document.getElementById('saveSyncBtn').addEventListener('click', () => {
         loadSyncSettings();
@@ -13677,12 +13842,16 @@ function bindEvents() {
         if (wpath) webdavSettings.path = (wpath.value || '').trim() || 'crm-data.json';
         if (wpEl) setWebdavPass(wpEl.value || '');
         saveWebdavSettings();
-        // Gist 配置
-        syncSettings.token = (document.getElementById('syncToken').value || '').trim();
-        syncSettings.gistId = (document.getElementById('syncGistId').value || '').trim();
-        syncSettings.filename = isWebdavProvider()
-            ? (webdavSettings.path || 'crm-data.json')
-            : ((document.getElementById('syncFilename').value || '').trim() || 'crm-data.json');
+        // Gist 配置：仅在 GitHub Gist 为当前同步方式时写入。
+        // 关键修复：切到 WebDAV（坚果云）保存时，绝不能把 Gist 的 Token / Gist ID / 文件名清空，
+        // 否则之后切回 Gist 会因 gistId 为空而向 api.github.com/gists/ 发请求 → 报 422 Validation Failed。
+        if (isWebdavProvider()) {
+            // WebDAV 分支：保留 Gist 字段原值，只切换 provider（provider 已在上方设置）
+        } else {
+            syncSettings.token = (document.getElementById('syncToken').value || '').trim();
+            syncSettings.gistId = normalizeGistId(document.getElementById('syncGistId').value);
+            syncSettings.filename = (document.getElementById('syncFilename').value || '').trim() || 'crm-data.json';
+        }
         syncSettings._etag = ''; // 重置变更指纹
         logOperation('保存云端同步配置（方式：' + syncBackendLabel() +
             (isWebdavProvider() ? '，路径：' + (webdavSettings.path || '空') : '，Gist ID：' + (syncSettings.gistId || '空')) + '）', 'info');
