@@ -209,6 +209,11 @@ textarea { resize: vertical; }
 .sync-status-info { flex: 1; min-width: 0; }
 .sync-status-title { font-weight: 600; font-size: 14px; }
 .sync-status-desc { font-size: 12px; margin-top: 2px; opacity: 0.85; }
+/* 手动备份：Gist / WebDAV 切换分段控件（独立于日常同步 provider） */
+.seg { display: flex; width: 100%; background: #EEF1F6; border-radius: 10px; padding: 3px; gap: 3px; box-sizing: border-box; }
+.seg-btn { flex: 1; border: 0; background: transparent; color: var(--text-secondary); font-size: 13px; font-weight: 600; padding: 9px 4px; border-radius: 8px; cursor: pointer; transition: background .15s, color .15s, box-shadow .15s; font-family: inherit; }
+.seg-btn:hover { color: #1F2937; }
+.seg-btn.active { background: #fff; color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
 .sync-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -4856,6 +4861,11 @@ td.col-followup-content { position: relative; }
                 <button class="modal-close" id="manualBackupClose">&times;</button>
             </div>
             <div class="modal-body">
+                <div style="margin:2px 0 4px;font-size:13px;font-weight:600;color:var(--text-secondary);">备份目标</div>
+                <div class="seg" id="backupTargetSeg" style="margin:6px 0 12px;">
+                    <button type="button" class="seg-btn" data-target="gist">Gist（副仓库）</button>
+                    <button type="button" class="seg-btn" data-target="webdav">WebDAV 网盘</button>
+                </div>
                 <div id="backupGistFields">
                     <div class="form-group">
                         <label>备份 GitHub Token <span class="required">*</span> <span style="font-size:11px;color:#B45309;font-weight:600;">手动同步用，独立于日常同步</span></label>
@@ -11116,11 +11126,11 @@ let remoteSnapshot = null;
 
 // ==================== 备份 Gist（手动，独立于日常同步） ====================
 const BACKUP_SETTINGS_KEY = 'crm_backup_settings_v1';
-let backupSettings = { token: '', gistId: '', filename: 'crm-backups.json', _etag: '' };
+let backupSettings = { token: '', gistId: '', filename: 'crm-backups.json', _etag: '', target: '' };
 function loadBackupSettings() {
     try {
         const s = JSON.parse(CRMStore.getItem(BACKUP_SETTINGS_KEY) || '{}');
-        backupSettings = { token: s.token || '', gistId: s.gistId || '', filename: s.filename || 'crm-backups.json', _etag: s._etag || '' };
+        backupSettings = { token: s.token || '', gistId: s.gistId || '', filename: s.filename || 'crm-backups.json', _etag: s._etag || '', target: s.target || '' };
     } catch(e) { backupSettings = { token: '', gistId: '', filename: 'crm-backups.json', _etag: '' }; }
 }
 function saveBackupSettings() { CRMStore.setItem(BACKUP_SETTINGS_KEY, JSON.stringify(backupSettings)); }
@@ -11334,7 +11344,7 @@ function backupItemCounts(e) {
 // WebDAV 模式下，备份文件默认放在与主同步文件同一目录下：
 // 主同步既然能工作，说明它的父目录可用；备份共享该父目录可避免出现「根目录写不了但子目录能写」的 404。
 function getBackupFilename() {
-    if (!isWebdavProvider()) return backupSettings.filename || 'crm-backups.json';
+    if (getBackupTarget() !== 'webdav') return backupSettings.filename || 'crm-backups.json';
     const syncPath = (webdavSettings.path || 'crm-data.json').trim() || 'crm-data.json';
     const idx = syncPath.lastIndexOf('/');
     return idx >= 0 ? syncPath.slice(0, idx + 1) + 'crm-backups.json' : 'crm-backups.json';
@@ -11343,7 +11353,7 @@ function getBackupFilename() {
 async function fetchBackupGist() {
     const fname = getBackupFilename();
     // WebDAV 模式：备份与主同步共用同一套 WebDAV 凭据，同样不受 Gist 1MB 限制
-    if (isWebdavProvider()) {
+    if (getBackupTarget() === 'webdav') {
         const txt = await webdavGetText(fname);
         return { files: (txt == null) ? {} : { [fname]: { content: txt } } };
     }
@@ -11355,7 +11365,7 @@ async function fetchBackupGist() {
 async function updateBackupGist(content) {
     const fname = getBackupFilename();
     // WebDAV 模式：直接 PUT 到与主同步同目录的 crm-backups.json
-    if (isWebdavProvider()) {
+    if (getBackupTarget() === 'webdav') {
         await webdavPutText(fname, content);
         return { files: { [fname]: { content: content } } };
     }
@@ -11374,7 +11384,7 @@ async function createBackup() {
     const _btn = document.getElementById('backupNowBtn');
     if (_btn) { _btn.disabled = true; _btn.dataset.label = _btn.textContent; _btn.textContent = '备份中…'; }
     try {
-        if (!backupReady()) { showToast(isWebdavProvider() ? '请先在「云端同步」填写 WebDAV 服务器地址、用户名和密码' : '请先在「云端同步」填写备份 Gist 的 Token 和 Gist ID'); openSyncModal(); return; }
+        if (!backupReady()) { showToast(getBackupTarget() === 'webdav' ? '请先在「云端同步」填写 WebDAV 服务器地址、用户名和密码' : '请先在「云端同步」填写备份 Gist 的 Token 和 Gist ID'); openSyncModal(); return; }
         const snapshot = getSyncPayload();
         snapshot._backupTime = new Date().toISOString();
         let arr = [];
@@ -11415,7 +11425,7 @@ async function createBackup() {
         renderBackupList(arr);
         renderBackupUsage(arr);
         checkBackupReminder();
-        const _backendName = isWebdavProvider() ? 'WebDAV 网盘' : '副 Gist';
+        const _backendName = getBackupTarget() === 'webdav' ? 'WebDAV 网盘' : '副 Gist';
         showToast('已备份到' + _backendName + '（共 ' + arr.length + ' 份）');
         logSyncGlobal('手动备份到' + _backendName + '（共 ' + arr.length + ' 份）', 'success');
         logOperation('手动备份到' + _backendName + '（共 ' + arr.length + ' 份）', 'success', '本次 ' + _counts.customers + ' 客户 / ' + _counts.followups + ' 跟进 / ' + _counts.todos + ' 待办');
@@ -11432,7 +11442,7 @@ async function createBackup() {
 async function renderBackupList(providedArr) {
     const el = document.getElementById('backupList');
     if (!el) return;
-    if (!backupReady()) { el.innerHTML = '<div class="sync-log-empty">尚未配置备份' + (isWebdavProvider() ? ' WebDAV' : ' Gist') + '</div>'; return; }
+    if (!backupReady()) { el.innerHTML = '<div class="sync-log-empty">尚未配置备份' + (getBackupTarget() === 'webdav' ? ' WebDAV' : ' Gist') + '</div>'; return; }
     let arr = providedArr;
     if (!Array.isArray(arr)) {
         el.innerHTML = '<div class="sync-log-empty">查询中…</div>';
@@ -11537,7 +11547,7 @@ async function renderBackupUsage(providedArr) {
     valEl.classList.remove('usage-link');
     valEl.onclick = null;
     const _fname = getBackupFilename();
-    const _isDav = isWebdavProvider();
+    const _isDav = getBackupTarget() === 'webdav';
     const _limit = _isDav ? 100 * 1024 * 1024 : CLOUD_FILE_LIMIT;
     const _limitText = _isDav ? 'WebDAV 网盘（无 1MB 限制）' : 'Gist 上限 1MB';
     if (subEl) subEl.textContent = _fname + ' · ' + _limitText;
@@ -11615,13 +11625,13 @@ async function renderBackupModalList(providedArr) {
     if (!listEl) return;
     if (!backupReady()) {
         listEl.innerHTML = ''; if (emptyEl) emptyEl.style.display = 'block';
-        if (subEl) subEl.textContent = isWebdavProvider() ? '尚未配置备份 WebDAV' : '尚未配置备份 Gist';
+        if (subEl) subEl.textContent = getBackupTarget() === 'webdav' ? '尚未配置备份 WebDAV' : '尚未配置备份 Gist';
         if (fillEl) fillEl.style.width = '0'; if (countEl) countEl.textContent = '';
         updateBackupSelUI();
         return;
     }
     const _fname = getBackupFilename();
-    const _isDav = isWebdavProvider();
+    const _isDav = getBackupTarget() === 'webdav';
     const _limit = _isDav ? 100 * 1024 * 1024 : CLOUD_FILE_LIMIT;
     const _limitText = _isDav ? 'WebDAV 网盘' : '1MB';
     var arr, usedBytes;
@@ -11787,7 +11797,7 @@ function quickBackupExport() { const b = document.getElementById('backupRemindBa
 function quickBackupGist() {
     const b = document.getElementById('backupRemindBanner'); if (b) b.style.display = 'none';
     loadBackupSettings();
-    if (backupReady()) { createBackup(); } else { showToast(isWebdavProvider() ? '未配置 WebDAV，已打开手动备份' : '未配置备份 Gist，已打开手动备份'); openManualBackupModal(); }
+    if (backupReady()) { createBackup(); } else { showToast(getBackupTarget() === 'webdav' ? '未配置 WebDAV，已打开手动备份' : '未配置备份 Gist，已打开手动备份'); openManualBackupModal(); }
 }
 function dismissBackupRemind() { const b = document.getElementById('backupRemindBanner'); if (b) b.style.display = 'none'; }
 function bindBackupEvents() {
@@ -11795,6 +11805,21 @@ function bindBackupEvents() {
     if (nowBtn && !nowBtn.dataset.bound) { nowBtn.dataset.bound = '1'; nowBtn.addEventListener('click', createBackup); }
     const resBtn = document.getElementById('backupRestoreBtn');
     if (resBtn && !resBtn.dataset.bound) { resBtn.dataset.bound = '1'; resBtn.addEventListener('click', openBackupRestoreModal); }
+    // 备份目标分段切换（独立于日常同步 provider）：Gist / WebDAV
+    const seg = document.getElementById('backupTargetSeg');
+    if (seg && !seg.dataset.bound) {
+        seg.dataset.bound = '1';
+        seg.addEventListener('click', function (e) {
+            const btn = e.target.closest('.seg-btn');
+            if (!btn) return;
+            const t = btn.getAttribute('data-target');
+            if (t !== 'gist' && t !== 'webdav') return;
+            backupSettings.target = t;
+            saveBackupSettings();
+            renderBackupModalByProvider();
+            setBackupTargetActive(t);
+        });
+    }
     const keepEl = document.getElementById('backupKeepCount');
     if (keepEl && !keepEl.dataset.bound) { keepEl.dataset.bound = '1'; keepEl.addEventListener('change', function () { const _v = parseInt(keepEl.value, 10) || 20; state._meta = state._meta || {}; const _old = state._meta.backupKeepCount || 20; state._meta.backupKeepCount = _v; saveData(); pushSettingsDebounced(); if (_old !== _v) logOperation('修改备份保留数为 ' + _v + '（原 ' + _old + '）', 'info'); }); }
     const remindEl = document.getElementById('backupRemindDays');
@@ -11967,7 +11992,7 @@ function applySyncProviderUI() {
     const rSub = document.getElementById('remoteUsageSub');
     if (rSub) rSub.textContent = canUseWebdav() ? 'WebDAV 无单文件大小限制' : 'Gist 上限 1MB';
     const bSub = document.getElementById('backupUsageSub');
-    if (bSub && isWebdavProvider()) bSub.textContent = 'crm-backups.json · WebDAV 无限制';
+    if (bSub && getBackupTarget() === 'webdav') bSub.textContent = 'crm-backups.json · WebDAV 无限制';
     renderConnStatus();
 }
 
@@ -12096,7 +12121,7 @@ function closeSyncModal() {
 /* 备份弹窗按同步通道动态显示：WebDAV 模式下备份走坚果云等网盘（与云端同步共用凭据），
    Gist 输入框不生效，须隐藏并给出 WebDAV 目标提示，避免界面与实际行为不一致造成误读 */
 function renderBackupModalByProvider() {
-    var wd = isWebdavProvider();
+    var wd = getBackupTarget() === 'webdav';
     var title = document.getElementById('manualBackupTitle');
     var gistFields = document.getElementById('backupGistFields');
     var wdInfo = document.getElementById('backupWebdavInfo');
@@ -12104,9 +12129,19 @@ function renderBackupModalByProvider() {
     if (gistFields) gistFields.style.display = wd ? 'none' : '';
     if (wdInfo) wdInfo.style.display = wd ? '' : 'none';
 }
+// 高亮当前选中的备份目标分段按钮（target 未选时回退日常同步 provider）
+function setBackupTargetActive(t) {
+    var seg = document.getElementById('backupTargetSeg');
+    if (!seg) return;
+    var cur = t || getBackupTarget();
+    Array.prototype.forEach.call(seg.querySelectorAll('.seg-btn'), function (b) {
+        b.classList.toggle('active', b.getAttribute('data-target') === cur);
+    });
+}
 function openManualBackupModal() {
     loadBackupSettings();
     renderBackupModalByProvider();
+    setBackupTargetActive();
     const btok = document.getElementById('backupToken'); if (btok) btok.value = backupSettings.token;
     const bgid = document.getElementById('backupGistId'); if (bgid) bgid.value = backupSettings.gistId;
     const bkeep = document.getElementById('backupKeepCount'); if (bkeep) bkeep.value = (state._meta && state._meta.backupKeepCount) || 20;
@@ -12344,6 +12379,11 @@ function setWebdavPass(p) {
 function getSyncProvider() { return syncSettings.provider === 'webdav' ? 'webdav' : 'gist'; }
 function isWebdavProvider() { return getSyncProvider() === 'webdav'; }
 
+/** 备份目标（独立于日常同步 provider）：优先用用户手动选择的 target，未选时回退到日常同步 provider 以兼容旧数据 */
+function getBackupTarget() {
+    return (backupSettings.target === 'webdav' || backupSettings.target === 'gist') ? backupSettings.target : getSyncProvider();
+}
+
 /**
  * 当前运行环境是否能真正访问 WebDAV：
  * 桌面端依赖主进程代发（window.electronAPI.webdav），安卓依赖 Capacitor 原生 HTTP；
@@ -12379,7 +12419,7 @@ function syncReady() {
 }
 /** 备份仓库是否可用：WebDAV 模式复用主同步凭据（同步 + 备份都突破 1MB） */
 function backupReady() {
-    return isWebdavProvider() ? syncReady() : !!(backupSettings.token && backupSettings.gistId);
+    return getBackupTarget() === 'webdav' ? syncReady() : !!(backupSettings.token && backupSettings.gistId);
 }
 /** 同步后端显示名（双后端时合并展示） */
 function syncBackendLabel() {
