@@ -91,14 +91,14 @@ jobs:
         # 由 CI 自行解析依赖，绕开 lock 不一致问题。
         run: rm -f package-lock.json && npm install
 
-      - name: Sync web assets
-        run: npx cap sync android
-
-      # ---- 注入版本号到更新脚本 ----
+      # ---- 注入版本号到更新脚本（必须在 cap sync 之前！否则占位符 __APP_VERSION__ 会被打进 APK）----
       - name: Inject app version into update script
         run: |
           sed -i "s/__APP_VERSION__/${{ steps.ver.outputs.versionName }}/g" www/android-update.js
           grep -o "APP_VERSION = '[^']*'" www/android-update.js
+
+      - name: Sync web assets
+        run: npx cap sync android
 
       # ---- 构建 release APK（先出未对齐的 release 包）----
       - name: Build release APK
