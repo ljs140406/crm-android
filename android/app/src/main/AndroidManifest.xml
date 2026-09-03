@@ -39,4 +39,7 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 应用内更新：允许本应用请求系统安装器安装下载好的 APK（Android 8+ 必需，
+         否则点安装只会报「不允许安装来自此来源的应用」且无法引导授权） -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 </manifest>

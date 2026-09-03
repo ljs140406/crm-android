@@ -1,7 +1,9 @@
 /*!
  * 安卓壳增强脚本（只在 Capacitor App 内生效，网页/桌面端不加载此文件）
  *
- *  1) 通知型版本更新：拉 GitHub Releases 最新版，比对版本号，有新版就弹窗引导下载 APK
+ *  1) 应用内更新：拉 GitHub / Gitee Releases 最新版，比对版本号，有新版就弹窗；
+ *     下载交给原生 ApkUpdater 插件（系统 DownloadManager）→ 公共「下载」目录 +
+ *     通知栏进度 + 下载完成自动拉起系统安装器
  *  2) 侧边栏底部显示当前版本号 + 「检查更新」入口
  *  3) 安卓物理返回键：优先关闭浮层 → 再按一次退出（避免误退出丢失编辑）
  *
@@ -75,48 +77,173 @@
         }
     }
 
-    // 把 base64 二进制转 Uint8Array（CapacitorHttp 对二进制返回 base64 字符串）
-    function base64ToUint8(b64) {
-        var bin = atob(b64);
-        var len = bin.length;
-        var arr = new Uint8Array(len);
-        for (var i = 0; i < len; i++) arr[i] = bin.charCodeAt(i);
-        return arr;
+    // ---------------------------------------------------------------
+    // 下载进度条（自绘，常驻底部，替代刷屏 toast）
+    // ---------------------------------------------------------------
+    var progWrap = null, progBar = null, progTxt = null;
+
+    function showProgress(text) {
+        if (progWrap) { setProgress(-1, text); return; }
+        progWrap = document.createElement('div');
+        progWrap.style.cssText = [
+            'position:fixed', 'left:12px', 'right:12px',
+            'bottom:calc(72px + env(safe-area-inset-bottom,0px))',
+            'background:rgba(17,24,39,.94)', 'color:#fff', 'padding:12px 16px 14px',
+            'border-radius:14px', 'z-index:2147483200', 'font-size:13px',
+            'box-shadow:0 6px 24px rgba(0,0,0,.3)'
+        ].join(';');
+        progTxt = document.createElement('div');
+        progTxt.style.cssText = 'margin-bottom:8px;line-height:1.5';
+        progTxt.textContent = text || '正在下载…';
+        var track = document.createElement('div');
+        track.style.cssText = 'height:5px;border-radius:3px;background:rgba(255,255,255,.22);overflow:hidden';
+        progBar = document.createElement('div');
+        progBar.style.cssText = 'height:100%;width:0%;background:#818cf8;transition:width .25s';
+        track.appendChild(progBar);
+        progWrap.appendChild(progTxt);
+        progWrap.appendChild(track);
+        document.body.appendChild(progWrap);
     }
 
-    // 原生下载 APK：彻底绕开 Gitee 把 .apk 当 application/zip 返回的坑（否则安卓下载器会补成 .apk.zip）。
-    // 做法：用 CapacitorHttp 原生拉取字节（返回 base64，完全不受服务器 Content-Type 影响），
-    // 再以 Filesystem 写进「下载」目录并强制 .apk 文件名——文件后缀永远正确、可被安装器直接打开。
-    // 关键：绝不回退到 openExternal(下载URL)，那正是 .apk.zip 的根源。
-    function downloadApk(url, version) {
+    function setProgress(pct, text) {
+        if (!progWrap) showProgress(text);
+        if (text && progTxt) progTxt.textContent = text;
+        if (progBar) {
+            if (pct >= 0) progBar.style.width = Math.max(2, Math.min(100, pct)) + '%';
+            else progBar.style.width = '30%';
+        }
+    }
+
+    function hideProgress(delay) {
+        var w = progWrap;
+        progWrap = null; progBar = null; progTxt = null;
+        if (!w) return;
+        setTimeout(function () {
+            w.style.transition = 'opacity .3s';
+            w.style.opacity = '0';
+            setTimeout(function () { try { w.remove(); } catch (e) {} }, 320);
+        }, delay || 0);
+    }
+
+    function fmtMB(n) {
+        return (n / 1048576).toFixed(1) + 'MB';
+    }
+
+    // ---------------------------------------------------------------
+    // 下载 APK：走原生 ApkUpdater 插件（系统 DownloadManager）
+    //
+    // 为什么必须原生（历史踩坑，勿回退）：
+    //  · Filesystem 的 Directory 枚举【没有 DOWNLOADS】，传 'DOWNLOADS' 是非法值直接 reject；
+    //  · 退 DOCUMENTS 在 Android 10+ 需要 publicStorage 权限，同样失败；
+    //  · 再退 blob: + <a download>：Capacitor WebView 没有 DownloadListener，下载被静默丢弃，
+    //    表现为「提示下载完成，但既没有安装弹窗、也找不到文件」；
+    //  · 退 openExternal(直链) 会被 Gitee 的 Content-Type: application/zip 污染成 .apk.zip。
+    // DownloadManager 一次解决：公共「下载」目录可见 + 系统通知带进度 + 完成自动拉起安装器。
+    // ---------------------------------------------------------------
+    var apkBound = false;
+    var lastApkPath = '';
+
+    function bindApkListeners(P) {
+        if (apkBound || typeof P.addListener !== 'function') return;
+        apkBound = true;
+
+        P.addListener('apkProgress', function (e) {
+            e = e || {};
+            if (e.status === 'failed') {
+                hideProgress();
+                toast('下载失败（错误码 ' + (e.reason || '未知') + '），请检查网络后重试', 4200);
+                return;
+            }
+            if (e.status === 'success') {
+                setProgress(100, '下载完成，正在打开安装界面…');
+                return;
+            }
+            var pct = typeof e.percent === 'number' ? e.percent : -1;
+            var txt = e.status === 'paused' ? '下载已暂停，等待网络…' : '正在下载新版本…';
+            if (e.total > 0) txt += '  ' + fmtMB(e.bytes || 0) + ' / ' + fmtMB(e.total);
+            else if (e.bytes > 0) txt += '  ' + fmtMB(e.bytes);
+            setProgress(pct, txt + (pct >= 0 ? '  ' + pct + '%' : ''));
+        });
+
+        P.addListener('apkDownloaded', function (e) {
+            lastApkPath = (e && e.path) || '';
+        });
+
+        P.addListener('apkInstallLaunched', function () {
+            hideProgress(800);
+        });
+
+        P.addListener('apkNeedInstallPermission', function () {
+            hideProgress();
+            toast('请在刚打开的系统设置里允许「安装未知应用」，返回本应用后会自动继续安装', 6500);
+        });
+
+        P.addListener('apkInstallError', function (e) {
+            hideProgress();
+            var tip = lastApkPath
+                ? '安装包已下载到：' + lastApkPath + '，请到文件管理器点开安装'
+                : '安装包已在「下载」目录，请到文件管理器点开安装';
+            toast(tip + '（' + ((e && e.message) || '无法自动打开安装器') + '）', 7000);
+        });
+    }
+
+    function downloadApk(url, version, htmlUrl) {
         var Cap = window.Capacitor;
-        var Http = Cap && Cap.Plugins && Cap.Plugins.CapacitorHttp;
-        var FS = Cap && Cap.Plugins && Cap.Plugins.Filesystem;
+        var P = Cap && Cap.Plugins && Cap.Plugins.ApkUpdater;
         var v = String(version || APP_VERSION).replace(/^v/i, '');
         var fileName = 'crm-android-' + v + '.apk';
 
-        if (!Http || typeof Http.request !== 'function') {
-            toast('当前环境不支持原生下载，请到「关于」页手动复制下载链接', 4000);
+        if (P && typeof P.download === 'function') {
+            bindApkListeners(P);
+            showProgress('正在准备下载…');
+            P.download({ url: url, fileName: fileName })
+                .then(function (r) {
+                    setProgress(-1, '已开始下载，可在通知栏查看进度');
+                    if (r && r.publicDownloads === false) lastApkPath = '';
+                })
+                .catch(function (e) {
+                    hideProgress();
+                    toast('启动下载失败：' + ((e && e.message) || e), 4200);
+                });
             return;
         }
 
-        toast('正在下载安装包…', 2500);
-        // 不传 responseType（CapacitorHttp 对二进制默认返回 base64 字符串），避免不兼容的 'blob' 直接抛错
+        // 旧壳（未含 ApkUpdater 插件）兜底：CapacitorHttp 拉字节 + Filesystem 写合法目录，
+        // 只能提示路径、无法自动拉起安装器。
+        legacyDownloadApk(url, fileName, htmlUrl);
+    }
+
+    function legacyDownloadApk(url, fileName, htmlUrl) {
+        var Cap = window.Capacitor;
+        var Http = Cap && Cap.Plugins && Cap.Plugins.CapacitorHttp;
+        var FS = Cap && Cap.Plugins && Cap.Plugins.Filesystem;
+
+        if (!Http || typeof Http.request !== 'function' || !FS || typeof FS.writeFile !== 'function') {
+            // 连原生 HTTP/文件都没有：只能打开 Release 页让用户手动下载（用 GitHub 页，避免 Gitee 的 zip 后缀问题）
+            if (htmlUrl) {
+                toast('当前版本无法自动下载，已为你打开发布页，请手动下载 APK', 5000);
+                openExternal(htmlUrl);
+            } else {
+                toast('当前环境不支持自动下载，请到「关于」页手动复制下载链接', 4000);
+            }
+            return;
+        }
+
+        showProgress('正在下载安装包…');
         Http.request({ method: 'GET', url: url, headers: {}, timeout: 180000 })
             .then(function (resp) {
                 var b64 = toBase64(resp && resp.data);
-                if (!b64) {
-                    toast('下载失败：未能解析安装包数据', 4000);
-                    return;
-                }
-                if (FS && typeof FS.writeFile === 'function') {
-                    writeApk(FS, b64, fileName);
-                } else {
-                    // 无 Filesystem 插件时退回 Blob + <a download>（文件名仍是 .apk，不再走 Gitee URL）
-                    fallbackBlobDownload(b64, fileName);
-                }
+                if (!b64) { hideProgress(); toast('下载失败：未能解析安装包数据', 4000); return; }
+                // 只用枚举里真实存在的目录（EXTERNAL = 应用外部私有目录，无需任何权限）
+                return FS.writeFile({ path: fileName, data: b64, directory: 'EXTERNAL', recursive: true })
+                    .then(function (r) {
+                        hideProgress();
+                        var p = (r && r.uri) ? String(r.uri).replace(/^file:\/\//, '') : fileName;
+                        toast('安装包已保存：' + p + '，请到文件管理器点开安装', 8000);
+                    });
             })
             .catch(function (e) {
+                hideProgress();
                 toast('下载失败：' + (e && e.message ? e.message : e), 4000);
             });
     }
@@ -137,35 +264,6 @@
             bin += String.fromCharCode.apply(null, u8.subarray(i, i + chunk));
         }
         return btoa(bin);
-    }
-
-    // 用 Filesystem 把 APK 写进下载目录，文件名强制 .apk；失败逐目录回退
-    function writeApk(FS, b64, fileName) {
-        var write = function (dir) {
-            return FS.writeFile({ path: fileName, data: b64, directory: dir, recursive: true });
-        };
-        write('DOWNLOADS')
-            .then(function () { toast('安装包已保存到「下载」目录：' + fileName + '，请到文件管理器点开安装', 6000); })
-            .catch(function () {
-                write('DOCUMENTS')
-                    .then(function () { toast('安装包已保存到「文档」目录：' + fileName + '，请打开安装', 6000); })
-                    .catch(function () { fallbackBlobDownload(b64, fileName); });
-            });
-    }
-
-    // 无 Filesystem 时的兜底：仍以 Blob + <a download> 存成正确 .apk 文件名（不再走 Gitee URL）
-    function fallbackBlobDownload(b64, fileName) {
-        try {
-            var blob = new Blob([base64ToUint8(b64)], { type: 'application/vnd.android.package-archive' });
-            var objUrl = URL.createObjectURL(blob);
-            var a = document.createElement('a');
-            a.href = objUrl; a.download = fileName; a.rel = 'noopener';
-            document.body.appendChild(a); a.click();
-            setTimeout(function () { try { URL.revokeObjectURL(objUrl); a.remove(); } catch (e) {} }, 4000);
-            toast('下载完成，请在下载通知中点开安装包', 3500);
-        } catch (e) {
-            toast('下载失败，请到「关于」页手动复制下载链接', 4000);
-        }
     }
 
     // ---------------------------------------------------------------
@@ -223,7 +321,7 @@
 
         var tip = document.createElement('div');
         tip.style.cssText = 'padding:0 20px 4px;color:#9ca3af;font-size:12px;line-height:1.6';
-        tip.textContent = '点「下载新版本」会直接下载安装包，下载完成点通知里的安装包即可，覆盖安装数据不会丢失。';
+        tip.textContent = '点「下载新版本」由系统下载器下载，完成后会自动弹出安装界面；安装包同时保存在手机「下载」目录。覆盖安装数据不会丢失。';
         body.appendChild(tip);
 
         var foot = document.createElement('div');
@@ -256,8 +354,9 @@
         go.onclick = function () {
             closeUpdateModal();
             if (apkUrl) {
-                // 用原生下载（CapacitorHttp 拉字节），绕开 Gitee 把 .apk 当 zip 返回的坑，确保文件名是 .apk
-                downloadApk(apkUrl, info.version);
+                // 走原生 DownloadManager：文件名强制 .apk（绕开 Gitee 的 zip Content-Type），
+                // 落公共「下载」目录 + 系统通知带进度 + 完成自动拉起安装器
+                downloadApk(apkUrl, info.version, info.htmlUrl);
             } else {
                 openExternal(info.htmlUrl);
             }
@@ -443,6 +542,19 @@
     // 暴露给调试/外部调用
     window.crmAndroid = {
         version: APP_VERSION,
-        checkUpdate: function () { checkUpdate(true); }
+        checkUpdate: function () { checkUpdate(true); },
+        // 手动重试安装（例如刚在系统设置里授权「安装未知应用」后）
+        installLast: function () {
+            var Cap = window.Capacitor;
+            var P = Cap && Cap.Plugins && Cap.Plugins.ApkUpdater;
+            if (P && typeof P.install === 'function') {
+                P.install().catch(function (e) {
+                    toast('无法安装：' + ((e && e.message) || e), 4000);
+                });
+            } else {
+                toast('当前版本不支持自动安装，请到「下载」目录点开安装包', 4000);
+            }
+        },
+        lastApkPath: function () { return lastApkPath; }
     };
 })();
