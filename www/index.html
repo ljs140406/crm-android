@@ -10507,6 +10507,13 @@ function _bumpRevs(arr) {
     (arr || []).forEach(function (it) { if (it) it._rev = (it._rev || 0) + 1; });
 }
 
+// 恢复备份后：把 _rev 抬到远超云端任何值，确保下次合并时本地（恢复数据）必胜，
+// 不会被云端（已损坏、但 _rev 更高）的同 ID 记录反向覆盖。
+// 仅 +1 时，云端已损坏版本（_rev 更大）会在 union merge 中胜出 → 表现就是「恢复完又被云端覆盖成空」。
+function _raiseRevsToWin(arr, winBase) {
+    (arr || []).forEach(function (it) { if (it) it._rev = Math.max(it._rev || 0, winBase) + 1; });
+}
+
 function doImportData(data, counts, mode) {
     mode = mode || 'merge';
     try {
@@ -10527,26 +10534,30 @@ function doImportData(data, counts, mode) {
             state._meta = Object.assign({}, keepMeta, data._meta || {});
             state._meta.lastBackupAt = new Date().toISOString();
             // === 恢复后同步保护（关键，否则「刚恢复完又被云端同步回去」）===
-            // 恢复是「全量覆盖」语义，但恢复结果若不提升修订号、不登记待同步变更，
-            // 下一轮同步 applyRemoteData 会反过来用云端版本覆盖刚恢复的数据：
-            //   · 客户/跟进/待办/历史 走 union merge，无 pending 时按 _rev 取大 → 云端 rev 更高则覆盖本地恢复版
-            //   · 工作计划 / 状态列表 / 近期汇报客户 是整体 LWW，靠 pending 或 rev 保护
-            // 因此这里统一提 rev + 登记 pending + 重建同步基准。
+            // 恢复 = 全局回滚：恢复数据就是权威版本。必须让其胜过云端任意 _rev，
+            // 否则下一轮合并时云端（已损坏、但 _rev 更高）的同 ID 记录会反向覆盖本地恢复数据，
+            // 表现就是「恢复完又被云端覆盖成空」。
+            //   · 客户/跟进/待办/历史 走 union merge，无 pending 时按 _rev 取大 → 用大值保证本地胜出
+            //   · 工作计划 / 状态列表 / 近期汇报客户 是整体 LWW，靠 pending 或 rev 保护（下方登记）
             try {
-                _bumpRevs(state.customers);
-                _bumpRevs(state.followups);
-                _bumpRevs(state.todos);
-                _bumpRevs(state.history);
+                // 用远超普通自增计数的大值（当前秒级时间戳），确保任何云端 _rev 都更小
+                const _win = Math.floor(Date.now() / 1000);
+                _raiseRevsToWin(state.customers, _win);
+                _raiseRevsToWin(state.followups, _win);
+                _raiseRevsToWin(state.todos, _win);
+                _raiseRevsToWin(state.history, _win);
                 if (state.workPlan) {
-                    state.workPlan._rev = (state.workPlan._rev || 0) + 1;
+                    state.workPlan._rev = Math.max(state.workPlan._rev || 0, _win) + 1;
                     state.workPlan.updatedAt = new Date().toISOString();
                     recordChange('update', 'plan', 'current', '工作计划', null);
                 }
-                state._meta.reportRev = (state._meta.reportRev || 0) + 1;
+                state._meta.reportRev = Math.max(state._meta.reportRev || 0, _win) + 1;
                 // 状态列表为整体 LWW，仅当本地有 pending 时才保本端，故必须登记
                 recordChange('update', 'status', 'current', '状态列表', null);
                 // 重建同步基准，避免恢复数据被误判成「双端都改」而弹出冲突框
                 recordSyncBasis();
+                // recordChange 已触发 scheduleAutoSync：数秒后自动同步会先按大 _rev 保住本地恢复数据，
+                // 再把恢复结果推上云端（覆盖损坏版本），实现真正的全局回滚。
             } catch (e) { /* 保护性兜底：同步标记失败不应影响恢复结果落盘 */ }
             saveData();
             checkOverdueTodos();
@@ -11312,11 +11323,21 @@ function backupItemCounts(e) {
     return null;
 }
 
+// WebDAV 模式下，备份文件默认放在与主同步文件同一目录下：
+// 主同步既然能工作，说明它的父目录可用；备份共享该父目录可避免出现「根目录写不了但子目录能写」的 404。
+function getBackupFilename() {
+    if (!isWebdavProvider()) return backupSettings.filename || 'crm-backups.json';
+    const syncPath = (webdavSettings.path || 'crm-data.json').trim() || 'crm-data.json';
+    const idx = syncPath.lastIndexOf('/');
+    return idx >= 0 ? syncPath.slice(0, idx + 1) + 'crm-backups.json' : 'crm-backups.json';
+}
+
 async function fetchBackupGist() {
+    const fname = getBackupFilename();
     // WebDAV 模式：备份与主同步共用同一套 WebDAV 凭据，同样不受 Gist 1MB 限制
     if (isWebdavProvider()) {
-        const txt = await webdavGetText(backupSettings.filename || 'crm-backups.json');
-        return { files: (txt == null) ? {} : { [backupSettings.filename]: { content: txt } } };
+        const txt = await webdavGetText(fname);
+        return { files: (txt == null) ? {} : { [fname]: { content: txt } } };
     }
     const headers = { 'Authorization': 'token ' + backupSettings.token, 'Accept': 'application/vnd.github.v3+json' };
     const res = await fetch(getBackupGistApiUrl(), { method: 'GET', headers, cache: 'no-store' });
@@ -11324,12 +11345,13 @@ async function fetchBackupGist() {
     return await res.json();
 }
 async function updateBackupGist(content) {
-    // WebDAV 模式：直接 PUT 到 crm-backups.json
+    const fname = getBackupFilename();
+    // WebDAV 模式：直接 PUT 到与主同步同目录的 crm-backups.json
     if (isWebdavProvider()) {
-        await webdavPutText(backupSettings.filename || 'crm-backups.json', content);
-        return { files: { [backupSettings.filename]: { content: content } } };
+        await webdavPutText(fname, content);
+        return { files: { [fname]: { content: content } } };
     }
-    const body = { description: 'CRM 手动备份仓库', files: { [backupSettings.filename]: { content: content } } };
+    const body = { description: 'CRM 手动备份仓库', files: { [fname]: { content: content } } };
     const res = await fetch(getBackupGistApiUrl(), {
         method: 'PATCH',
         headers: { 'Authorization': 'token ' + backupSettings.token, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
@@ -11348,9 +11370,10 @@ async function createBackup() {
         const snapshot = getSyncPayload();
         snapshot._backupTime = new Date().toISOString();
         let arr = [];
+        const _backupFname = getBackupFilename();
         try {
             const gist = await fetchBackupGist();
-            const file = gist.files && gist.files[backupSettings.filename];
+            const file = gist.files && gist.files[_backupFname];
             if (file && file.content) { const parsed = gistDecode(file.content); if (Array.isArray(parsed)) arr = parsed; }
         } catch(e) { /* 可能还没有备份文件，视为空 */ }
         _backupArrCache = arr;
@@ -11384,9 +11407,18 @@ async function createBackup() {
         renderBackupList(arr);
         renderBackupUsage(arr);
         checkBackupReminder();
-        showToast('已备份到副 Gist（共 ' + arr.length + ' 份）');
-        logSyncGlobal('手动备份到副 Gist（共 ' + arr.length + ' 份）', 'success');
-        logOperation('手动备份到副 Gist（共 ' + arr.length + ' 份）', 'success', '本次 ' + _counts.customers + ' 客户 / ' + _counts.followups + ' 跟进 / ' + _counts.todos + ' 待办');
+        const _backendName = isWebdavProvider() ? 'WebDAV 网盘' : '副 Gist';
+        showToast('已备份到' + _backendName + '（共 ' + arr.length + ' 份）');
+        logSyncGlobal('手动备份到' + _backendName + '（共 ' + arr.length + ' 份）', 'success');
+        logOperation('手动备份到' + _backendName + '（共 ' + arr.length + ' 份）', 'success', '本次 ' + _counts.customers + ' 客户 / ' + _counts.followups + ' 跟进 / ' + _counts.todos + ' 待办');
+    } catch (err) {
+        // 之前 createBackup 只有 try/finally、无 catch：WebDAV 上传抛错会变成未捕获 Promise rejection，
+        // 被全局处理器显示为笼统的「异步请求失败，已记录（数据不受影响）」，真实原因（鉴权/网络/CORS/路径）被吞掉。
+        // 这里把真正的错误暴露出来，方便定位（例如 WebDAV 401 鉴权失败、CORS 拦截、目录不存在等）。
+        const msg = (err && (err.message || err.reason)) ? String(err.message || err.reason) : '未知错误';
+        showToast('备份失败：' + msg);
+        logSyncGlobal('手动备份失败：' + msg, 'error');
+        logOperation('手动备份失败', 'error', msg);
     } finally { if (_btn) { _btn.disabled = false; _btn.textContent = _btn.dataset.label || '立即备份（追加快照）'; } }
 }
 async function renderBackupList(providedArr) {
@@ -11398,7 +11430,8 @@ async function renderBackupList(providedArr) {
         el.innerHTML = '<div class="sync-log-empty">查询中…</div>';
         try {
             const gist = await fetchBackupGist();
-            const file = gist.files && gist.files[backupSettings.filename];
+            const fname = getBackupFilename();
+            const file = gist.files && gist.files[fname];
             if (!file || !file.content) { el.innerHTML = '<div class="sync-log-empty">暂无备份</div>'; return; }
             const decoded = gistDecode(file.content);
             if (!Array.isArray(decoded) || decoded.length === 0) { el.innerHTML = '<div class="sync-log-empty">暂无备份</div>'; return; }
@@ -11428,7 +11461,8 @@ async function restoreFromBackup(backupTime) {
         if (Array.isArray(_backupArrCache)) { entry = _backupArrCache.find(function (e) { return e.backupTime === backupTime; }); }
         if (!entry) {
             const gist = await fetchBackupGist();
-            const file = gist.files && gist.files[backupSettings.filename];
+            const fname = getBackupFilename();
+            const file = gist.files && gist.files[fname];
             if (!file) { showToast('副 Gist 无备份'); return; }
             const arr = gistDecode(file.content || '[]');
             entry = arr.find(function (e) { return e.backupTime === backupTime; });
@@ -11442,7 +11476,8 @@ async function restoreFromBackup(backupTime) {
 function getBackupGistUsage() {
     if (!backupReady()) return Promise.resolve(null);
     return fetchBackupGist().then(function (gist) {
-        const file = gist.files && gist.files[backupSettings.filename];
+        const fname = getBackupFilename();
+        const file = gist.files && gist.files[fname];
         if (!file || !file.content) return null;
         var arr = [];
         try { arr = gistDecode(file.content); } catch (e) { return null; }
@@ -11493,19 +11528,23 @@ async function renderBackupUsage(providedArr) {
     if (fillEl) fillEl.style.width = '0';
     valEl.classList.remove('usage-link');
     valEl.onclick = null;
-    if (subEl) subEl.textContent = 'crm-backups.json · Gist 上限 1MB';
+    const _fname = getBackupFilename();
+    const _isDav = isWebdavProvider();
+    const _limit = _isDav ? 100 * 1024 * 1024 : CLOUD_FILE_LIMIT;
+    const _limitText = _isDav ? 'WebDAV 网盘（无 1MB 限制）' : 'Gist 上限 1MB';
+    if (subEl) subEl.textContent = _fname + ' · ' + _limitText;
 
     // (A0) 内存数组直绘：避免写操作后重复回云端拉取
     if (Array.isArray(providedArr)) {
         var _ub = gistEncode(providedArr).length;
-        setUsageFill(fillEl, valEl, subEl, _ub, CLOUD_FILE_LIMIT, '1MB');
+        setUsageFill(fillEl, valEl, subEl, _ub, _limit, _limitText);
         return;
     }
 
     // (A) 真未配置：可点击打开「手动备份」去填写
     if (!backupReady()) {
         valEl.textContent = '未配置';
-        if (subEl) subEl.textContent = '点击此处填写备份 Gist';
+        if (subEl) subEl.textContent = '点击此处填写备份' + (_isDav ? ' WebDAV' : ' Gist');
         valEl.classList.add('usage-link');
         valEl.onclick = function () {
             if (typeof openManualBackupModal === 'function') openManualBackupModal();
@@ -11521,22 +11560,22 @@ async function renderBackupUsage(providedArr) {
     valEl.textContent = '查询中...';
     try {
         var gist = await fetchBackupGist();
-        var file = gist.files && gist.files[backupSettings.filename];
+        var file = gist.files && gist.files[_fname];
         if (!file || !file.content) {
-            // (C) 已配置但副Gist无备份文件（新建空Gist，正常）
+            // (C) 已配置但远端无备份文件（新建空仓库，正常）
             valEl.textContent = '0 KB';
-            if (subEl) subEl.textContent = '暂无备份 · crm-backups.json';
+            if (subEl) subEl.textContent = '暂无备份 · ' + _fname;
             return;
         }
         var arr = null;
         try { arr = gistDecode(file.content); } catch (e) {}
         if (!Array.isArray(arr)) {
             valEl.textContent = '格式异常';
-            if (subEl) subEl.textContent = 'crm-backups.json 解析失败';
+            if (subEl) subEl.textContent = _fname + ' 解析失败';
             return;
         }
         var usedBytes = new Blob([file.content]).size;
-        setUsageFill(fillEl, valEl, subEl, usedBytes, CLOUD_FILE_LIMIT, '1MB');
+        setUsageFill(fillEl, valEl, subEl, usedBytes, _limit, _limitText);
     } catch (e) {
         // (D) 拉取失败：Token 错 / Gist ID 错 / 网络
         valEl.textContent = '获取失败';
@@ -11573,6 +11612,10 @@ async function renderBackupModalList(providedArr) {
         updateBackupSelUI();
         return;
     }
+    const _fname = getBackupFilename();
+    const _isDav = isWebdavProvider();
+    const _limit = _isDav ? 100 * 1024 * 1024 : CLOUD_FILE_LIMIT;
+    const _limitText = _isDav ? 'WebDAV 网盘' : '1MB';
     var arr, usedBytes;
     if (Array.isArray(providedArr)) {
         arr = providedArr;
@@ -11582,7 +11625,7 @@ async function renderBackupModalList(providedArr) {
         if (emptyEl) emptyEl.style.display = 'none';
         try {
             var gist = await fetchBackupGist();
-            var file = gist.files && gist.files[backupSettings.filename];
+            var file = gist.files && gist.files[_fname];
             arr = [];
             if (file && file.content) { try { arr = gistDecode(file.content); } catch (e) {} }
             if (!Array.isArray(arr)) arr = [];
@@ -11610,9 +11653,9 @@ async function renderBackupModalList(providedArr) {
         });
         listEl.querySelectorAll('.bk-check').forEach(function (c) { c.addEventListener('change', updateBackupSelUI); });
     }
-    if (subEl) subEl.textContent = '共 ' + arr.length + ' 条 · crm-backups.json';
-    if (countEl) countEl.textContent = '累计 ' + formatBytes(usedBytes) + ' / 1MB';
-    setUsageFill(fillEl, null, null, usedBytes, CLOUD_FILE_LIMIT, '1MB');
+    if (subEl) subEl.textContent = '共 ' + arr.length + ' 条 · ' + _fname;
+    if (countEl) countEl.textContent = '累计 ' + formatBytes(usedBytes) + ' / ' + _limitText;
+    setUsageFill(fillEl, null, null, usedBytes, _limit, _limitText);
     updateBackupSelUI();
 }
 function updateBackupSelUI() {
@@ -11627,11 +11670,12 @@ function updateBackupSelUI() {
 }
 async function deleteBackupEntry(backupTime) {
     var src;
+    const _fname = getBackupFilename();
     if (Array.isArray(_backupArrCache)) { src = _backupArrCache; }
     else {
         try {
             var gist = await fetchBackupGist();
-            var file = gist.files && gist.files[backupSettings.filename];
+            var file = gist.files && gist.files[_fname];
             var a = file && file.content ? gistDecode(file.content) : [];
             src = Array.isArray(a) ? a : [];
             _backupArrCache = src;
@@ -11658,11 +11702,12 @@ async function deleteBackupEntry(backupTime) {
 }
 async function deleteBackupEntriesBatch(ids) {
     var src;
+    const _fname = getBackupFilename();
     if (Array.isArray(_backupArrCache)) { src = _backupArrCache; }
     else {
         try {
             var gist = await fetchBackupGist();
-            var file = gist.files && gist.files[backupSettings.filename];
+            var file = gist.files && gist.files[_fname];
             var a = file && file.content ? gistDecode(file.content) : [];
             src = Array.isArray(a) ? a : [];
             _backupArrCache = src;
@@ -12063,9 +12108,10 @@ function openManualBackupModal() {
     // 合并查询：一次拉取，列表 + 占用共用，避免重复回云端
     if (!backupReady()) { renderBackupUsage(); renderBackupList(); }
     else { (async function () {
+        const _fname = getBackupFilename();
         try {
             const gist = await fetchBackupGist();
-            const file = gist.files && gist.files[backupSettings.filename];
+            const file = gist.files && gist.files[_fname];
             let arr = [];
             if (file && file.content) { try { arr = gistDecode(file.content); } catch (e) {} }
             if (!Array.isArray(arr)) arr = [];
@@ -12375,7 +12421,7 @@ async function webdavGetText(fileName) {
     const url = webdavFileUrl(fileName);
     const r = await httpRequest('GET', url, webdavAuthHeaders(), undefined);
     if (r.status === 404) return null;
-    if (!r.ok) throw new Error(_webdavErrText(r));
+    if (!r.ok) throw new Error(_webdavErrText(r) + '；URL：' + url);
     return r.data == null ? null : String(r.data);
 }
 
@@ -12385,15 +12431,21 @@ async function webdavPutText(fileName, content) {
     const headers = Object.assign({ 'Content-Type': 'text/plain; charset=utf-8' }, webdavAuthHeaders());
     let r = await httpRequest('PUT', url, headers, content);
     if (r.status === 409 || r.status === 404) {
+        // 先确保父目录（集合）存在，再重试一次 PUT
         await webdavMkcolDirs(fileName);
         r = await httpRequest('PUT', url, headers, content);
     }
     if (!r.ok) {
         if (r.status === 409 || r.status === 404) {
-            const dir = String(fileName || '').replace(/\/[^/]*$/, '');
-            throw new Error('WebDAV ' + r.status + '：目录「' + dir + '」不存在且无法自动创建（当前环境不支持自动建目录），请先在网盘中手动创建该目录再同步');
+            const hasDir = (fileName || '').indexOf('/') >= 0;
+            const dir = hasDir ? String(fileName).replace(/\/[^/]*$/, '') : '根目录';
+            if (hasDir) {
+                throw new Error('WebDAV ' + r.status + '：目录「' + dir + '」不存在且无法自动创建（当前环境不支持自动建目录），请先在网盘中手动创建该目录再同步；URL：' + url);
+            } else {
+                throw new Error('WebDAV ' + r.status + '：无法创建文件「' + fileName + '」（' + dir + ' 无写入权限或服务器地址不正确），请检查 WebDAV 服务器地址、父目录路径及写入权限；URL：' + url);
+            }
         }
-        throw new Error(_webdavErrText(r));
+        throw new Error(_webdavErrText(r) + '；URL：' + url);
     }
     return r;
 }

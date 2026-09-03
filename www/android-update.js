@@ -75,6 +75,53 @@
         }
     }
 
+    // 把 base64 二进制转 Uint8Array（CapacitorHttp 对二进制返回 base64 字符串）
+    function base64ToUint8(b64) {
+        var bin = atob(b64);
+        var len = bin.length;
+        var arr = new Uint8Array(len);
+        for (var i = 0; i < len; i++) arr[i] = bin.charCodeAt(i);
+        return arr;
+    }
+
+    // 原生下载 APK：绕过 Gitee 把 .apk 当 application/zip 返回的坑（否则安卓下载器会补成 .apk.zip）。
+    // 用 CapacitorHttp 原生拉字节（不受服务器 Content-Type 影响），再以 Blob + download 属性存成正确的 .apk 文件名。
+    function downloadApk(url, version) {
+        var Cap = window.Capacitor;
+        var Http = Cap && Cap.Plugins && Cap.Plugins.CapacitorHttp;
+        var v = String(version || APP_VERSION).replace(/^v/i, '');
+        var fileName = 'crm-android-' + v + '.apk';
+        if (Http && typeof Http.request === 'function') {
+            toast('正在下载安装包…', 2000);
+            Http.request({ method: 'GET', url: url, responseType: 'blob', headers: {} })
+                .then(function (resp) {
+                    var data = resp && resp.data;
+                    var blob = null;
+                    // CapacitorHttp 不同版本对二进制返回形态不一：base64 字符串 / Uint8Array / ArrayBuffer / number[]
+                    if (typeof data === 'string' && data) {
+                        blob = new Blob([base64ToUint8(data)], { type: 'application/vnd.android.package-archive' });
+                    } else if (data instanceof Uint8Array) {
+                        blob = new Blob([data], { type: 'application/vnd.android.package-archive' });
+                    } else if (data && typeof data === 'object' && typeof data.byteLength === 'number') {
+                        blob = new Blob([data], { type: 'application/vnd.android.package-archive' }); // ArrayBuffer
+                    } else if (data && Array.isArray(data)) {
+                        blob = new Blob([new Uint8Array(data)], { type: 'application/vnd.android.package-archive' });
+                    }
+                    if (!blob) { openExternal(url); return; }
+                    var objUrl = URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = objUrl; a.download = fileName; a.rel = 'noopener';
+                    document.body.appendChild(a); a.click();
+                    setTimeout(function () { try { URL.revokeObjectURL(objUrl); a.remove(); } catch (e) {} }, 4000);
+                    toast('下载完成，请在下载通知中点开安装包', 3000);
+                })
+                .catch(function () { openExternal(url); });
+        } else {
+            // 非安卓原生环境退回浏览器跳转（沿用旧行为）
+            openExternal(url);
+        }
+    }
+
     // ---------------------------------------------------------------
     // 更新弹窗（自绘）
     // ---------------------------------------------------------------
@@ -130,7 +177,7 @@
 
         var tip = document.createElement('div');
         tip.style.cssText = 'padding:0 20px 4px;color:#9ca3af;font-size:12px;line-height:1.6';
-        tip.textContent = '点「下载新版本」后会跳到浏览器下载安装包，下载完成点开安装即可，直接覆盖安装、数据不会丢失。';
+        tip.textContent = '点「下载新版本」会直接下载安装包，下载完成点通知里的安装包即可，覆盖安装数据不会丢失。';
         body.appendChild(tip);
 
         var foot = document.createElement('div');
@@ -161,13 +208,12 @@
 
         var go = mkBtn('下载新版本', true);
         go.onclick = function () {
+            closeUpdateModal();
             if (apkUrl) {
-                openExternal(apkUrl);
-                closeUpdateModal();
-                toast('已跳转浏览器下载，完成后点开安装包安装', 2600);
+                // 用原生下载（CapacitorHttp 拉字节），绕开 Gitee 把 .apk 当 zip 返回的坑，确保文件名是 .apk
+                downloadApk(apkUrl, info.version);
             } else {
                 openExternal(info.htmlUrl);
-                closeUpdateModal();
             }
         };
 
