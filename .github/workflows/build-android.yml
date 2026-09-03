@@ -4,13 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       versionName:
-        description: '版本号（versionName，如 1.2.0）'
+        description: '版本号（作为 versionName，如 1.2.0）'
         required: true
         default: '1.0.0'
       releaseNotes:
         description: '更新说明（显示在更新弹窗里，可留空）'
         required: false
         default: ''
+  push:
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
@@ -47,19 +50,27 @@ jobs:
       - name: Install Android build-tools
         run: sdkmanager "build-tools;35.0.0"
 
+      # ---- 解析版本号 ----
       - name: Resolve version
         id: ver
         shell: bash
         run: |
-          VN="${{ github.event.inputs.versionName }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VN="${{ github.event.inputs.versionName }}"
+          else
+            VN="${GITHUB_REF_NAME#v}"
+          fi
+          # 仅保留 数字.数字.数字（去掉非法字符）
           VN=$(echo "$VN" | grep -oE '^[0-9]+(\.[0-9]+)*' | head -1)
           [ -z "$VN" ] && VN="1.0.0"
+          # versionCode 单调递增：用 workflow 运行次数；首次为 1
           VC="${{ github.run_number }}"
           echo "versionName=$VN" >> "$GITHUB_OUTPUT"
           echo "versionCode=$VC" >> "$GITHUB_OUTPUT"
           echo "tag=v$VN" >> "$GITHUB_OUTPUT"
           echo "解析到 versionName=$VN versionCode=$VC"
 
+      # ---- 准备签名 keystore ----
       - name: Decode keystore
         shell: bash
         run: |
@@ -74,29 +85,34 @@ jobs:
             exit 1
           fi
 
+      # ---- 前端依赖 + 同步 web 资源 ----
       - name: Install npm deps
-        run: npm ci || npm install
+        # 不依赖本地沙箱生成的 package-lock.json（可能与 package.json 不同步导致 npm ci 失败），
+        # 由 CI 自行解析依赖，绕开 lock 不一致问题。
+        run: rm -f package-lock.json && npm install
 
+      - name: Sync web assets
+        run: npx cap sync android
+
+      # ---- 注入版本号到更新脚本 ----
       - name: Inject app version into update script
         run: |
           sed -i "s/__APP_VERSION__/${{ steps.ver.outputs.versionName }}/g" www/android-update.js
           grep -o "APP_VERSION = '[^']*'" www/android-update.js
 
-      - name: Sync web assets
-        run: npx cap sync android
-
+      # ---- 构建 release APK（先出未对齐的 release 包）----
       - name: Build release APK
-        env:
-          ORG_GRADLE_PROJECT_appVersionName: ${{ steps.ver.outputs.versionName }}
-          ORG_GRADLE_PROJECT_appVersionCode: ${{ steps.ver.outputs.versionCode }}
-          ORG_GRADLE_PROJECT_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          ORG_GRADLE_PROJECT_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          ORG_GRADLE_PROJECT_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           cd android
           chmod +x ./gradlew
-          ./gradlew assembleRelease
+          ./gradlew assembleRelease \
+            -PappVersionName="${{ steps.ver.outputs.versionName }}" \
+            -PappVersionCode="${{ steps.ver.outputs.versionCode }}" \
+            -PKEYSTORE_PASSWORD="$KEYSTORE_PASSWORD" \
+            -PKEY_ALIAS="$KEY_ALIAS" \
+            -PKEY_PASSWORD="$KEY_PASSWORD"
 
+      # ---- 用官方 apksigner 重新签名对齐 ----
       - name: Zipalign + apksigner
         id: sign
         shell: bash
@@ -117,6 +133,7 @@ jobs:
           echo "apk=$OUT" >> "$GITHUB_OUTPUT"
           ls -l "$OUT"
 
+      # ---- 发布 Release ----
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -126,3 +143,12 @@ jobs:
           files: ${{ steps.sign.outputs.apk }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ---- 镜像 APK 到 Gitee（消除发布时差：应用内更新优先走 Gitee）----
+      # 前置：在仓库 Settings → Secrets → Actions 添加 GITEE_TOKEN（Gitee 私人令牌）。
+      # 未配置时此步骤自动跳过，不影响构建。
+      - name: Mirror APK to Gitee
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          GITEE_NOTES: ${{ github.event.inputs.releaseNotes || '功能改进与问题修复。' }}
+        run: node ci/publish-gitee.mjs "${{ steps.sign.outputs.apk }}" "${{ steps.ver.outputs.tag }}" "${{ steps.ver.outputs.versionName }}"
