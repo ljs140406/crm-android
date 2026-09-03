@@ -1116,6 +1116,43 @@ tr.customer-row.starred:hover,
 tr.customer-row.starred:hover td { background-color: #fde68a; }
 .customer-row-m.starred { background-color: #fef3c7; }
 
+/* 客户总表：顶部统计条（桌面快捷筛选） */
+.cust-stats { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.cust-stat {
+    flex: 1; min-width: 120px;
+    background: #F7F7F5; border: 1.5px solid transparent; border-radius: 10px;
+    padding: 9px 12px; text-align: left; cursor: pointer; font-family: inherit;
+    transition: border-color .15s, background-color .15s;
+}
+.cust-stat:hover { border-color: #d1d5db; }
+.cust-stat .cs-label { display: block; font-size: 12px; color: #6b7280; }
+.cust-stat .cs-num { display: block; font-size: 20px; font-weight: 600; color: #1f2937; margin-top: 2px; }
+.cust-stat.active { background: #eff6ff; border-color: #185FA5; }
+.cust-stat.active .cs-label { color: #185FA5; }
+.cust-stat.active .cs-num { color: #0C447C; }
+.cust-stat.cs-star.active { background: #fffbeb; border-color: #f59e0b; }
+.cust-stat.cs-star.active .cs-label { color: #b45309; }
+.cust-stat.cs-star.active .cs-num { color: #92400e; }
+.cust-stat.cs-overdue .cs-label { color: #b91c1c; }
+.cust-stat.cs-overdue .cs-num { color: #dc2626; }
+.cust-stat.cs-overdue.active { background: #fef2f2; border-color: #dc2626; }
+.cust-stat.cs-overdue.active .cs-label { color: #b91c1c; }
+
+/* 客户总表：行内快捷操作（桌面，悬停浮现于跟进记录列右侧） */
+td.col-followup-content { position: relative; }
+.row-quick-actions {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    display: none; gap: 4px;
+    background: rgba(255,255,255,.92); border-radius: 6px; padding: 2px;
+    box-shadow: 0 0 0 0.5px #e5e7eb;
+}
+.customer-row:hover .row-quick-actions { display: inline-flex; }
+.rqa-btn { font-size: 11px; line-height: 1.6; border: none; border-radius: 5px; padding: 2px 8px; cursor: pointer; white-space: nowrap; }
+.rqa-followup { background: #eaf3de; color: #3b6d11; }
+.rqa-followup:hover { background: #dcedc9; }
+.rqa-todo { background: #e6f1fb; color: #185FA5; }
+.rqa-todo:hover { background: #d2e4f7; }
+
 /* 表头列宽拖拽手柄 */
 .col-resizer {
     position: absolute;
@@ -4783,7 +4820,7 @@ tr.customer-row.starred:hover td { background-color: #fde68a; }
                     <div class="backup-summary-head">
                         <div>
                             <div class="usage-card-title">副 Gist 备份占用</div>
-                            <div class="usage-card-sub" id="backupSummarySub">尚未配置备份 Gist</div>
+                            <div class="usage-card-sub" id="backupSummarySub">尚未配置备份</div>
                         </div>
                         <button class="btn btn-sm btn-danger" id="cleanBackupGistBtn">🗑 清理云端备份数据</button>
                     </div>
@@ -4796,7 +4833,7 @@ tr.customer-row.starred:hover td { background-color: #fde68a; }
                     <span>操作</span>
                 </div>
                 <div id="backupModalList"></div>
-                <div id="backupModalEmpty" style="padding:18px;text-align:center;color:var(--text-secondary);font-size:13px;display:none;">暂无备份或尚未配置备份 Gist</div>
+                <div id="backupModalEmpty" style="padding:18px;text-align:center;color:var(--text-secondary);font-size:13px;display:none;">暂无备份或尚未配置备份仓库</div>
             </div>
             <div class="modal-footer">
                 <span class="backup-sel-count" id="backupSelCount">已选 0 条</span>
@@ -4811,19 +4848,27 @@ tr.customer-row.starred:hover td { background-color: #fde68a; }
         <div class="modal">
             <div class="modal-header">
                 <button class="settings-back-btn" onclick="window._crm.backToSettings()">‹ 设置</button>
-                <h2 class="modal-title">手动备份（备份 Gist）</h2>
+                <h2 class="modal-title" id="manualBackupTitle">手动备份（备份 Gist）</h2>
                 <button class="modal-close" id="manualBackupClose">&times;</button>
             </div>
             <div class="modal-body">
-                <div class="form-group">
-                    <label>备份 GitHub Token <span class="required">*</span> <span style="font-size:11px;color:#B45309;font-weight:600;">手动同步用，独立于日常同步</span></label>
-                    <input type="password" id="backupToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
-                    <div class="form-tip">用于「手动备份」的独立 Token，与上方日常同步 Token 分开填写（同一 GitHub 账号即可）。</div>
+                <div id="backupGistFields">
+                    <div class="form-group">
+                        <label>备份 GitHub Token <span class="required">*</span> <span style="font-size:11px;color:#B45309;font-weight:600;">手动同步用，独立于日常同步</span></label>
+                        <input type="password" id="backupToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+                        <div class="form-tip">用于「手动备份」的独立 Token，与上方日常同步 Token 分开填写（同一 GitHub 账号即可）。</div>
+                    </div>
+                    <div class="form-group">
+                        <label>备份 Gist ID <span class="required">*</span></label>
+                        <input type="text" id="backupGistId" placeholder="新建一个 Secret Gist 专用于备份，粘贴其 ID">
+                        <div class="form-tip">建议使用一个独立的 Secret Gist 存放历史备份，不参与日常自动同步，避免被自动合并覆盖。</div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>备份 Gist ID <span class="required">*</span></label>
-                    <input type="text" id="backupGistId" placeholder="新建一个 Secret Gist 专用于备份，粘贴其 ID">
-                    <div class="form-tip">建议使用一个独立的 Secret Gist 存放历史备份，不参与日常自动同步，避免被自动合并覆盖。</div>
+                <div id="backupWebdavInfo" style="display:none;">
+                    <div style="padding:12px 14px;border:1px solid #A7D08C;background:#EAF3DE;border-radius:8px;font-size:12.5px;color:#3B6D11;line-height:1.8;">
+                        备份目标：WebDAV 网盘（坚果云等），与「云端同步」共用同一套服务器地址、账号和密码，<b>无需单独填写</b>。<br>
+                        备份文件 <b>crm-backups.json</b> 与主数据 crm-data.json 同目录；快照按下方「保留备份数量」自动清理；不受 Gist 1MB 限制。
+                    </div>
                 </div>
                 <div style="display:flex;gap:10px;align-items:center;margin:10px 0;">
                     <label style="margin:0;font-size:13px;font-weight:600;">保留备份数量</label>
@@ -6762,19 +6807,55 @@ function applyCustomerStatusFilter(codes) {
     const _dp2 = document.getElementById('customerStatusFilterPop');
     if (_dp2) _dp2.scrollTop = _dpTop;
 }
-// 一键清除客户总表所有筛选（状态/城市/超期/名称），恢复显示全部客户
+// 一键清除客户总表所有筛选（状态/城市/超期/名称/统计条快捷筛选），恢复显示全部客户
 function clearCustomerFilters() {
     currentFilter.status = [];
     currentFilter.city = 'all';
     delete currentFilter._overdue;
     delete currentFilter._names;
     delete currentFilter._nameSearch;
+    delete currentFilter._starred;
+    delete currentFilter._withTodo;
     if (!state._meta) state._meta = {};
     state._meta.customerStatusFilter = [];
     state._meta.customerStatusFilterAt = Date.now();
     saveData();
     renderCustomers();
     logOperation('清除客户总表全部筛选（状态/城市/超期/名称）', 'info');
+}
+
+// ==================== 客户总表：顶部统计条快捷筛选（桌面） ====================
+// 点击统计卡 = 仅应用该筛选（互斥）。标记为会话级（不写入 _meta，与看板下钻一致），不产生多端同步差异。
+function custStatFilter(type) {
+    if (type === 'all') { clearCustomerFilters(); return; }
+    currentFilter.status = [];
+    currentFilter.city = 'all';
+    delete currentFilter._overdue;
+    delete currentFilter._names;
+    delete currentFilter._nameSearch;
+    delete currentFilter._starred;
+    delete currentFilter._withTodo;
+    if (!state._meta) state._meta = {};
+    state._meta.customerStatusFilter = [];
+    state._meta.customerStatusFilterAt = Date.now();
+    if (type === 'starred') currentFilter._starred = true;
+    else if (type === 'withTodo') currentFilter._withTodo = true;
+    else if (type === 'overdue') currentFilter._overdue = true;
+    saveData();
+    renderCustomers();
+    const _labels = { starred: '仅看关注客户', withTodo: '仅看有待办客户', overdue: '仅看超期未跟进客户' };
+    logOperation('客户总表快捷筛选 → ' + (_labels[type] || type), 'info');
+}
+
+// ==================== 客户总表：行内快捷操作（桌面，悬停浮现） ====================
+// +跟进/+待办 直接打开对应弹窗并预填客户名（复用既有弹窗，保存逻辑与日志留痕不变）
+function custQuickAction(type, name, ev) {
+    if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+    if (type === 'followup') {
+        openFollowupModal(name);
+    } else if (type === 'todo') {
+        openTodoModal(null, name);
+    }
 }
 
 // ==================== 客户列表 ====================
@@ -6809,6 +6890,22 @@ function renderCustomers() {
     // 实时跟进映射（与看板一致），用于超期判定和客户卡片展示
     const { lastMap: custLastMap } = computeValidFollowups();
 
+    // 构建客户-待办映射（仅待开始/进行中/已逾期，排除已完成）——使用运行时 effectiveStatus
+    // （上移到筛选之前：统计条「有待办」快捷筛选需要它；原位于排序之后）
+    const customerTodoMap = {};
+    state.todos.forEach(t => {
+        if (t.customerName && !(state._tombstones && state._tombstones.todos && state._tombstones.todos[t.id])) {
+            const es = effectiveStatus(t);
+            if (es === 'completed') return; // 排除已完成
+            if (!customerTodoMap[t.customerName]) {
+                customerTodoMap[t.customerName] = { total: 0, overdue: 0, todos: [] };
+            }
+            customerTodoMap[t.customerName].total++;
+            if (es === 'overdue') customerTodoMap[t.customerName].overdue++;
+            customerTodoMap[t.customerName].todos.push({ title: t.title, status: es, id: t.id });
+        }
+    });
+
     if (currentFilter.status && currentFilter.status.length) {
         filtered = filtered.filter(function (c) {
             const sc = getStatusConfig(c.status);
@@ -6820,6 +6917,12 @@ function renderCustomers() {
     }
     if (currentFilter._overdue) {
         filtered = filtered.filter(c => isCustomerOverdue(c, custLastMap));
+    }
+    if (currentFilter._starred) {
+        filtered = filtered.filter(c => c.starred);
+    }
+    if (currentFilter._withTodo) {
+        filtered = filtered.filter(c => !!customerTodoMap[c.name]);
     }
     if (currentFilter._names) {
         filtered = filtered.filter(c => currentFilter._names.has(c.name));
@@ -6836,21 +6939,6 @@ function renderCustomers() {
         const aTime = a.last_followup_time ? new Date(a.last_followup_time).getTime() : 0;
         const bTime = b.last_followup_time ? new Date(b.last_followup_time).getTime() : 0;
         return bTime - aTime;
-    });
-
-    // 构建客户-待办映射（仅待开始/进行中/已逾期，排除已完成）——使用运行时 effectiveStatus
-    const customerTodoMap = {};
-    state.todos.forEach(t => {
-        if (t.customerName && !(state._tombstones && state._tombstones.todos && state._tombstones.todos[t.id])) {
-            const es = effectiveStatus(t);
-            if (es === 'completed') return; // 排除已完成
-            if (!customerTodoMap[t.customerName]) {
-                customerTodoMap[t.customerName] = { total: 0, overdue: 0, todos: [] };
-            }
-            customerTodoMap[t.customerName].total++;
-            if (es === 'overdue') customerTodoMap[t.customerName].overdue++;
-            customerTodoMap[t.customerName].todos.push({ title: t.title, status: es, id: t.id });
-        }
     });
 
     // 构建客户-本周计划关联映射（仅本周，与小程序客户总表一致）：用于琥珀色「计划关联」标签
@@ -6895,12 +6983,36 @@ function renderCustomers() {
     // 仅在 tbody 列表区提示「未匹配到合适客户」，并视情况提供清除筛选按钮。
     const _hasFilter = (currentFilter.status && currentFilter.status.length)
         || currentFilter.city !== 'all' || currentFilter._overdue
+        || currentFilter._starred || currentFilter._withTodo
         || (currentFilter._names && currentFilter._names.size)
         || (currentFilter._nameSearch && currentFilter._nameSearch.trim());
     const _emptyClearBtn = _hasFilter ? '<button type="button" class="empty-clear-btn" onclick="window._crm.clearCustomerFilters()">清除筛选 · 显示全部客户</button>' : '';
 
+    // 顶部统计条（桌面）：点击卡片=快捷筛选；计数始终取全量数据
+    const _statTotal = state.customers.length;
+    const _statStarred = state.customers.filter(c => c.starred).length;
+    const _statTodoCnt = Object.keys(customerTodoMap).length;
+    const _statOverdue = state.customers.filter(c => isCustomerOverdue(c, custLastMap)).length;
+    const _statActive = !currentFilter._starred && !currentFilter._withTodo && !currentFilter._overdue;
+    const _statBar = `
+        <div class="cust-stats">
+            <button type="button" class="cust-stat${_statActive ? ' active' : ''}" onclick="window._crm.custStatFilter('all')" title="显示全部客户">
+                <span class="cs-label">全部客户</span><span class="cs-num">${_statTotal}</span>
+            </button>
+            <button type="button" class="cust-stat cs-star${currentFilter._starred ? ' active' : ''}" onclick="window._crm.custStatFilter('starred')" title="仅看关注的客户">
+                <span class="cs-label">关注客户</span><span class="cs-num">${_statStarred}</span>
+            </button>
+            <button type="button" class="cust-stat${currentFilter._withTodo ? ' active' : ''}" onclick="window._crm.custStatFilter('withTodo')" title="仅看有进行中待办的客户">
+                <span class="cs-label">有待办客户</span><span class="cs-num">${_statTodoCnt}</span>
+            </button>
+            <button type="button" class="cust-stat cs-overdue${currentFilter._overdue ? ' active' : ''}" onclick="window._crm.custStatFilter('overdue')" title="仅看超过 7 天未跟进的客户">
+                <span class="cs-label">超期未跟进</span><span class="cs-num">${_statOverdue}</span>
+            </button>
+        </div>`;
+
     // 表格布局：状态 | 客户名称 | 待办/计划 | 跟进记录 | 最后跟进时间；列宽可拖拽并本地记忆
     container.innerHTML = `
+        ${_statBar}
         <div class="customer-table-wrap">
             <table class="customer-table">
                 <colgroup>
@@ -6995,6 +7107,7 @@ function renderCustomers() {
                                 <td class="col-bp" data-label="待办/计划">${bpCell}</td>
                                 <td class="col-followup-content clickable" data-label="跟进记录" data-followup-customer="${escapeHtml(c.name)}">
                                     <div class="followup-content-text">${escapeHtml(c.last_followup) || '<span class="no-data">-</span>'}</div>
+                                    <span class="row-quick-actions"><button type="button" class="rqa-btn rqa-followup" onclick="window._crm.custQuickAction('followup','${escapeAttr(c.name)}',event)" title="记一条跟进">+跟进</button><button type="button" class="rqa-btn rqa-todo" onclick="window._crm.custQuickAction('todo','${escapeAttr(c.name)}',event)" title="加一条待办">+待办</button></span>
                                 </td>
                                 <td class="col-last-followup" data-label="最后跟进时间">
                                     ${lastTime ? '<span class="time-text">' + escapeHtml(lastTime) + '</span>' + (days !== null ? '<br><span class="time-text' + (overdue ? ' time-overdue' : '') + '">' + days + '天前</span>' : '') : '<span class="no-data">-</span>'}
@@ -10388,6 +10501,12 @@ function promptImportMode(data, counts) {
     overlay.querySelector('#choiceCancel').addEventListener('click', close);
 }
 
+// 批量提升记录修订号：使本端版本在 union merge（按 _rev 取大）中胜出。
+// 用于「恢复备份 / 全量覆盖导入」之后，防止恢复结果在下一轮同步时被云端版本反向覆盖。
+function _bumpRevs(arr) {
+    (arr || []).forEach(function (it) { if (it) it._rev = (it._rev || 0) + 1; });
+}
+
 function doImportData(data, counts, mode) {
     mode = mode || 'merge';
     try {
@@ -10407,11 +10526,48 @@ function doImportData(data, counts, mode) {
             // _operationLog 保留本地（恢复业务数据但不清操作日志）
             state._meta = Object.assign({}, keepMeta, data._meta || {});
             state._meta.lastBackupAt = new Date().toISOString();
+            // === 恢复后同步保护（关键，否则「刚恢复完又被云端同步回去」）===
+            // 恢复是「全量覆盖」语义，但恢复结果若不提升修订号、不登记待同步变更，
+            // 下一轮同步 applyRemoteData 会反过来用云端版本覆盖刚恢复的数据：
+            //   · 客户/跟进/待办/历史 走 union merge，无 pending 时按 _rev 取大 → 云端 rev 更高则覆盖本地恢复版
+            //   · 工作计划 / 状态列表 / 近期汇报客户 是整体 LWW，靠 pending 或 rev 保护
+            // 因此这里统一提 rev + 登记 pending + 重建同步基准。
+            try {
+                _bumpRevs(state.customers);
+                _bumpRevs(state.followups);
+                _bumpRevs(state.todos);
+                _bumpRevs(state.history);
+                if (state.workPlan) {
+                    state.workPlan._rev = (state.workPlan._rev || 0) + 1;
+                    state.workPlan.updatedAt = new Date().toISOString();
+                    recordChange('update', 'plan', 'current', '工作计划', null);
+                }
+                state._meta.reportRev = (state._meta.reportRev || 0) + 1;
+                // 状态列表为整体 LWW，仅当本地有 pending 时才保本端，故必须登记
+                recordChange('update', 'status', 'current', '状态列表', null);
+                // 重建同步基准，避免恢复数据被误判成「双端都改」而弹出冲突框
+                recordSyncBasis();
+            } catch (e) { /* 保护性兜底：同步标记失败不应影响恢复结果落盘 */ }
             saveData();
             checkOverdueTodos();
             navigateTo('dashboard');
             showToast('已从备份恢复（' + (data.customers || []).length + ' 个客户）');
             logOperation('恢复备份（' + (data.customers || []).length + ' 客户）', 'success');
+            // 说明恢复结果的扩散方式（不做「仅本机生效」的虚假承诺）：
+            // 上方 recordChange 已触发 scheduleAutoSync，自动同步会在数秒内把恢复结果推上云端，
+            // 即「恢复备份」实为全局回滚；本机数据已加保护，不会被云端反向覆盖。
+            setTimeout(function () {
+                if (!syncReady()) return;
+                showConfirm(
+                    '已用该备份覆盖本机数据。\n\n'
+                    + '该恢复结果会同步到云端，其他设备下次同步将一并回滚到该备份点（恢复备份 = 全局回滚）。\n\n'
+                    + '若要先在本机核对、暂不让其扩散，请先到「设置 → 云端同步」关闭自动同步。',
+                    function () { pushToGist(); },
+                    '已恢复本地数据',
+                    '立即上传到云端',
+                    '知道了'
+                );
+            }, 400);
             return;
         }
         // 合并导入：按 ID 去重，保留现有 + 导入新数据
@@ -10856,7 +11012,10 @@ function recordSyncBasis() {
             customer: _hashMap(state.customers, 'customer', CONFLICT_FIELDS),
             followup: _hashMap(state.followups, 'followup', CONFLICT_FIELDS),
             todo: _hashMap(state.todos, 'todo', CONFLICT_FIELDS),
-            history: _hashMap(state.history, 'history', CONFLICT_FIELDS)
+            history: _hashMap(state.history, 'history', CONFLICT_FIELDS),
+            // 工作计划（单对象）：纳入同步基准，使双端并发编辑计划能被真冲突检测捕获
+            // 否则 applyRemoteData 的整体 LWW 会静默整包覆盖，导致「本周重点」等被同步丢失
+            plan: _hashItem('plan', state.workPlan, CONFLICT_FIELDS)
         };
         state._meta = state._meta || {};
         state._meta.syncBasis = basis;
@@ -10888,6 +11047,14 @@ function detectTrueConflicts(remote) {
             }
         });
     });
+    // 工作计划（单对象）：基于同步基准检测双端是否都改过计划。
+    // 仅当「本地≠基准 且 云端≠基准」时判为冲突——单端修改不算冲突，避免每次同步都弹窗。
+    const basisPlan = basis.plan;
+    if (basisPlan) {
+        const lp = _hashItem('plan', state.workPlan, CONFLICT_FIELDS);
+        const rp = _hashItem('plan', remote.workPlan || { thisWeek: {}, nextWeek: {} }, CONFLICT_FIELDS);
+        if (basisPlan !== lp && basisPlan !== rp) res.push('plan:current');
+    }
     return res;
 }
 function showConflictBanner(n) {
@@ -11873,8 +12040,20 @@ function closeSyncModal() {
 }
 
 /* ===== 批16：设置中心子页面 ===== */
+/* 备份弹窗按同步通道动态显示：WebDAV 模式下备份走坚果云等网盘（与云端同步共用凭据），
+   Gist 输入框不生效，须隐藏并给出 WebDAV 目标提示，避免界面与实际行为不一致造成误读 */
+function renderBackupModalByProvider() {
+    var wd = isWebdavProvider();
+    var title = document.getElementById('manualBackupTitle');
+    var gistFields = document.getElementById('backupGistFields');
+    var wdInfo = document.getElementById('backupWebdavInfo');
+    if (title) title.textContent = wd ? '手动备份（WebDAV 网盘）' : '手动备份（备份 Gist）';
+    if (gistFields) gistFields.style.display = wd ? 'none' : '';
+    if (wdInfo) wdInfo.style.display = wd ? '' : 'none';
+}
 function openManualBackupModal() {
     loadBackupSettings();
+    renderBackupModalByProvider();
     const btok = document.getElementById('backupToken'); if (btok) btok.value = backupSettings.token;
     const bgid = document.getElementById('backupGistId'); if (bgid) bgid.value = backupSettings.gistId;
     const bkeep = document.getElementById('backupKeepCount'); if (bkeep) bkeep.value = (state._meta && state._meta.backupKeepCount) || 20;
@@ -12254,6 +12433,10 @@ function getSyncPayload() {
             customerStatusFilterAt: (state._meta && state._meta.customerStatusFilterAt) || 0,
             deviceName: (state._meta && state._meta.deviceName) || null,
             statusRev: (state._meta && state._meta.statusRev) || 0,
+            // 近期汇报客户版本号：必须随 payload 上传。
+            // 缺失时 applyRemoteData 读到的 remoteReportRev 恒为 0，导致两台都改过汇报客户的设备
+            // 「远端更高/两端相等」两分支都不成立 → 汇报客户永久无法跨端同步（静默失效）。
+            reportRev: (state._meta && state._meta.reportRev) || 0,
             exportTime: new Date().toISOString(),
             version: '1.3'
         },
@@ -12624,6 +12807,10 @@ function applyRemoteData(remoteData) {
         backupKeepCount: (remoteData._meta && remoteData._meta.backupKeepCount) || (state._meta && state._meta.backupKeepCount),
         historyRetention: (remoteData._meta && remoteData._meta.historyRetention) || (state._meta && state._meta.historyRetention),
         deviceName: (state._meta && state._meta.deviceName) || (remoteData._meta && remoteData._meta.deviceName),
+        // 汇报客户版本号取两端较大者：上方合并若保留了本端（rev 更高）版本，
+        // 此处不能把 _meta.reportRev 降级成云端值，否则下次推送携带的版本号偏低，
+        // 本端的新数据将无法传播到其他设备。
+        reportRev: Math.max(localReportRev, remoteReportRev),
         lastSyncedAt: new Date().toISOString()
     });
     // 客户总表状态筛选：last-write-wins（以 customerStatusFilterAt 较新者为准），避免任一端改完筛选后下次同步被对端旧值覆盖
@@ -13316,6 +13503,20 @@ function buildConflictRecords(local, remote) {
             }
         });
     });
+    // 工作计划（单对象，非列表）：整体作为一条冲突记录，thisWeek/nextWeek 两个字段可分别选择保留哪一端
+    const lp0 = state.workPlan || { thisWeek: {}, nextWeek: {} };
+    const rp0 = remote.workPlan || { thisWeek: {}, nextWeek: {} };
+    const planFields = (DIFF_FIELDS.plan || []).filter(f => f !== 'updatedAt');
+    const pfields = planFields.map(fk => ({
+        key: fk,
+        label: fk === 'thisWeek' ? '本周计划' : (fk === 'nextWeek' ? '下周计划' : fk),
+        local: lp0[fk],
+        remote: rp0[fk],
+        same: JSON.stringify(lp0[fk] || {}) === JSON.stringify(rp0[fk] || {})
+    }));
+    if (pfields.some(f => !f.same)) {
+        records.push({ entity: 'plan', id: 'current', key: 'plan:current', label: '工作计划（本周 / 下周）', fields: pfields });
+    }
     return records;
 }
 
@@ -13387,6 +13588,24 @@ function resolveAllConflicts(side) {
     renderConflictModal();
 }
 
+// 工作计划冲突合并：按用户在冲突弹窗中的逐字段选择，保留「本地」或「云端」版的各子字段。
+// 工作计划是单对象（非列表），故不走 reapplyFieldChoices（那是为按 id 索引的数组设计的）。
+function _applyPlanConflictChoice(localPlan, remotePlan) {
+    const out = localPlan ? JSON.parse(JSON.stringify(localPlan)) : {};
+    (DIFF_FIELDS.plan || []).forEach(fk => {
+        if (fk === 'updatedAt') return; // 时间戳不参与字段选择
+        const choice = conflictChoices['plan:current|' + fk];
+        if (choice === 'remote') out[fk] = _clone((remotePlan || {})[fk]);
+        else if (choice === 'local') out[fk] = _clone((localPlan || {})[fk]);
+        // 未选择（理论上 conflictChoices 已默认 local）则保留 out 现状（本地基线）
+    });
+    // 合并结果作为新版本：rev 取两端较大者 +1，避免下次同步再次判为冲突；updatedAt 刷新
+    const lr = (localPlan && localPlan._rev) || 0, rr = (remotePlan && remotePlan._rev) || 0;
+    out._rev = Math.max(lr, rr) + 1;
+    out.updatedAt = new Date().toISOString();
+    return out;
+}
+
 // 在 applyRemoteData 合并的基础上，按用户字段选择覆盖冲突记录的字段
 function reapplyFieldChoices(currentList, localList, remoteList, entity) {
     const fields = DIFF_FIELDS[entity] || [];
@@ -13420,6 +13639,8 @@ async function resolveMerge() {
         state.customers = reapplyFieldChoices(state.customers, snap.customers, remote.customers || [], 'customer');
         state.followups = reapplyFieldChoices(state.followups, snap.followups, remote.followups || [], 'followup');
         state.todos = reapplyFieldChoices(state.todos, snap.todos, remote.todos || [], 'todo');
+        // 工作计划（单对象）：按字段级选择合并，thisWeek/nextWeek 各自保留用户所选的一端
+        state.workPlan = _applyPlanConflictChoice(snap.workPlan, remote.workPlan || {});
         saveData(true);
         await pushToGist();
         refreshCurrentPage();
@@ -14795,6 +15016,8 @@ window._crm = {
     deleteFollowup,
     drillDownCustomers,
     clearCustomerFilters,
+    custStatFilter,
+    custQuickAction,
     openSyncModal,
     openSettingsCenter,
     closeSettingsCenter,
