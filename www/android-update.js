@@ -15,10 +15,13 @@
     // ---------------------------------------------------------------
     // __APP_VERSION__ 会在 GitHub Actions 构建时被替换成真实版本号
     var APP_VERSION = '__APP_VERSION__';
-    var REPO = 'ljs140406/crm-android';
+    // 注意：GitHub 与 Gitee 的 owner 不同（GitHub=ljs140406，Gitee=lij140406），
+    // 勿复用同一个 REPO 变量——曾因复用导致 Gitee 检查 URL 404、更新永远只走 GitHub。
+    var REPO = 'ljs140406/crm-android';        // GitHub（兜底源）
+    var GITEE_REPO = 'lij140406/crm-android';  // Gitee（国内快速源，优先）
     // 双源检查：GitHub 兜底，Gitee 下载更快（国内）
     var API_LATEST_GITHUB = 'https://api.github.com/repos/' + REPO + '/releases/latest';
-    var API_LATEST_GITEE = 'https://gitee.com/api/v5/repos/' + REPO + '/releases/latest';
+    var API_LATEST_GITEE = 'https://gitee.com/api/v5/repos/' + GITEE_REPO + '/releases/latest';
     var SKIP_KEY = 'crm_android_skip_version';
     var LAST_CHECK_KEY = 'crm_android_last_check';
     var AUTO_CHECK_INTERVAL = 6 * 60 * 60 * 1000; // 自动检查最多 6 小时一次
