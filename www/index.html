@@ -4659,12 +4659,16 @@ td.col-followup-content { position: relative; }
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label>同步方式</label>
-                    <select id="syncProvider">
-                        <option value="webdav">WebDAV（推荐 · 无 1MB 限制）</option>
-                        <option value="gist">GitHub Gist（单文件上限 1MB）</option>
-                    </select>
-                    <div class="form-tip" id="syncProviderTip">推荐使用坚果云等 WebDAV 服务：容量与单文件大小均无 1MB 限制，国内访问快。</div>
+                    <label>同步后端</label>
+                    <div class="form-tip" style="margin-bottom:6px;">
+                        主同步使用 <b>WebDAV</b>（桌面 / 安卓）；勾选下方「镜像到 Gist」后，每次同步会<u>同时</u>把数据写到 GitHub Gist，
+                        供<b>网页端（浏览器直接打开本应用）</b>实时查看与编辑。WebDAV 不可用时自动降级走 Gist。
+                    </div>
+                    <label class="checkbox-row" style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+                        <input type="checkbox" id="mirrorGistChk" checked>
+                        <span>同时把数据镜像到 GitHub Gist（供网页端使用）</span>
+                    </label>
+                    <div class="form-tip" id="syncProviderTip"></div>
                 </div>
                 <div id="webdavPanel">
                     <div class="form-group">
@@ -11129,10 +11133,14 @@ function loadSyncSettings() {
             token: s.token || '',
             gistId: s.gistId || '',
             filename: s.filename || 'crm-data.json',
-            _etag: s._etag || ''
+            _etag: s._etag || '',
+            _etagWebdav: s._etagWebdav || '',
+            _etagGist: s._etagGist || '',
+            // 镜像到 Gist：默认开启（供网页端查看/编辑）；旧数据无此字段时视为开启
+            mirrorGist: (s.mirrorGist === false) ? false : true
         };
     } catch(e) {
-        syncSettings = { provider: 'gist', token: '', gistId: '', filename: 'crm-data.json', _etag: '' };
+        syncSettings = { provider: 'gist', token: '', gistId: '', filename: 'crm-data.json', _etag: '', _etagWebdav: '', _etagGist: '', mirrorGist: true };
     }
 }
 
@@ -11946,22 +11954,20 @@ function renderStorageBars() {
     }
 }
 
-// 根据当前 provider 显示对应配置面板（Gist / WebDAV）
+// 双后端下两个配置面板始终可见；仅更新提示文案与连接状态
 function applySyncProviderUI() {
-    const isWd = isWebdavProvider();
     const gp = document.getElementById('gistPanel');
     const wp = document.getElementById('webdavPanel');
-    if (gp) gp.style.display = isWd ? 'none' : '';
-    if (wp) wp.style.display = isWd ? '' : 'none';
+    if (gp) gp.style.display = '';
+    if (wp) wp.style.display = '';
     const tip = document.getElementById('syncProviderTip');
-    if (tip) tip.textContent = isWd
-        ? '推荐使用坚果云等 WebDAV 服务：容量与单文件大小均无 1MB 限制，国内访问快。'
-        : 'Gist 单文件上限 1MB；数据增长到接近上限时同步会失败，建议改用 WebDAV。';
-    // 占用卡片在 WebDAV 下的说明文案
+    if (tip) tip.textContent = canUseWebdav()
+        ? 'WebDAV 为主同步；勾选「镜像到 Gist」可让网页端实时同步（网页端仅支持 Gist）。'
+        : '当前环境（网页端）无法使用 WebDAV，已自动改用 Gist 同步；桌面 / 安卓会同时用 WebDAV。';
     const rSub = document.getElementById('remoteUsageSub');
-    if (rSub && isWd) rSub.textContent = 'WebDAV 无单文件大小限制';
+    if (rSub) rSub.textContent = canUseWebdav() ? 'WebDAV 无单文件大小限制' : 'Gist 上限 1MB';
     const bSub = document.getElementById('backupUsageSub');
-    if (bSub && isWd) bSub.textContent = 'crm-backups.json · WebDAV 无限制';
+    if (bSub && isWebdavProvider()) bSub.textContent = 'crm-backups.json · WebDAV 无限制';
     renderConnStatus();
 }
 
@@ -12038,6 +12044,8 @@ function openSyncModal() {
     loadWebdavSettings();
     const provEl = document.getElementById('syncProvider');
     if (provEl) provEl.value = getSyncProvider();
+    const mchk = document.getElementById('mirrorGistChk');
+    if (mchk) mchk.checked = gistMirrorEnabled();
     const wu = document.getElementById('webdavUrl'); if (wu) wu.value = webdavSettings.url;
     const wusr = document.getElementById('webdavUser'); if (wusr) wusr.value = webdavSettings.user;
     const wp = document.getElementById('webdavPass'); if (wp) wp.value = getWebdavPass();
@@ -12144,9 +12152,9 @@ function updateSyncStatusUI() {
         card.className = 'sync-status-card status-pending';
         icon.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
         title.textContent = '未配置同步';
-        desc.textContent = isWebdavProvider()
-            ? '填写 WebDAV 服务器地址、用户名和密码后可实现手机/电脑数据同步'
-            : '填写 Token 和 Gist ID 后可实现手机/电脑数据同步';
+        desc.textContent = gistMirrorEnabled()
+            ? '填写 WebDAV（主）与 GitHub Gist（镜像）后可实现桌面 / 安卓 / 网页端三端同步'
+            : '填写 WebDAV 服务器地址、用户名和密码后可实现桌面 / 安卓数据同步';
         return;
     }
 
@@ -12219,16 +12227,19 @@ function renderConnStatus() {
     }
 }
 
-/** 统一测试连接：按当前 provider 分发到 WebDAV / Gist 测试 */
+/** 统一测试连接：依次测试所有已配置的后端（WebDAV + Gist） */
 async function testConnection() {
-    if (!syncReady()) {
-        const need = isWebdavProvider() ? 'WebDAV 服务器地址、用户名和密码' : 'Token 和 Gist ID';
+    const backends = activeBackends();
+    if (backends.length === 0) {
+        const need = isWebdavProvider()
+            ? 'WebDAV 服务器地址、用户名和密码'
+            : (gistMirrorEnabled() ? 'Token 和 Gist ID（或 WebDAV 配置）' : 'Token 和 Gist ID');
         setConnState(false, '未填写完整配置（' + need + '）');
         showToast('请先填写 ' + need);
         return;
     }
-    if (isWebdavProvider()) await testWebdavConnection();
-    else await testGistConnection();
+    if (backends.indexOf('webdav') >= 0) await testWebdavConnection();
+    if (backends.indexOf('gist') >= 0) await testGistConnection();
 }
 
 /** 测试 GitHub Gist 连通性：GET 单个 gist，依据 HTTP 状态判定 */
@@ -12333,17 +12344,51 @@ function setWebdavPass(p) {
 function getSyncProvider() { return syncSettings.provider === 'webdav' ? 'webdav' : 'gist'; }
 function isWebdavProvider() { return getSyncProvider() === 'webdav'; }
 
-/** 云端是否已配置完成（替代原先散落各处的 token/gistId 判断） */
+/**
+ * 当前运行环境是否能真正访问 WebDAV：
+ * 桌面端依赖主进程代发（window.electronAPI.webdav），安卓依赖 Capacitor 原生 HTTP；
+ * 纯网页端（浏览器直接打开 html）两者皆无，WebDAV 请求会被 CORS 拦截 → 视为不可用，自动改用 Gist。
+ */
+function canUseWebdav() {
+    try {
+        if (window.electronAPI && window.electronAPI.webdav && typeof window.electronAPI.webdav.request === 'function') return true;
+    } catch (e) {}
+    try {
+        const C = window.Capacitor;
+        const Http = (C && C.Plugins && (C.Plugins.CapacitorHttp || C.Plugins.Http)) || (C && C.CapacitorHttp);
+        if (Http && typeof Http.request === 'function') return true;
+    } catch (e) {}
+    return false;
+}
+function webdavConfigured() { return !!(webdavSettings.url && webdavSettings.user && getWebdavPass()); }
+function gistConfigured() { return !!(syncSettings.token && syncSettings.gistId); }
+/** 是否把数据实时镜像到 Gist（供网页端查看/编辑）。默认开启；关闭后仅用 WebDAV。 */
+function gistMirrorEnabled() { return syncSettings.mirrorGist !== false; }
+
+/** 当前实际参与同步的后端列表：WebDAV（主，需可用且已配置）+ Gist（已配置且开启镜像） */
+function activeBackends() {
+    const list = [];
+    if (canUseWebdav() && webdavConfigured()) list.push('webdav');
+    if (gistConfigured() && gistMirrorEnabled()) list.push('gist');
+    return list;
+}
+
+/** 云端是否已配置完成（双后端任一可用即可） */
 function syncReady() {
-    return isWebdavProvider()
-        ? !!(webdavSettings.url && webdavSettings.user && getWebdavPass())
-        : !!(syncSettings.token && syncSettings.gistId);
+    return activeBackends().length > 0;
 }
 /** 备份仓库是否可用：WebDAV 模式复用主同步凭据（同步 + 备份都突破 1MB） */
 function backupReady() {
     return isWebdavProvider() ? syncReady() : !!(backupSettings.token && backupSettings.gistId);
 }
-function syncBackendLabel() { return isWebdavProvider() ? 'WebDAV' : 'GitHub Gist'; }
+/** 同步后端显示名（双后端时合并展示） */
+function syncBackendLabel() {
+    const b = activeBackends();
+    if (b.length === 2) return 'WebDAV + Gist';
+    if (b[0] === 'webdav') return 'WebDAV';
+    if (b[0] === 'gist') return 'GitHub Gist';
+    return isWebdavProvider() ? 'WebDAV' : 'GitHub Gist';
+}
 function syncTag() { return '[' + syncBackendLabel() + '] '; }
 
 /** 拼接远端文件完整 URL：基址去尾斜杠 + 逐段编码的相对路径 */
@@ -12450,14 +12495,18 @@ async function webdavPutText(fileName, content) {
     return r;
 }
 
-/** 读取远端主数据文件，返回与 Gist 同构对象 */
+/**
+ * 读取「主用后端」的远端文件，返回与 Gist 同构的 { files: { <name>: { content } } } 形状。
+ * 仅用于「云端占用展示」等单后端读取；真正的同步读取走 fetchUnionRemoteData（多后端并集合并）。
+ */
 async function fetchRemoteFile() {
-    if (isWebdavProvider()) {
+    if (canUseWebdav() && webdavConfigured()) {
         const fname = webdavSettings.path || 'crm-data.json';
         const txt = await webdavGetText(fname);
         return { files: (txt == null) ? {} : { [fname]: { content: txt, truncated: false } } };
     }
-    return await fetchGist();
+    if (gistConfigured()) return await fetchGist();
+    return { files: {} };
 }
 
 /** 写入远端主数据文件；仅 Gist 分支做 1MB 安全闸 */
@@ -12468,6 +12517,129 @@ async function updateRemoteFile(content) {
         return { files: { [fname]: { content: content } } };
     }
     return await updateGist(content);
+}
+
+/** 解析远端 Gist 文本为数据对象（404 等无数据时返回 null，不抛错） */
+async function fetchGistParsedSafe() {
+    try {
+        const g = await fetchGist();
+        if (remoteFileTruncated(g)) return null;
+        return parseRemoteGist(g);
+    } catch (e) {
+        if (/404|Not Found/i.test(e && e.message ? e.message : '')) return null;
+        throw e;
+    }
+}
+/** 解析远端 WebDAV 文本为数据对象（无数据返回 null） */
+async function fetchWebdavParsedSafe() {
+    const txt = await webdavGetText(webdavSettings.path || 'crm-data.json');
+    if (txt == null) return null;
+    try { const d = gistDecode(txt); return (d && d.customers && Array.isArray(d.customers)) ? d : null; }
+    catch (e) { return null; }
+}
+
+/**
+ * 多后端联合读取：并发拉取所有可用后端，任一后端故障则跳过（实现 WebDAV 故障自动降级到 Gist）。
+ * 返回并集合并后的单一远端数据对象；全部无数据返回 null；全部故障则抛出。
+ */
+async function fetchUnionRemoteData() {
+    const backends = activeBackends();
+    if (backends.length === 0) return null;
+    const parsed = [];
+    let anyOk = false;
+    await Promise.all(backends.map(async (b) => {
+        try {
+            const d = (b === 'webdav') ? await fetchWebdavParsedSafe() : await fetchGistParsedSafe();
+            if (d) { parsed.push(d); anyOk = true; }
+            else { anyOk = true; } // 该后端无数据也算正常（首同步）
+        } catch (e) {
+            logSyncGlobal(syncTag() + '联合读取后端「' + b + '」失败（已跳过）：' + (e.message || e), 'warning');
+        }
+    }));
+    if (!anyOk) throw new Error('所有同步后端均不可用（WebDAV 与 Gist 连接均失败）');
+    if (parsed.length === 0) return null;
+    if (parsed.length === 1) return parsed[0];
+    return unionTwoRemotes(parsed);
+}
+
+/** 逐记录取较新版本（_rev 优先，平局用 updatedAt），用于云端两端并集合并 */
+function _newerRecord(a, b) {
+    const ra = a._rev || 0, rb = b._rev || 0;
+    if (ra !== rb) return rb > ra ? b : a;
+    const ua = a.updatedAt || a.completedAt || a.createdAt || '1970-01-01T00:00:00Z';
+    const ub = b.updatedAt || b.completedAt || b.createdAt || '1970-01-01T00:00:00Z';
+    return new Date(ub).getTime() >= new Date(ua).getTime() ? b : a;
+}
+
+/**
+ * 合并多个远端数据对象为一个（云端之间的并集合并）：
+ * - 数组实体（customers/followups/todos/history）按 id 取较新记录；
+ * - workPlan/statuses/reportCustomers 取 lastSyncedAt 最新那一个远端；
+ * - _meta 取自 lastSyncedAt 最新的远端；墓碑 / 变更日志 / 操作日志做去重并集。
+ * 合并后的单一远端再交给既有的 applyRemoteData（本地 vs 远端 2-way 合并），实现三端一致。
+ */
+function unionTwoRemotes(list) {
+    if (list.length === 1) return list[0];
+    const primary = list.slice().sort(function (a, b) {
+        return new Date((b._meta && b._meta.lastSyncedAt) || 0) - new Date((a._meta && a._meta.lastSyncedAt) || 0);
+    })[0];
+    const out = {
+        _meta: primary._meta || {},
+        customers: [], followups: [], todos: [], history: [],
+        workPlan: primary.workPlan || { thisWeek: {}, nextWeek: {} },
+        statuses: primary.statuses || [],
+        reportCustomers: primary.reportCustomers || [],
+        _tombstones: { customers: {}, followups: {}, todos: {}, history: {} },
+        _changeLog: [], operationLog: []
+    };
+    [['customers', 'customer'], ['followups', 'followup'], ['todos', 'todo'], ['history', 'history']].forEach(function (pair) {
+        const k = pair[0];
+        const byId = {};
+        list.forEach(function (r) {
+            (r[k] || []).forEach(function (it) {
+                if (!it || !it.id) return;
+                const cur = byId[it.id];
+                byId[it.id] = cur ? _newerRecord(cur, it) : it;
+            });
+        });
+        out[k] = Object.keys(byId).map(function (id) { return byId[id]; });
+    });
+    ['customers', 'followups', 'todos', 'history'].forEach(function (k) {
+        list.forEach(function (r) {
+            const t = (r._tombstones || {})[k] || {};
+            Object.keys(t).forEach(function (id) { out._tombstones[k][id] = t[id]; });
+        });
+    });
+    const sc = {};
+    list.forEach(function (r) { (r._changeLog || []).forEach(function (c) { const key = c.id + '|' + c.entity; if (!sc[key]) { sc[key] = 1; out._changeLog.push(c); } }); });
+    const so = {};
+    list.forEach(function (r) { (r.operationLog || []).forEach(function (e) { const key = (e.time || '') + '|' + (e.action || ''); if (!so[key]) { so[key] = 1; out.operationLog.push(e); } }); });
+    return out;
+}
+
+/**
+ * 写入所有可用后端（WebDAV + Gist 双写）。各后端 best-effort：
+ * 主后端（WebDAV）成功即视为同步成功；Gist 因 1MB 上限等原因失败只告警、不阻断。
+ * 全部失败才抛出。
+ */
+async function pushToAllBackends(content) {
+    const backends = activeBackends();
+    if (backends.length === 0) throw new Error('未配置任何同步后端');
+    const results = await Promise.allSettled(backends.map(function (b) {
+        return (b === 'webdav')
+            ? webdavPutText(webdavSettings.path || 'crm-data.json', content)
+            : updateGist(content);
+    }));
+    const failures = results.filter(function (r) { return r.status === 'rejected'; });
+    if (failures.length === results.length) {
+        const msg = failures.map(function (f) { return (f.reason && f.reason.message) || '未知错误'; }).join('；');
+        throw new Error('所有同步后端写入失败：' + msg);
+    }
+    if (failures.length > 0) {
+        const msg = failures.map(function (f) { return (f.reason && f.reason.message) || '失败'; }).join('；');
+        logSyncGlobal(syncTag() + '部分后端写入失败（已忽略，主后端已同步）：' + msg, 'warning');
+        showToast('已同步到主后端，但 ' + msg);
+    }
 }
 
 function getSyncPayload() {
@@ -12519,40 +12691,43 @@ async function fetchGist() {
 }
 
 async function checkRemoteChanged() {
-    // WebDAV 模式：用 HEAD 取 ETag / Last-Modified 作为变更指纹（无需下载全文，省流量）
-    if (isWebdavProvider()) {
+    // 多后端：任一可用后端发生变更即视为「云端有更新」，触发一次同步。
+    // 各后端用独立的 ETag / Last-Modified 指纹（WebDAV 与 Gist 不再共用同一字段，避免互相覆盖）。
+    const backends = activeBackends();
+    if (backends.length === 0) return false;
+    let anyChanged = false;
+    for (let i = 0; i < backends.length; i++) {
+        const b = backends[i];
         try {
-            const r = await httpRequest('HEAD', webdavFileUrl(webdavSettings.path || 'crm-data.json'), webdavAuthHeaders(), undefined);
-            if (r.status === 404) return false;
-            const h = r.headers || {};
-            const fp = h.etag || h.ETag || h['last-modified'] || h['Last-Modified'] || h['content-length'] || h['Content-Length'] || '';
-            if (!fp) return false;
-            const hadEtag = !!syncSettings._etag;
-            const changed = hadEtag && (fp !== syncSettings._etag);
-            syncSettings._etag = fp;
-            saveSyncSettings();
-            return changed;
-        } catch (e) { return false; }
+            let changed = false;
+            if (b === 'webdav') {
+                const r = await httpRequest('HEAD', webdavFileUrl(webdavSettings.path || 'crm-data.json'), webdavAuthHeaders(), undefined);
+                if (r.status === 404) { syncSettings._etagWebdav = ''; continue; }
+                const h = r.headers || {};
+                const fp = h.etag || h.ETag || h['last-modified'] || h['Last-Modified'] || h['content-length'] || h['Content-Length'] || '';
+                if (!fp) continue;
+                const had = !!syncSettings._etagWebdav;
+                changed = had && (fp !== syncSettings._etagWebdav);
+                syncSettings._etagWebdav = fp;
+            } else {
+                const headers = {
+                    'Authorization': 'token ' + syncSettings.token,
+                    'Accept': 'application/vnd.github.v3+json'
+                };
+                const had = !!syncSettings._etagGist;
+                if (syncSettings._etagGist) headers['If-None-Match'] = syncSettings._etagGist;
+                const res = await fetch(getGistApiUrl(), { method: 'GET', headers });
+                if (res.status === 304) { continue; } // 未修改
+                syncSettings._etagGist = res.headers.get('ETag') || '';
+                // 首次检查（无 ETag）：仅记录指纹，不触发同步
+                if (!had) continue;
+                changed = res.ok;
+            }
+            if (changed) anyChanged = true;
+        } catch (e) { /* 忽略单个后端错误，继续检查其余后端 */ }
     }
-    try {
-        const headers = {
-            'Authorization': 'token ' + syncSettings.token,
-            'Accept': 'application/vnd.github.v3+json'
-        };
-        const hadEtag = !!syncSettings._etag;
-        if (syncSettings._etag) {
-            headers['If-None-Match'] = syncSettings._etag;
-        }
-        const res = await fetch(getGistApiUrl(), { method: 'GET', headers });
-        if (res.status === 304) return false; // 未修改
-        syncSettings._etag = res.headers.get('ETag') || '';
-        saveSyncSettings();
-        // 首次检查（无 ETag）：仅记录 ETag，不触发同步
-        if (!hadEtag) return false;
-        return res.ok;
-    } catch(e) {
-        return false;
-    }
+    saveSyncSettings();
+    return anyChanged;
 }
 
 async function updateGist(content) {
@@ -12589,7 +12764,7 @@ async function updateGist(content) {
     }
     // 更新 ETag 并固化规范化后的文件名（避免再次拼接空/非法文件名导致 422）
     syncSettings.filename = fname;
-    syncSettings._etag = res.headers.get('ETag') || '';
+    syncSettings._etagGist = res.headers.get('ETag') || '';
     saveSyncSettings();
     return await res.json();
 }
@@ -12962,13 +13137,7 @@ async function doAutoSync() {
     logSyncGlobal(syncTag() + '自动同步：获取云端数据...', 'info');
 
     try {
-        const gist = await fetchRemoteFile();
-        if (remoteFileTruncated(gist)) {
-            logSyncGlobal(syncTag() + '云端数据已截断（超过 1MB），已阻断同步以防数据损坏，请先从备份恢复', 'error');
-            showToast('云端数据已截断，请勿同步，请先从备份恢复！');
-            return;
-        }
-        const remoteData = parseRemoteGist(gist);
+        const remoteData = await fetchUnionRemoteData();
 
         if (!remoteData) {
             logSyncGlobal(syncTag() + '云端无数据，上传本地...', 'info');
@@ -13032,7 +13201,7 @@ async function pushToGistSilent() {
     payload._meta.lastModified = new Date().toISOString();
     payload._meta.lastSyncedAt = new Date().toISOString();
     try {
-        await updateRemoteFile(gistEncode(payload));
+        await pushToAllBackends(gistEncode(payload));
         state._meta.lastModified = payload._meta.lastModified;
         state._meta.lastSyncedAt = payload._meta.lastSyncedAt;
         markChangesSynced(syncStartTime);
@@ -13224,9 +13393,9 @@ async function doSync(force) {
     const syncStart = Date.now();
     try {
         logSyncGlobal(syncTag() + '手动同步：获取云端数据...', 'info');
-        let gist;
+        let remoteData;
         try {
-            gist = await fetchRemoteFile();
+            remoteData = await fetchUnionRemoteData();
         } catch(e) {
             logSyncGlobal(syncTag() + '手动同步失败：' + e.message, 'error');
             setConnState(false, e.message);
@@ -13234,13 +13403,6 @@ async function doSync(force) {
             return;
         }
 
-        if (remoteFileTruncated(gist)) {
-            logSyncGlobal(syncTag() + '云端数据已截断（超过 1MB），已阻断同步以防数据损坏，请先从备份恢复', 'error');
-            showToast('云端数据已截断，请勿同步，请先从备份恢复！');
-            return;
-        }
-
-        const remoteData = parseRemoteGist(gist);
         if (!remoteData) {
             logSyncGlobal(syncTag() + '手动同步：云端无数据，上传中...', 'info');
             await pushToGist();
@@ -13312,7 +13474,7 @@ async function pushToGist() {
     payload._meta.lastModified = new Date().toISOString();
     payload._meta.lastSyncedAt = new Date().toISOString();
     try {
-        await updateRemoteFile(gistEncode(payload));
+        await pushToAllBackends(gistEncode(payload));
         state._meta.lastModified = payload._meta.lastModified;
         state._meta.lastSyncedAt = payload._meta.lastSyncedAt;
         // 标记本次推送的变更已同步
@@ -13425,8 +13587,7 @@ async function clearExpiredCloudData() {
             setSyncButtonSyncing(true);
             try {
                 logSyncGlobal('正在拉取云端数据...', 'info');
-                const gist = await fetchRemoteFile();
-                const remoteData = parseRemoteGist(gist);
+                const remoteData = await fetchUnionRemoteData();
                 if (!remoteData) {
                     showToast('云端数据为空或格式不正确');
                     return;
@@ -13493,7 +13654,7 @@ async function clearExpiredCloudData() {
 
                 // 上传清理后的数据
                 logSyncGlobal('正在上传清理后的数据...', 'info');
-                await updateRemoteFile(gistEncode(remoteData));
+                await pushToAllBackends(gistEncode(remoteData));
 
                 // 同步更新本地
                 remoteSnapshot = remoteData;
@@ -14139,8 +14300,9 @@ function bindEvents() {
         loadSyncSettings();
         loadWebdavSettings();
         const wasUnconfigured = !syncReady();
-        const provEl = document.getElementById('syncProvider');
-        syncSettings.provider = (provEl && provEl.value === 'gist') ? 'gist' : 'webdav';
+        // provider 反映「当前环境可用的主后端」：桌面/安卓用 WebDAV，网页端降级为 Gist。
+        // 这样既保留 isWebdavProvider() 对备份等既有逻辑的含义，又由 activeBackends() 驱动双后端同步。
+        syncSettings.provider = canUseWebdav() ? 'webdav' : 'gist';
         // WebDAV 配置（密码走安全存储，不进同步数据）
         const wu = document.getElementById('webdavUrl');
         const wusr = document.getElementById('webdavUser');
@@ -14151,19 +14313,18 @@ function bindEvents() {
         if (wpath) webdavSettings.path = (wpath.value || '').trim() || 'crm-data.json';
         if (wpEl) setWebdavPass(wpEl.value || '');
         saveWebdavSettings();
-        // Gist 配置：仅在 GitHub Gist 为当前同步方式时写入。
-        // 关键修复：切到 WebDAV（坚果云）保存时，绝不能把 Gist 的 Token / Gist ID / 文件名清空，
-        // 否则之后切回 Gist 会因 gistId 为空而向 api.github.com/gists/ 发请求 → 报 422 Validation Failed。
-        if (isWebdavProvider()) {
-            // WebDAV 分支：保留 Gist 字段原值，只切换 provider（provider 已在上方设置）
-        } else {
-            syncSettings.token = (document.getElementById('syncToken').value || '').trim();
-            syncSettings.gistId = normalizeGistId(document.getElementById('syncGistId').value);
-            syncSettings.filename = (document.getElementById('syncFilename').value || '').trim() || 'crm-data.json';
-        }
-        syncSettings._etag = ''; // 重置变更指纹
+        // Gist 配置：双后端下始终保存（不再因切换到 WebDAV 而清空），保证镜像可用
+        syncSettings.token = (document.getElementById('syncToken').value || '').trim();
+        syncSettings.gistId = normalizeGistId(document.getElementById('syncGistId').value);
+        syncSettings.filename = (document.getElementById('syncFilename').value || '').trim() || 'crm-data.json';
+        // 镜像到 Gist 开关
+        const mchk = document.getElementById('mirrorGistChk');
+        syncSettings.mirrorGist = !!(mchk && mchk.checked);
+        syncSettings._etagWebdav = ''; // 重置变更指纹
+        syncSettings._etagGist = '';
         logOperation('保存云端同步配置（方式：' + syncBackendLabel() +
-            (isWebdavProvider() ? '，路径：' + (webdavSettings.path || '空') : '，Gist ID：' + (syncSettings.gistId || '空')) + '）', 'info');
+            '，镜像Gist：' + (syncSettings.mirrorGist ? '开' : '关') +
+            '，WebDAV路径：' + (webdavSettings.path || '空') + '）', 'info');
         saveSyncSettings();
         applySyncProviderUI();
         updateSyncStatusUI();
