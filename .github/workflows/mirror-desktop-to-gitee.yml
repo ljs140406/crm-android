@@ -1,0 +1,106 @@
+# 桌面版发布镜像：GitHub Release -> Gitee latest（桌面端自动更新源）
+#
+# 为什么放在安卓仓库：本仓库的 Secrets 里已配置 GITEE_TOKEN，而 crm-desktop 仓库没有，
+# 这里只是复用现成的凭据。本工作流为手动触发（workflow_dispatch），不影响 APK 构建流水线。
+#
+# 用法：Actions -> Mirror Desktop Release to Gitee -> Run workflow -> 填版本号（如 1.1.6）
+
+name: Mirror Desktop Release to Gitee
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '要镜像的桌面版本号（不含 v 前缀，如 1.1.6）'
+        required: true
+        default: '1.1.6'
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1) 从 GitHub Release 下载桌面资产
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -e
+          mkdir -p dist
+          BASE="https://github.com/ljs140406/crm-desktop/releases/download/v${VERSION}"
+          for f in \
+            "CRM-Desktop-${VERSION}-x64.exe" \
+            "CRM-Desktop-${VERSION}-Portable.exe" \
+            "CRM-Desktop-${VERSION}-x64.exe.blockmap" \
+            "latest.yml"; do
+            echo "↓ $f"
+            curl -fL --retry 3 --retry-delay 5 -o "dist/$f" "$BASE/$f"
+          done
+          ls -lh dist
+
+      - name: 2) 重建 Gitee latest release 并上传资产
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -e
+          API="https://gitee.com/api/v5"
+          OWNER="lij140406"
+          REPO="crm-desktop"
+
+          # 2.1 删除旧的 latest release。
+          # 注意：Gitee 的 release assets 列表不含 id（只有 name / browser_download_url），
+          # 无法逐个删除，只能整删 release 让 attach_files 级联清除。
+          OLD=$(curl -s "$API/repos/$OWNER/$REPO/releases/tags/latest?access_token=$GITEE_TOKEN")
+          OLD_ID=$(echo "$OLD" | jq -r '.id // empty')
+          if [ -n "$OLD_ID" ]; then
+            echo "删除旧 latest release (id=$OLD_ID)"
+            curl -s -X DELETE "$API/repos/$OWNER/$REPO/releases/$OLD_ID?access_token=$GITEE_TOKEN" > /dev/null
+            curl -s -X DELETE "$API/repos/$OWNER/$REPO/tags/latest?access_token=$GITEE_TOKEN" > /dev/null || true
+          else
+            echo "无旧 latest release，直接新建"
+          fi
+
+          # 2.2 新建 latest release
+          NEW=$(curl -s -X POST "$API/repos/$OWNER/$REPO/releases?access_token=$GITEE_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"tag_name\":\"latest\",\"name\":\"v${VERSION}\",\"body\":\"CRM Desktop v${VERSION}\",\"target_commitish\":\"master\"}")
+          RID=$(echo "$NEW" | jq -r '.id // empty')
+          if [ -z "$RID" ]; then
+            echo "::error::创建 Gitee release 失败：$NEW"
+            exit 1
+          fi
+          echo "新建 release id=$RID"
+
+          # 2.3 逐个上传资产（单文件上限 100MB，超时放宽到 30 分钟，失败重试一次）
+          for f in dist/*; do
+            NAME=$(basename "$f")
+            echo "↑ $NAME ($(du -h "$f" | cut -f1))"
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              --max-time 1800 --retry 1 --retry-delay 10 --retry-all-errors \
+              -X POST "$API/repos/$OWNER/$REPO/releases/$RID/attach_files" \
+              -F "access_token=$GITEE_TOKEN" \
+              -F "file=@$f")
+            echo "  -> HTTP $CODE"
+            if [ "$CODE" != "201" ]; then
+              echo "::error::$NAME 上传失败 (HTTP $CODE)"
+              exit 1
+            fi
+          done
+
+      - name: 3) 验证 Gitee 更新源可读
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -e
+          echo "=== Gitee latest.yml ==="
+          curl -fsSL "https://gitee.com/lij140406/crm-desktop/releases/download/latest/latest.yml" | head -6
+          echo ""
+          echo "=== 资产可下载性（只取 HTTP 头）==="
+          for f in \
+            "CRM-Desktop-${VERSION}-x64.exe" \
+            "CRM-Desktop-${VERSION}-Portable.exe"; do
+            CODE=$(curl -sIL -o /dev/null -w "%{http_code}" \
+              "https://gitee.com/lij140406/crm-desktop/releases/download/latest/$f")
+            SIZE=$(curl -sIL "https://gitee.com/lij140406/crm-desktop/releases/download/latest/$f" \
+              | grep -i '^content-length' | tail -1 | tr -d '\r' | awk '{print $2}')
+            echo "$f -> HTTP $CODE, ${SIZE} bytes"
+          done
