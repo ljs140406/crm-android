@@ -11388,6 +11388,7 @@ function clearOperationLog() {
 // ==================== 备份 Gist 操作（手动触发） ====================
 function getBackupGistApiUrl() { return 'https://api.github.com/gists/' + normalizeGistId(backupSettings.gistId); }
 let _backupArrCache = null; // 备份列表缓存：写操作后直接内存重绘，避免重复回云端拉取
+let _backupArrSource = null; // 备份缓存数组的真实来源（'webdav'|'gist'）：「存储」徽标以此为准，而非当前设置（修复徽标跟随设置切换的假显示）
 // 周计划条目计数：网页端与云函数统一算法（只数 thisWeek/nextWeek 周期对象里有内容的格子）
 function countWorkPlanItems(plan) {
     if (!plan) return 0;
@@ -11436,14 +11437,17 @@ function getBackupFilename() {
 async function fetchBackupGist() {
     const fname = getBackupFilename();
     // WebDAV 模式：备份与主同步共用同一套 WebDAV 凭据，同样不受 Gist 1MB 限制
+    // 返回值带 source 字段：数据实际读自哪个后端，供「存储」徽标按真实位置标注（而非按当前设置）
     if (getBackupTarget() === 'webdav') {
         const txt = await webdavGetText(fname);
-        return { files: (txt == null) ? {} : { [fname]: { content: txt } } };
+        return { source: 'webdav', files: (txt == null) ? {} : { [fname]: { content: txt } } };
     }
     const headers = { 'Authorization': 'token ' + backupSettings.token, 'Accept': 'application/vnd.github.v3+json' };
     const res = await fetch(getBackupGistApiUrl(), { method: 'GET', headers, cache: 'no-store' });
     if (!res.ok) throw new Error('请求失败 ' + res.status);
-    return await res.json();
+    const j = await res.json();
+    j.source = 'gist';
+    return j;
 }
 async function updateBackupGist(content) {
     const fname = getBackupFilename();
@@ -11505,6 +11509,7 @@ async function createBackup() {
         state._meta.lastBackupAt = snapshot._backupTime;
         saveData();
         _backupArrCache = arr;
+        _backupArrSource = getBackupTarget() === 'webdav' ? 'webdav' : 'gist'; // 刚写入的后端即缓存真实来源
         renderBackupList(arr);
         renderBackupUsage(arr);
         checkBackupReminder();
@@ -11525,31 +11530,35 @@ async function createBackup() {
 async function renderBackupList(providedArr) {
     const el = document.getElementById('backupList');
     if (!el) return;
-    const _isDav = getBackupTarget() === 'webdav';
-    if (!backupReady()) { el.innerHTML = '<div class="sync-log-empty">尚未配置备份' + (_isDav ? ' WebDAV' : ' Gist') + '</div>'; return; }
+    const _cfgDav = getBackupTarget() === 'webdav';
+    if (!backupReady()) { el.innerHTML = '<div class="sync-log-empty">尚未配置备份' + (_cfgDav ? ' WebDAV' : ' Gist') + '</div>'; return; }
     let arr = providedArr;
+    let _src = (Array.isArray(arr) && (_backupArrSource === 'webdav' || _backupArrSource === 'gist')) ? _backupArrSource : null;
     if (!Array.isArray(arr)) {
         el.innerHTML = '<div class="sync-log-empty">查询中…</div>';
         try {
             const gist = await fetchBackupGist();
+            _src = (gist.source === 'webdav' || gist.source === 'gist') ? gist.source : getBackupTarget();
             const fname = getBackupFilename();
             const file = gist.files && gist.files[fname];
-            if (!file || !file.content) { el.innerHTML = '<div class="sync-log-empty">暂无备份</div>'; return; }
+            if (!file || !file.content) { el.innerHTML = '<div class="sync-log-empty">暂无备份</div>'; _backupArrCache = []; _backupArrSource = _src; return; }
             const decoded = gistDecode(file.content);
-            if (!Array.isArray(decoded) || decoded.length === 0) { el.innerHTML = '<div class="sync-log-empty">暂无备份</div>'; return; }
+            if (!Array.isArray(decoded) || decoded.length === 0) { el.innerHTML = '<div class="sync-log-empty">暂无备份</div>'; _backupArrCache = []; _backupArrSource = _src; return; }
             arr = decoded;
         } catch(e) { el.innerHTML = '<div class="sync-log-empty">读取备份失败：' + (e.message || e) + '</div>'; return; }
     }
     _backupArrCache = arr;
+    _backupArrSource = _src || getBackupTarget();
     if (arr.length === 0) { el.innerHTML = '<div class="sync-log-empty">暂无备份</div>'; return; }
+    // 「存储」徽标按数据实际来源（_backupArrSource）标注，而非当前备份目标设置
+    const storeLabel = _backupArrSource === 'webdav' ? 'WebDAV' : 'Gist';
+    const storeCls = _backupArrSource === 'webdav' ? 'webdav' : 'gist';
     el.innerHTML = '<div class="bk-grid bk-head"><div>备份时间</div><div>存储</div><div>设备</div><div>数据明细</div><div>大小</div><div>操作</div></div>' +
         arr.map(function (e) {
             const ts = formatFullTime(e.backupTime);
             const dev = e.deviceName || '未知设备';
             const c = backupItemCounts(e);
             const detail = c ? ('客' + (c.customers||0) + '·跟' + (c.followups||0) + '·待' + (c.todos||0) + '·历' + (c.history||0) + '·计' + (c.workPlan||0) + '·状' + (c.statuses||0)) : '—';
-            const storeLabel = _isDav ? 'WebDAV' : 'Gist';
-            const storeCls = _isDav ? 'webdav' : 'gist';
             return '<div class="bk-grid bk-row"><div class="bk-time">' + ts + '</div><span class="bk-store-badge ' + storeCls + '">' + storeLabel + '</span><span class="dev-badge">' + escapeHtml(dev) + '</span><div class="bk-detail">' + detail + '</div><div class="bk-size">' + (e.sizeKB || 0) + ' KB</div><div><button class="btn btn-sm btn-primary" data-bt="' + e.backupTime + '">恢复</button></div></div>';
         }).join('');
     el.querySelectorAll('button[data-bt]').forEach(function (b) {
@@ -11649,8 +11658,10 @@ async function renderBackupUsage(providedArr) {
     valEl.onclick = null;
     const _fname = getBackupFilename();
     const _isDav = getBackupTarget() === 'webdav';
-    const _limit = _isDav ? 100 * 1024 * 1024 : CLOUD_FILE_LIMIT;
-    const _limitText = _isDav ? 'WebDAV 网盘（无 1MB 限制）' : 'Gist 上限 1MB';
+    // 占用上限按实际数据来源：传入内存数组时其来源可能与当前设置不同（切换目标瞬间），以 _backupArrSource 为准
+    const _dav = (Array.isArray(providedArr) && (_backupArrSource === 'webdav' || _backupArrSource === 'gist')) ? (_backupArrSource === 'webdav') : _isDav;
+    const _limit = _dav ? 100 * 1024 * 1024 : CLOUD_FILE_LIMIT;
+    const _limitText = _dav ? 'WebDAV 网盘（无 1MB 限制）' : 'Gist 上限 1MB';
     if (subEl) subEl.textContent = _fname + ' · ' + _limitText;
 
     // (A0) 内存数组直绘：避免写操作后重复回云端拉取
@@ -11713,7 +11724,9 @@ function renderHistoryRetentionRow() {
 }
 function openBackupRestoreModal() {
     loadBackupSettings();
-    renderBackupModalList(_backupArrCache);
+    // 缓存仅在其真实来源与当前备份目标一致时复用；否则强制重新拉取（修复：切换目标后弹窗沿用旧目标数据、徽标却标成新目标）
+    const _cacheUsable = Array.isArray(_backupArrCache) && (_backupArrSource === 'webdav' || _backupArrSource === 'gist') && _backupArrSource === getBackupTarget();
+    renderBackupModalList(_cacheUsable ? _backupArrCache : undefined);
     var m = document.getElementById('backupRestoreModal'); if (m) m.classList.add('show');
 }
 function closeBackupRestoreModal() { var m = document.getElementById('backupRestoreModal'); if (m) m.classList.remove('show'); }
@@ -11732,11 +11745,22 @@ async function renderBackupModalList(providedArr) {
         return;
     }
     const _fname = getBackupFilename();
-    const _isDav = getBackupTarget() === 'webdav';
+    // 未配置提示按当前设置；数据相关文案/徽标按实际来源 _src
+    if (!backupReady()) {
+        listEl.innerHTML = ''; if (emptyEl) emptyEl.style.display = 'block';
+        if (subEl) subEl.textContent = getBackupTarget() === 'webdav' ? '尚未配置备份 WebDAV' : '尚未配置备份 Gist';
+        if (fillEl) fillEl.style.width = '0'; if (countEl) countEl.textContent = '';
+        updateBackupSelUI();
+        return;
+    }
+    let _src = (Array.isArray(providedArr) && (_backupArrSource === 'webdav' || _backupArrSource === 'gist')) ? _backupArrSource : null;
     const _titleEl = document.getElementById('backupSummaryTitle');
-    if (_titleEl) _titleEl.textContent = _isDav ? '副 WebDAV 备份占用' : '副 Gist 备份占用';
-    const _limit = _isDav ? 100 * 1024 * 1024 : CLOUD_FILE_LIMIT;
-    const _limitText = _isDav ? 'WebDAV 网盘' : '1MB';
+    const _limitInfo = function () {
+        const _d = (_src || getBackupTarget()) === 'webdav';
+        return { dav: _d, limit: _d ? 100 * 1024 * 1024 : CLOUD_FILE_LIMIT, text: _d ? 'WebDAV 网盘' : '1MB' };
+    };
+    let _limitInfoVal = _limitInfo();
+    if (_titleEl) _titleEl.textContent = _limitInfoVal.dav ? '副 WebDAV 备份占用' : '副 Gist 备份占用';
     var arr, usedBytes;
     if (Array.isArray(providedArr)) {
         arr = providedArr;
@@ -11746,14 +11770,18 @@ async function renderBackupModalList(providedArr) {
         if (emptyEl) emptyEl.style.display = 'none';
         try {
             var gist = await fetchBackupGist();
+            _src = (gist.source === 'webdav' || gist.source === 'gist') ? gist.source : getBackupTarget();
             var file = gist.files && gist.files[_fname];
             arr = [];
             if (file && file.content) { try { arr = gistDecode(file.content); } catch (e) {} }
             if (!Array.isArray(arr)) arr = [];
             usedBytes = (file && file.content) ? new Blob([file.content]).size : 0;
+            _limitInfoVal = _limitInfo();
+            if (_titleEl) _titleEl.textContent = _limitInfoVal.dav ? '副 WebDAV 备份占用' : '副 Gist 备份占用';
         } catch (e) { listEl.innerHTML = '<div style="padding:14px;color:#EF4444;font-size:13px;">读取备份失败：' + (e.message || e) + '</div>'; return; }
     }
     _backupArrCache = arr;
+    _backupArrSource = _src || getBackupTarget();
     if (arr.length === 0) { listEl.innerHTML = ''; if (emptyEl) emptyEl.style.display = 'block'; }
     else {
         if (emptyEl) emptyEl.style.display = 'none';
@@ -11764,8 +11792,8 @@ async function renderBackupModalList(providedArr) {
             var dev = e.deviceName || '未知设备';
             var c = backupItemCounts(e);
             var detail = c ? ('客' + (c.customers||0) + '·跟' + (c.followups||0) + '·待' + (c.todos||0) + '·历' + (c.history||0) + '·计' + (c.workPlan||0) + '·状' + (c.statuses||0)) : '—';
-            var storeLabel = _isDav ? 'WebDAV' : 'Gist';
-            var storeCls = _isDav ? 'webdav' : 'gist';
+            var storeLabel = _backupArrSource === 'webdav' ? 'WebDAV' : 'Gist';
+            var storeCls = _backupArrSource === 'webdav' ? 'webdav' : 'gist';
             return '<label class="backup-row"><input type="checkbox" class="bk-check" value="' + e.backupTime + '"><span class="bk-main"><span class="bk-line1"><span class="bk-time">' + ts + '</span><span class="dev-badge">' + escapeHtml(dev) + '</span><span class="bk-store-badge ' + storeCls + '">' + storeLabel + '</span><span class="bk-size">' + (e.sizeKB || 0) + ' KB</span></span><span class="bk-detail">' + detail + '</span></span><span class="bk-actions"><button type="button" class="btn btn-sm btn-primary" data-restore="' + e.backupTime + '">恢复</button><button type="button" class="btn btn-sm btn-danger" data-del="' + e.backupTime + '">删除</button></span></label>';
         }).join('');
         listEl.querySelectorAll('button[data-restore]').forEach(function (b) {
@@ -11776,9 +11804,9 @@ async function renderBackupModalList(providedArr) {
         });
         listEl.querySelectorAll('.bk-check').forEach(function (c) { c.addEventListener('change', updateBackupSelUI); });
     }
-    if (subEl) subEl.textContent = (_isDav ? '存储于 WebDAV 网盘' : '存储于 Gist') + ' · 共 ' + arr.length + ' 条 · ' + _fname;
-    if (countEl) countEl.textContent = '累计 ' + formatBytes(usedBytes) + ' / ' + _limitText;
-    setUsageFill(fillEl, null, null, usedBytes, _limit, _limitText);
+    if (subEl) subEl.textContent = (_backupArrSource === 'webdav' ? '存储于 WebDAV 网盘' : '存储于 Gist') + ' · 共 ' + arr.length + ' 条 · ' + _fname;
+    if (countEl) countEl.textContent = '累计 ' + formatBytes(usedBytes) + ' / ' + _limitInfoVal.text;
+    setUsageFill(fillEl, null, null, usedBytes, _limitInfoVal.limit, _limitInfoVal.text);
     updateBackupSelUI();
 }
 function updateBackupSelUI() {
@@ -11798,6 +11826,7 @@ async function deleteBackupEntry(backupTime) {
     else {
         try {
             var gist = await fetchBackupGist();
+            _backupArrSource = (gist.source === 'webdav' || gist.source === 'gist') ? gist.source : getBackupTarget();
             var file = gist.files && gist.files[_fname];
             var a = file && file.content ? gistDecode(file.content) : [];
             src = Array.isArray(a) ? a : [];
@@ -11830,6 +11859,7 @@ async function deleteBackupEntriesBatch(ids) {
     else {
         try {
             var gist = await fetchBackupGist();
+            _backupArrSource = (gist.source === 'webdav' || gist.source === 'gist') ? gist.source : getBackupTarget();
             var file = gist.files && gist.files[_fname];
             var a = file && file.content ? gistDecode(file.content) : [];
             src = Array.isArray(a) ? a : [];
@@ -11868,6 +11898,7 @@ async function cleanBackupGist() {
                 logSyncGlobal('已清空副 Gist 全部备份（' + cnt + ' 条）', 'success');
                 logOperation('清空云端备份（' + cnt + ' 条）', 'warning');
                 _backupArrCache = [];
+                _backupArrSource = getBackupTarget() === 'webdav' ? 'webdav' : 'gist'; // 刚清空写入的后端
                 renderBackupModalList([]); renderBackupUsage([]); renderBackupList([]);
             } catch (e2) {
                 showToast('清空失败：' + (e2.message || e2));
@@ -11921,8 +11952,11 @@ function bindBackupEvents() {
             if (t !== 'gist' && t !== 'webdav') return;
             backupSettings.target = t;
             saveBackupSettings();
+            // 切换目标即作废旧缓存：缓存数组来自另一目标，若继续复用，列表徽标会标成新目标而数据实为旧目标（且删除会写错位置）
+            _backupArrCache = null; _backupArrSource = null;
             renderBackupModalByProvider();
             setBackupTargetActive(t);
+            loadBackupOverview(); // 重新拉取新目标的真实数据，列表/占用按实际来源展示
         });
     }
     const keepEl = document.getElementById('backupKeepCount');
@@ -12285,12 +12319,16 @@ function openManualBackupModal() {
     const brid = document.getElementById('backupRemindDays'); if (brid) brid.value = (state._meta && state._meta.backupRemindDays) || 7;
     const dnEl = document.getElementById('deviceNameInput'); if (dnEl) dnEl.value = (state._meta && state._meta.deviceName) || '';
     const m = document.getElementById('manualBackupModal'); if (m) m.classList.add('show');
-    // 合并查询：一次拉取，列表 + 占用共用，避免重复回云端
-    if (!backupReady()) { renderBackupUsage(); renderBackupList(); }
-    else { (async function () {
+    loadBackupOverview();
+}
+// 合并查询：一次拉取，列表 + 占用共用，避免重复回云端；同时记录缓存数组的真实来源
+function loadBackupOverview() {
+    if (!backupReady()) { renderBackupUsage(); renderBackupList(); return; }
+    (async function () {
         const _fname = getBackupFilename();
         try {
             const gist = await fetchBackupGist();
+            _backupArrSource = (gist.source === 'webdav' || gist.source === 'gist') ? gist.source : getBackupTarget();
             const file = gist.files && gist.files[_fname];
             let arr = [];
             if (file && file.content) { try { arr = gistDecode(file.content); } catch (e) {} }
@@ -12298,7 +12336,7 @@ function openManualBackupModal() {
             _backupArrCache = arr;
             renderBackupUsage(arr); renderBackupList(arr);
         } catch (e) { renderBackupUsage(); renderBackupList(); }
-    })(); }
+    })();
 }
 function closeManualBackupModal() { const m = document.getElementById('manualBackupModal'); if (m) m.classList.remove('show'); }
 function openSyncLogModal() { renderSyncLog(); const m = document.getElementById('syncLogModal'); if (m) m.classList.add('show'); }
