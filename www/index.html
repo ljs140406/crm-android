@@ -5365,7 +5365,29 @@ function getDeviceLabel() {
 
 // 同步日志和轮询
 let syncLogEntries = [];
-const MAX_SYNC_LOG = 100;
+const SYNC_LOG_KEY = 'crm_sync_log';
+const SYNC_LOG_MAX_DAYS = 7;
+const SYNC_LOG_HARD_CAP = 3000;
+// 启动/同步前从本地读回同步日志（持久化，不再每次打开清空）
+function loadSyncLog() {
+    try {
+        const raw = CRMStore.getItem(SYNC_LOG_KEY);
+        if (raw) {
+            const arr = JSON.parse(raw);
+            if (Array.isArray(arr)) syncLogEntries = arr;
+        }
+    } catch (e) {}
+    trimSyncLog();
+}
+// 仅保留最近 N 天，并设硬上限防异常膨胀
+function trimSyncLog() {
+    const cutoff = Date.now() - SYNC_LOG_MAX_DAYS * 24 * 3600 * 1000;
+    syncLogEntries = syncLogEntries.filter(e => e && new Date(e.time).getTime() > cutoff);
+    if (syncLogEntries.length > SYNC_LOG_HARD_CAP) syncLogEntries = syncLogEntries.slice(0, SYNC_LOG_HARD_CAP);
+}
+function persistSyncLog() {
+    try { CRMStore.setItem(SYNC_LOG_KEY, JSON.stringify(syncLogEntries)); } catch (e) {}
+}
 let autoSyncTimer = null;
 let isAutoSyncing = false;
 // 同步互斥锁：手动（doSync）/ 自动（doAutoSync）共用。任一方进行中时另一方必须让路，
@@ -8794,6 +8816,18 @@ function saveStatusOrder() {
     state._meta.statusRev = Math.max((state._meta.statusRev || 0), (state.statuses && state.statuses._rev) || 0) + 1;
     state._meta.keyStatusNames = Array.isArray(tempKeyStatusNames) ? tempKeyStatusNames.slice() : [];
     recordChange('update', 'status', 'all', '客户状态配置', prevStatuses);
+    // 操作日志：具体记录新增/删除/重命名的状态（避免只记笼统的「客户状态配置」）
+    const _prevStatusMap = {}; (prevStatuses || []).forEach(function (s) { if (s) _prevStatusMap[s.code] = s; });
+    const _newStatusMap = {}; (tempStatuses || []).forEach(function (s) { if (s) _newStatusMap[s.code] = s; });
+    Object.keys(_newStatusMap).forEach(function (code) {
+        if (!_prevStatusMap[code]) logOperation('新增客户状态「' + (_newStatusMap[code].name || code) + '」', 'info');
+    });
+    Object.keys(_prevStatusMap).forEach(function (code) {
+        if (!_newStatusMap[code]) logOperation('删除客户状态「' + (_prevStatusMap[code].name || code) + '」', 'warning');
+    });
+    Object.keys(_newStatusMap).forEach(function (code) {
+        if (_prevStatusMap[code] && _prevStatusMap[code].name !== _newStatusMap[code].name) logOperation('重命名客户状态「' + _prevStatusMap[code].name + '」→「' + _newStatusMap[code].name + '」', 'info');
+    });
     saveData();
     closeStatusModal();
     renderCustomers();
@@ -10744,7 +10778,7 @@ function doImportData(data, counts, mode) {
             state.reportCustomers = data.reportCustomers;
         }
 
-        // 系统操作日志：并集合并，按 time+action 去重，保留最近 MAX_OPERATION_LOG 条
+        // 系统操作日志：并集合并，按 time+action 去重，保留最近 7 天
         if (data.operationLog && Array.isArray(data.operationLog)) {
             const opSeen = new Set((state._operationLog || []).map(e => (e.time || '') + '|' + (e.action || '')));
             const mergedOps = (state._operationLog || []).slice();
@@ -10755,7 +10789,7 @@ function doImportData(data, counts, mode) {
                 mergedOps.push(e);
             });
             mergedOps.sort((a, b) => new Date(b.time || 0).getTime() - new Date(a.time || 0).getTime());
-            state._operationLog = mergedOps.slice(0, MAX_OPERATION_LOG);
+            state._operationLog = mergedOps; trimOperationLog();
         }
 
         // 更新元数据
@@ -11276,8 +11310,9 @@ function cleanTombstones() {
 // ==================== 同步日志 ====================
 function logSyncGlobal(msg, type) {
     syncLogEntries.unshift({ time: new Date().toISOString(), msg, type: type || 'info', dev: getDeviceLabel() });
-    if (syncLogEntries.length > MAX_SYNC_LOG) syncLogEntries.length = MAX_SYNC_LOG;
+    trimSyncLog();
     renderSyncLog();
+    persistSyncLog();
 }
 function renderSyncLog() {
     const log = document.getElementById('syncLog');
@@ -11286,7 +11321,7 @@ function renderSyncLog() {
         log.innerHTML = '<div class="sync-log-empty">暂无操作记录</div>';
         return;
     }
-    log.innerHTML = syncLogEntries.slice(0, MAX_SYNC_LOG).map(e => {
+    log.innerHTML = syncLogEntries.map(e => {
         const dev = e.dev ? ' <span class="sync-log-dev">' + escapeHtml(e.dev) + '</span>' : '';
         return '<div class="sync-log-item ' + (e.type || '') + '"><span class="time">' + formatFullTime(e.time) + '</span>' + dev + ' ' + escapeHtml(e.msg) + '</div>';
     }).join('');
@@ -11295,6 +11330,7 @@ function renderSyncLog() {
 
 function clearSyncLog() {
     syncLogEntries = [];
+    persistSyncLog();
     renderSyncLog();
     logSyncGlobal('日志已清空', 'info');
 }
@@ -11335,7 +11371,15 @@ function logSyncMergeResult(prefix, changes, syncStart) {
 }
 
 // ==================== 系统操作日志 ====================
-const MAX_OPERATION_LOG = 100;
+const OPERATION_LOG_MAX_DAYS = 7;
+const OPERATION_LOG_HARD_CAP = 500;
+// 仅保留最近 7 天的操作日志（按 time 过滤），并设硬上限防异常膨胀
+function trimOperationLog() {
+    if (!state._operationLog) return;
+    const cutoff = Date.now() - OPERATION_LOG_MAX_DAYS * 24 * 3600 * 1000;
+    state._operationLog = state._operationLog.filter(e => e && new Date(e.time).getTime() > cutoff);
+    if (state._operationLog.length > OPERATION_LOG_HARD_CAP) state._operationLog = state._operationLog.slice(0, OPERATION_LOG_HARD_CAP);
+}
 
 function logOperation(action, type, detail) {
     if (!state._operationLog) state._operationLog = [];
@@ -11346,10 +11390,8 @@ function logOperation(action, type, detail) {
         detail: detail || '',
         dev: getDeviceLabel()
     });
-    // 保留最近 50 条
-    if (state._operationLog.length > MAX_OPERATION_LOG) {
-        state._operationLog.length = MAX_OPERATION_LOG;
-    }
+    // 保留最近 7 天
+    trimOperationLog();
     // 持久化（静默保存，不触发同步）
     try {
         CRMStore.setItem(STORAGE_KEY, gistEncode(state));
@@ -11952,6 +11994,7 @@ function bindBackupEvents() {
             if (t !== 'gist' && t !== 'webdav') return;
             backupSettings.target = t;
             saveBackupSettings();
+            logOperation('切换备份目标为 ' + (t === 'webdav' ? 'WebDAV' : 'Gist'), 'info');
             // 切换目标即作废旧缓存：缓存数组来自另一目标，若继续复用，列表徽标会标成新目标而数据实为旧目标（且删除会写错位置）
             _backupArrCache = null; _backupArrSource = null;
             renderBackupModalByProvider();
@@ -11974,6 +12017,7 @@ function bindBackupEvents() {
             const bg = document.getElementById('backupGistId'); if (bg) backupSettings.gistId = bg.value.trim();
             const dn = document.getElementById('deviceNameInput'); if (dn) { const v = dn.value.trim(); if (v) { state._meta = state._meta || {}; state._meta.deviceName = v; } }
             saveBackupSettings();
+            logOperation('保存备份设置（Gist：' + (backupSettings.gistId ? '已填' : '空') + '，令牌：' + (backupSettings.token ? '已填' : '未填') + '）', 'info');
             saveData();
             pushSettingsDebounced();
             showToast('备份设置已保存');
@@ -12985,9 +13029,9 @@ async function checkRemoteChanged() {
                 const r = await httpRequest('HEAD', webdavFileUrl(webdavSettings.path || 'crm-data.json'), webdavAuthHeaders(), undefined);
                 if (r.status === 404) { syncSettings._etagWebdav = ''; continue; }
                 const h = r.headers || {};
-                const fp = h.etag || h.ETag || h['last-modified'] || h['Last-Modified'] || h['content-length'] || h['Content-Length'] || '';
-                if (!fp) continue;
+                const fp = h['etag'] || h['ETag'] || h['last-modified'] || h['Last-Modified'] || h['content-length'] || h['Content-Length'] || '';
                 const had = !!syncSettings._etagWebdav;
+                if (!fp) continue; // 无可用校验头，无法探测远端变更，静默跳过（避免误触发同步）
                 changed = had && (fp !== syncSettings._etagWebdav);
                 syncSettings._etagWebdav = fp;
             } else {
@@ -13275,7 +13319,7 @@ function applyRemoteData(remoteData) {
     state._changeLog = (state._changeLog || []).concat(
         remoteLog.filter(r => !(state._changeLog || []).some(l => l.id === r.id && l.entity === r.entity))
     );
-    // 合并云端的操作日志（系统操作日志）：并集合并，按 time+action 去重，保留最近 MAX_OPERATION_LOG 条（新→旧）
+    // 合并云端的操作日志（系统操作日志）：并集合并，按 time+action 去重，保留最近 7 天（新→旧）
     const localOps = state._operationLog || [];
     const remoteOps = remoteData.operationLog || [];
     const opSeen = new Set();
@@ -13287,7 +13331,7 @@ function applyRemoteData(remoteData) {
         mergedOps.push(e);
     });
     mergedOps.sort((a, b) => new Date(b.time || 0).getTime() - new Date(a.time || 0).getTime());
-    state._operationLog = mergedOps.slice(0, MAX_OPERATION_LOG);
+    state._operationLog = mergedOps; trimOperationLog();
     // 把本次拉取得到的远端变化也加入 changeLog（已同步状态，保留 1 天用于展示）
     changes.forEach(c => {
         c.timestamp = new Date().toISOString();
@@ -15490,6 +15534,7 @@ function init() {
     loadSyncSettings();
     loadWebdavSettings();
     loadData();
+    loadSyncLog();
     // 原生存储（安卓 Filesystem 为异步）hydrate 完成后，重新载入数据并刷新当前页。
     // 桌面端走同步 IPC，hydrate 在 CRMStore 构造时即完成，此回调不会被触发，无竞态。
     try {
