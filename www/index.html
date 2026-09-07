@@ -5322,6 +5322,7 @@ let state = {
     todos: [],
     workPlan: { thisWeek:  {}, nextWeek: {} },
     reportCustomers: [],
+    reportDeleted: {},
     history: [],
     statuses: [],
     _meta: { lastModified: null, lastSyncedAt: null, deviceName: null },
@@ -9633,6 +9634,7 @@ document.addEventListener('click', closeAllMoreMenus);
 let reportFocusName = null; // 移动/删除后按客户名还原焦点（而非旧序号）
 function ensureReportList() {
     if (!Array.isArray(state.reportCustomers)) state.reportCustomers = [];
+    if (!state.reportDeleted || typeof state.reportDeleted !== 'object') state.reportDeleted = {};
     return state.reportCustomers;
 }
 function renderReportCustomers() {
@@ -9715,6 +9717,7 @@ function addReportCustomer() {
             const list = ensureReportList();
             if (list.some(function (r) { return r.name === name; })) { showToast('该客户已在近期汇报列表中'); return; }
             list.push({ id: (c ? c.id : ''), name: name, note: '' });
+            if (state.reportDeleted && state.reportDeleted[name]) { delete state.reportDeleted[name]; } // 重新添加：清除删除墓碑，避免被同步再次剔除
             renderReportCustomers();
             autoSavePlan();
             markReportDirty();
@@ -9736,11 +9739,17 @@ function removeReportCustomer(idx) {
     const list = ensureReportList();
     const rc = list[idx];
     const preview = ((rc && rc.name) || '').trim() || '这位客户';
-    showConfirm('确定删除「' + preview + '」吗？删除后无法恢复。', function () {
+    showConfirm('确定删除「' + preview + '」吗？删除后其他设备也会同步删除。', function () {
+        const nm = (rc && (rc.name || '')).trim();
+        const delHash = rc ? _hashItem('reportItem', rc, { reportItem: ['note', 'starred'] }) : '';
         list.splice(idx, 1);
+        state.reportDeleted = state.reportDeleted || {};
+        if (nm) state.reportDeleted[nm] = { ts: new Date().toISOString(), hash: delHash };
         renderReportCustomers();
         autoSavePlan();
         markReportDirty();
+        saveData();
+        logOperation('删除近期汇报客户「' + preview + '」', 'info');
     }, '删除汇报客户');
 }
 // 近期汇报客户：标记/取消「关注」（starred 存于 reportCustomers 项；随 reportRev 同步）
@@ -10470,6 +10479,7 @@ function exportData(ext) {
         history: state.history,
         statuses: state.statuses,
         reportCustomers: state.reportCustomers,
+        reportDeleted: state.reportDeleted || {},
         _tombstones: state._tombstones,
         _changeLog: state._changeLog || [],
         _operationLog: state._operationLog || []
@@ -11126,6 +11136,90 @@ function _hashMap(arr, entity, fieldsMap) {
 function _stableHashVal(v) {
     try { return JSON.stringify(v == null ? '' : v); } catch (e) { return String(typeof v); }
 }
+
+// 汇报客户：以 name 为稳定键的逐条哈希（同步基准/冲突检测用，避开下标错配与空 id 撞车）
+function _hashMapByName(arr, fields) {
+    const m = {};
+    (arr || []).forEach(it => {
+        const k = (it && (it.name || '')).trim();
+        if (k) m[k] = _hashItem('reportItem', it, { reportItem: fields });
+    });
+    return m;
+}
+// 汇报客户删除墓碑合并：跨端删除生效（并集，按 ts 取较新），并剔除超过 30 天的陈旧墓碑
+function mergeReportDeleted(localDel, remoteDel) {
+    const out = {};
+    const all = Object.keys(Object.assign({}, localDel || {}, remoteDel || {}));
+    const cutoff = Date.now() - 30 * 24 * 3600 * 1000;
+    all.forEach(nm => {
+        const l = (localDel || {})[nm], r = (remoteDel || {})[nm];
+        let pick = l || r;
+        if (l && r) pick = (new Date(r.ts || 0).getTime() >= new Date(l.ts || 0).getTime()) ? r : l;
+        if (pick && pick.ts && new Date(pick.ts).getTime() > cutoff) out[nm] = pick;
+    });
+    return out;
+}
+// 汇报客户逐条并集合并（name 为稳定键）：
+// 两端都有的同名项 → 取相对同步基准被修改的那一端（单方修改则采纳修改端，避免回退）；
+// 仅一端有 → 采纳该端（并集）；被任一侧墓碑删除 → 剔除；顺序本地优先、云端独有追加末尾
+function mergeReportCustomers(localArr, remoteArr, localDel, remoteDel) {
+    const del = mergeReportDeleted(localDel, remoteDel);
+    const lMap = _indexBy(localArr || [], 'name');
+    const rMap = _indexBy(remoteArr || [], 'name');
+    const bMap = (state._meta && state._meta.syncBasis && state._meta.syncBasis.report) || {};
+    const order = []; const seen = {};
+    (localArr || []).forEach(rc => { const nm = (rc && (rc.name || '')).trim(); if (nm && !seen[nm]) { seen[nm] = true; order.push(nm); } });
+    (remoteArr || []).forEach(rr => { const nm = (rr && (rr.name || '')).trim(); if (nm && !seen[nm]) { seen[nm] = true; order.push(nm); } });
+    const out = [];
+    order.forEach(nm => {
+        if (del[nm]) return;
+        const l = lMap[nm], r = rMap[nm];
+        if (l && r) {
+            const lh = _hashItem('reportItem', l, { reportItem: ['note', 'starred'] });
+            const rh = _hashItem('reportItem', r, { reportItem: ['note', 'starred'] });
+            const bh = bMap[nm];
+            if (lh === rh) out.push(_clone(l));
+            else if (bh && bh === lh) out.push(_clone(r));
+            else if (bh && bh === rh) out.push(_clone(l));
+            else out.push(_clone(l));
+        } else if (l) out.push(_clone(l));
+        else if (r) out.push(_clone(r));
+    });
+    return out;
+}
+// 汇报客户冲突合并：按用户在弹窗中的逐条、逐字段选择覆盖。
+// 字段级（note/starred）：choice=remote 取云端、local 取本端；保留/删除（__keep__）：remote=撤销删除保留云端、local=维持删除
+function _applyReportConflictChoice(localArr, remoteArr, localDel, remoteDel) {
+    const lMap = _indexBy(localArr || [], 'name');
+    const rMap = _indexBy(remoteArr || [], 'name');
+    const del = mergeReportDeleted(localDel, remoteDel);
+    const order = []; const seen = {};
+    (localArr || []).forEach(rc => { const nm = (rc && (rc.name || '')).trim(); if (nm && !seen[nm]) { seen[nm] = true; order.push(nm); } });
+    (remoteArr || []).forEach(rr => { const nm = (rr && (rr.name || '')).trim(); if (nm && !seen[nm]) { seen[nm] = true; order.push(nm); } });
+    const out = [];
+    order.forEach(nm => {
+        const l = lMap[nm], r = rMap[nm];
+        const key = 'report:' + nm;
+        if (l && r) {
+            const item = _clone(l);
+            (DIFF_FIELDS.report || []).forEach(fk => {
+                const choice = conflictChoices[key + '|' + fk];
+                if (choice === 'remote') item[fk] = _clone(r[fk]);
+                else if (choice === 'local') item[fk] = _clone(l[fk]);
+            });
+            if (conflictChoices[key + '|__keep__'] === 'remote') delete del[nm];
+            out.push(item);
+        } else if (l && !r) {
+            if (conflictChoices[key + '|__keep__'] === 'remote') { out.push(_clone(l)); delete del[nm]; }
+        } else if (!l && r) {
+            if (conflictChoices[key + '|__keep__'] === 'local') { delete del[nm]; }
+            else { out.push(_clone(r)); delete del[nm]; }
+        }
+    });
+    state.reportDeleted = del;
+    return out;
+}
+
 function recordSyncBasis() {
     try {
         const basis = {
@@ -11137,8 +11231,9 @@ function recordSyncBasis() {
             // 工作计划（单对象）：纳入同步基准，使双端并发编辑计划能被真冲突检测捕获
             // 否则 applyRemoteData 的整体 LWW 会静默整包覆盖，导致「本周重点」等被同步丢失
             plan: _hashItem('plan', state.workPlan, CONFLICT_FIELDS),
-            // 单对象数据/偏好（整体哈希）：双端都改过时弹冲突选择，防止 LWW 静默覆盖
-            reportCustomers: _stableHashVal(state.reportCustomers || []),
+            // 近期汇报客户：逐条哈希（name 为稳定键），支持单条粒度冲突；reportDeleted 单独记录墓碑基准
+            report: _hashMapByName(state.reportCustomers || [], ['note', 'starred']),
+            reportDeleted: _stableHashVal(state.reportDeleted || {}),
             dashboardOrder: _stableHashVal((state._meta && state._meta.dashboardOrder) || []),
             customerStatusFilter: _stableHashVal((state._meta && state._meta.customerStatusFilter) || [])
         };
@@ -11180,22 +11275,36 @@ function detectTrueConflicts(remote) {
         const rp = _hashItem('plan', remote.workPlan || { thisWeek: {}, nextWeek: {} }, CONFLICT_FIELDS);
         if (basisPlan !== lp && basisPlan !== rp) res.push('plan:current');
     }
-    // 单对象数据/偏好（整体哈希，与 plan 同口径）：两端都相对基准改过才算冲突；
-    // 旧版 syncBasis 无这些键（undefined）时跳过，首个同步不误报
-    if (basis.reportCustomers != null) {
-        const lh = _stableHashVal(state.reportCustomers || []);
-        const rh = _stableHashVal(remote.reportCustomers || []);
-        if (basis.reportCustomers !== lh && basis.reportCustomers !== rh) res.push('report:current');
-    }
+    // 近期汇报客户：单条粒度冲突（name 为稳定键）。
+    // 仅当「本地≠云端 且 本地≠基准 且 云端≠基准」才判该条冲突——加 本地≠云端 防一致仍误报；
+    // 删除冲突：一端墓碑删除、另一端保留且内容已变（编辑 vs 删除）也判冲突
+    const bReport = basis.report || {};
+    const lReport = _hashMapByName(state.reportCustomers || [], ['note', 'starred']);
+    const rReport = _hashMapByName((remote.reportCustomers) || [], ['note', 'starred']);
+    const lDel = state.reportDeleted || {};
+    const rDel = remote.reportDeleted || {};
+    const _repNames = new Set([].concat(Object.keys(lReport), Object.keys(rReport), Object.keys(bReport)));
+    _repNames.forEach(nm => {
+        const lHas = lReport[nm] !== undefined;
+        const rHas = rReport[nm] !== undefined;
+        const bHash = bReport[nm];
+        if (lHas && rHas) {
+            if (lReport[nm] !== rReport[nm] && bHash && bHash !== lReport[nm] && bHash !== rReport[nm]) res.push('report:' + nm);
+        } else if (lHas && !rHas) {
+            if (rDel[nm] && bHash && bHash !== lReport[nm]) res.push('report:' + nm);
+        } else if (!lHas && rHas) {
+            if (lDel[nm] && lDel[nm].hash !== rReport[nm]) res.push('report:' + nm);
+        }
+    });
     if (basis.dashboardOrder != null) {
         const lo = _stableHashVal((state._meta && state._meta.dashboardOrder) || []);
         const ro = _stableHashVal((remote._meta && remote._meta.dashboardOrder) || []);
-        if (basis.dashboardOrder !== lo && basis.dashboardOrder !== ro) res.push('dashboardOrder:current');
+        if (lo !== ro && basis.dashboardOrder !== lo && basis.dashboardOrder !== ro) res.push('dashboardOrder:current');
     }
     if (basis.customerStatusFilter != null) {
         const ls = _stableHashVal((state._meta && state._meta.customerStatusFilter) || []);
-        const rs = _stableHashVal((remote._meta && remote._meta.customerStatusFilter) || []);
-        if (basis.customerStatusFilter !== ls && basis.customerStatusFilter !== rs) res.push('statusFilter:current');
+        const rs = _stableHashVal((remote._meta && state._meta.customerStatusFilter) || []);
+        if (ls !== rs && basis.customerStatusFilter !== ls && basis.customerStatusFilter !== rs) res.push('statusFilter:current');
     }
     return res;
 }
@@ -12996,6 +13105,7 @@ function getSyncPayload() {
         history: state.history,
         statuses: state.statuses,
         reportCustomers: state.reportCustomers,
+        reportDeleted: state.reportDeleted || {},
         _tombstones: state._tombstones,
         _changeLog: state._changeLog || [],
         operationLog: state._operationLog || []
@@ -13301,18 +13411,18 @@ function applyRemoteData(remoteData) {
     if (!hasPendingStatus && Array.isArray(remoteStatuses) && remoteStatuses.length) {
         state.statuses = remoteStatuses;
     }
-    // 近期汇报客户：与 workPlan 同级的整体同步单元（基于版本号，多设备联动）。
-    // 本地版本号高于云端 → 保留本地（等本端下次 push 推上去）；
-    // 云端更高或持平 → 接受云端（新设备首次拉取也能拿到数据）
+    // 近期汇报客户：单条粒度并集合并（name 为稳定键，避免下标错配 / 空 id 撞车）
+    // 顺序本地优先、云端独有追加末尾；删除经墓碑跨端生效；相对基准的单方修改被采纳，避免回退
+    state.reportCustomers = mergeReportCustomers(
+        state.reportCustomers || [],
+        remoteData.reportCustomers || [],
+        state.reportDeleted || {},
+        remoteData.reportDeleted || {}
+    );
+    state.reportDeleted = mergeReportDeleted(state.reportDeleted || {}, remoteData.reportDeleted || {});
+    // 版本号取两端较大者（保留向后兼容字段，不影响新逻辑）
     const localReportRev = (state._meta && state._meta.reportRev) || 0;
     const remoteReportRev = (remoteData._meta && remoteData._meta.reportRev) || 0;
-    if (remoteReportRev > localReportRev) {
-        state.reportCustomers = (remoteData.reportCustomers && Array.isArray(remoteData.reportCustomers))
-            ? remoteData.reportCustomers
-            : (state.reportCustomers || []);
-    } else if (remoteReportRev === localReportRev && remoteData.reportCustomers) {
-        state.reportCustomers = Array.isArray(remoteData.reportCustomers) ? remoteData.reportCustomers : (state.reportCustomers || []);
-    }
     state._tombstones = mergedTombstones;
     // 合并云端的变更日志（保留本地未同步的）
     const remoteLog = remoteData._changeLog || [];
@@ -13468,6 +13578,7 @@ async function doAutoSync() {
     if (isAutoSyncing) return;
     if (_syncInFlight) return; // 手动同步进行中，自动同步让路
     if (!syncReady()) return;
+    if (pendingConflict) return; // 冲突弹窗开着：暂停自动同步，避免重复弹窗/清空用户已选
 
     isAutoSyncing = true;
     _syncInFlight = true;
@@ -13572,6 +13683,7 @@ function formatChangeForLog(change) {
 // 字段名映射
 const FIELD_LABELS = {
     name: '名称', status: '状态', city: '城市', contact: '联系方式',
+    note: '备注', starred: '关注状态',
     remark: '备注', last_followup: '最后跟进', last_followup_time: '跟进时间',
     customFields: '自定义字段',
     customer: '客户', content: '内容', time: '时间',
@@ -13589,7 +13701,8 @@ const DIFF_FIELDS = {
     todo: ['title', 'desc', 'priority', 'status', 'dueDate', 'dueTime', 'customerName', 'completedAt', 'manualStatus', 'updatedAt'],
     history: ['week', 'data', 'updatedAt'],
     plan: ['thisWeek', 'nextWeek', 'updatedAt'],
-    status: ['statuses']
+    status: ['statuses'],
+    report: ['note', 'starred']
 };
 // 冲突检测专用字段集：去掉 updatedAt（元数据时间戳，每次保存都刷新，
 // 会导致「两端都重新保存同一记录、内容其实没变」被误判为内容冲突）。
@@ -13731,6 +13844,7 @@ async function doSync(force) {
         showToast('同步正在进行中，请稍候再试');
         return;
     }
+    if (pendingConflict) { showToast('请先完成当前冲突合并'); return; }
     if (!syncSettings.filename) syncSettings.filename = 'crm-data.json';
 
     _syncInFlight = true;
@@ -14082,12 +14196,28 @@ function buildConflictRecords(local, remote) {
         const names = list.map(x => (x && (x.name || x.customerName)) || '').filter(Boolean);
         return names.slice(0, 5).join('、') + (names.length > 5 ? ' …等共 ' + names.length + ' 项' : (names.length ? '' : '（空）'));
     };
-    const lr = state.reportCustomers || [], rr = remote.reportCustomers || [];
-    if (JSON.stringify(lr) !== JSON.stringify(rr)) {
-        records.push({ entity: 'report', id: 'current', key: 'report:current', label: '近期汇报客户（整表）', fields: [
-            { key: 'list', label: '汇报客户', local: _sumNames(lr), remote: _sumNames(rr), same: false }
-        ] });
-    }
+    // 近期汇报客户：单条粒度、字段级冲突（note / starred），删除经墓碑跨端生效
+    const _lrByName = _indexBy(state.reportCustomers || [], 'name');
+    const _rrByName = _indexBy(remote.reportCustomers || [], 'name');
+    const _repAllNames = new Set([].concat(Object.keys(_lrByName), Object.keys(_rrByName)));
+    _repAllNames.forEach(nm => {
+        const l = _lrByName[nm], r = _rrByName[nm];
+        if (l && r) {
+            const fields = (DIFF_FIELDS.report || []).map(fk => {
+                const lv = normVal(l[fk]); const rv = normVal(r[fk]);
+                return { key: fk, label: FIELD_LABELS[fk] || fk, local: l[fk], remote: r[fk], same: lv === rv };
+            });
+            if (fields.some(f => !f.same)) records.push({ entity: 'report', id: nm, key: 'report:' + nm, label: '近期汇报：' + nm, fields: fields });
+        } else if (l && !r) {
+            records.push({ entity: 'report', id: nm, key: 'report:' + nm, label: '近期汇报：' + nm, fields: [
+                { key: '__keep__', label: '保留 / 删除', local: '保留（' + (l.note || '（空备注）') + '）', remote: '（已在其他端删除）', same: false }
+            ] });
+        } else if (!l && r) {
+            records.push({ entity: 'report', id: nm, key: 'report:' + nm, label: '近期汇报：' + nm, fields: [
+                { key: '__keep__', label: '保留 / 删除', local: '（本端已删除）', remote: '保留（' + (r.note || '（空备注）') + '）', same: false }
+            ] });
+        }
+    });
     const lo = (state._meta && state._meta.dashboardOrder) || [], ro = (remote._meta && remote._meta.dashboardOrder) || [];
     if (JSON.stringify(lo) !== JSON.stringify(ro)) {
         records.push({ entity: 'meta', id: 'current', key: 'dashboardOrder:current', label: '看板卡片顺序', fields: [
@@ -14224,15 +14354,10 @@ async function resolveMerge() {
         state.todos = reapplyFieldChoices(state.todos, snap.todos, remote.todos || [], 'todo');
         // 工作计划（单对象）：按字段级选择合并，thisWeek/nextWeek 各自保留用户所选的一端
         state.workPlan = _applyPlanConflictChoice(snap.workPlan, remote.workPlan || {});
-        // 近期汇报客户 / 看板顺序 / 状态筛选（单对象）：按用户选择的整端值覆盖
-        const _rcChoice = conflictChoices['report:current|list'];
-        if (_rcChoice === 'remote') {
-            state.reportCustomers = _clone(remote.reportCustomers || []);
-        } else if (_rcChoice === 'local') {
-            state.reportCustomers = _clone(snap.reportCustomers || []);
-            // 抬高版本号：否则保留的本端整表在下次同步「等版本取云端」时会被翻回
-            state._meta.reportRev = ((state._meta && state._meta.reportRev) || 0) + 1;
-        }
+        // 近期汇报客户：逐条字段级合并（note / starred），删除经墓碑生效
+        state.reportCustomers = _applyReportConflictChoice(snap.reportCustomers || [], remote.reportCustomers || [], snap.reportDeleted || {}, remote.reportDeleted || {});
+        // Fix B：用户选择覆盖后再记一次同步基准，使基准与最终值一致，避免下次同步又误报同一条冲突
+        recordSyncBasis();
         const _odChoice = conflictChoices['dashboardOrder:current|list'];
         if (_odChoice === 'local' || _odChoice === 'remote') {
             const _os = _odChoice === 'local' ? (snap._meta || {}) : (remote._meta || {});
