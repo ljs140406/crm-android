@@ -5320,16 +5320,36 @@ let state = {
     customers: [],
     followups: [],
     todos: [],
-    workPlan: { thisWeek:  {}, nextWeek: {} },
+    // 工作计划：自 v1.1.17 起，每日计划与重点客户从 workPlan 抽出为独立列表实体，
+    // workPlan 仅保留每周重点自由文本（thisWeek.focus / nextWeek.focus），按周字段级冲突。
+    workPlan: { thisWeek: { focus: '' }, nextWeek: { focus: '' } },
+    // 每日计划（独立列表实体，逐条合并/冲突，避免整表互相覆盖）
+    dailyPlans: [],
+    // 重点客户（独立列表实体，逐条合并/冲突）
+    focusItems: [],
     reportCustomers: [],
     reportDeleted: {},
     history: [],
     statuses: [],
     _meta: { lastModified: null, lastSyncedAt: null, deviceName: null },
-    _tombstones: { customers: {}, followups: {}, todos: {}, history: {} },
+    _tombstones: { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} },
     _changeLog: [],  // 变更日志：每条 { id, type, entity, name, data, timestamp, synced }
     _operationLog: []  // 系统操作日志：每条 { time, action, type }
 };
+
+// 生成稳定 id（dailyPlans / focusItems 等列表实体的稳定键，避免下标错配）
+function _entId(prefix) {
+    return (prefix || 'e') + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+}
+// 取某周期/某天的每日计划（用于渲染与读写，统一入口）
+function dailyPlansFor(week, day) {
+    const w = (week === 'this' || week === 'next') ? week : (week === 'thisWeek' ? 'this' : 'next');
+    return (state.dailyPlans || []).filter(function (x) { return x.week === w && x.day === day; });
+}
+function focusItemsFor(week) {
+    const w = (week === 'this' || week === 'next') ? week : (week === 'thisWeek' ? 'this' : 'next');
+    return (state.focusItems || []).filter(function (x) { return x.week === w; });
+}
 
 // 设备唯一标识，用于同步冲突时 tie-break（避免依赖本地时钟）
 const DEVICE_ID = (() => {
@@ -5524,18 +5544,24 @@ function migrateData() {
         if (!f.updatedAt) f.updatedAt = f.createdAt || f.time || now;
         if (f._rev === undefined) f._rev = 1;
     });
-    // 工作计划：初始化 updatedAt 和 _rev
+    // 工作计划：初始化 updatedAt 和 _rev（workPlan 仍是渲染层唯一真值：每周 day 数组 + focusList；
+    // 同步粒度由边界镜像 dailyPlans / focusItems 提供，见 _workPlanToPlanEntities）
     if (state.workPlan && !state.workPlan.updatedAt) {
         state.workPlan.updatedAt = now;
     }
     if (state.workPlan && state.workPlan._rev === undefined) state.workPlan._rev = 1;
-    // 工作计划：每天字段由旧字符串/数组统一规范为 [{text, customer}] 数组（兼容旧数据）
+    // 工作计划：每天字段由旧字符串/数组统一规范为 [{text, customer, customerId}] 数组（兼容旧数据），保留 day 数组与 focusList
     if (state.workPlan) {
         ['thisWeek', 'nextWeek'].forEach(function (p) {
             const wk = state.workPlan[p] || (state.workPlan[p] = { focus: '' });
             PLAN_DAYS.forEach(function (d) { wk[d] = planToItems(wk[d]); });
+            if (wk.focusList == null) wk.focusList = [];
+            else if (typeof wk.focusList === 'string') wk.focusList = normalizeFocusListWeb(null, wk.focusList);
+            if (wk.focus == null) wk.focus = '';
         });
     }
+    // 首次迁移/加载后，由 workPlan 派生 dailyPlans / focusItems 镜像（同步层消费）
+    _mirrorPlanEntities();
     // 客户 _rev 初始化
     (state.customers || []).forEach(c => {
         if (c._rev === undefined) c._rev = 1;
@@ -5588,12 +5614,13 @@ function loadData() {
             state.followups = data.followups || [];
             state.todos = Array.isArray(data.todos) ? data.todos : [];
             state.workPlan = data.workPlan || { thisWeek: {}, nextWeek: {} };
+            _mirrorPlanEntities();
             state.history = Array.isArray(data.history) ? data.history : [];
             state.reportCustomers = Array.isArray(data.reportCustomers) ? data.reportCustomers : [];
                 state.statuses = data.statuses || INITIAL_DATA.statuses || STATUS_CONFIG;
                 state._meta = data._meta || { lastModified: null, lastSyncedAt: null, deviceName: null };
                 if (!state._meta.deviceName) state._meta.deviceName = defaultDeviceName();
-                state._tombstones = data._tombstones || { customers: {}, followups: {}, todos: {}, history: {} };
+                state._tombstones = data._tombstones || { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
                 state._changeLog = data._changeLog || [];
                 state._operationLog = data._operationLog || [];
                 migrateData();
@@ -5616,12 +5643,13 @@ function loadData() {
                     state.followups = data.followups || [];
                     state.todos = Array.isArray(data.todos) ? data.todos : [];
                     state.workPlan = data.workPlan || { thisWeek: {}, nextWeek: {} };
+            _mirrorPlanEntities();
                 state.history = Array.isArray(data.history) ? data.history : [];
                 state.reportCustomers = Array.isArray(data.reportCustomers) ? data.reportCustomers : [];
                 state.statuses = data.statuses || INITIAL_DATA.statuses || STATUS_CONFIG;
                     state._meta = data._meta || { lastModified: null, lastSyncedAt: null, deviceName: null };
                 if (!state._meta.deviceName) state._meta.deviceName = defaultDeviceName();
-                    state._tombstones = data._tombstones || { customers: {}, followups: {}, todos: {}, history: {} };
+                    state._tombstones = data._tombstones || { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
                 state._changeLog = data._changeLog || [];
                 state._operationLog = data._operationLog || [];
                 migrateData();
@@ -5650,12 +5678,13 @@ function loadData() {
             state.followups = data.followups || [];
             state.todos = Array.isArray(data.todos) ? data.todos : [];
             state.workPlan = data.workPlan || { thisWeek: {}, nextWeek: {} };
+            _mirrorPlanEntities();
             state.history = Array.isArray(data.history) ? data.history : [];
             state.reportCustomers = Array.isArray(data.reportCustomers) ? data.reportCustomers : [];
                 state.statuses = data.statuses || INITIAL_DATA.statuses || STATUS_CONFIG;
                 state._meta = data._meta || { lastModified: null, lastSyncedAt: null, deviceName: null };
                 if (!state._meta.deviceName) state._meta.deviceName = defaultDeviceName();
-                state._tombstones = data._tombstones || { customers: {}, followups: {}, todos: {}, history: {} };
+                state._tombstones = data._tombstones || { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
                 state._changeLog = data._changeLog || [];
                 state._operationLog = data._operationLog || [];
                 cleanTombstones();
@@ -5716,10 +5745,11 @@ function resetToInitial() {
     state.followups = INITIAL_DATA.followups.map((f, i) => ({ ...f, id: 'f' + (i + 1) }));
     state.todos = [];
     state.workPlan = JSON.parse(JSON.stringify(INITIAL_DATA.workPlan));
+    _mirrorPlanEntities();
     state.history = JSON.parse(JSON.stringify(INITIAL_DATA.history));
     state.statuses = JSON.parse(JSON.stringify(INITIAL_DATA.statuses || STATUS_CONFIG));
     state._meta = { lastModified: new Date().toISOString(), lastSyncedAt: null };
-    state._tombstones = { customers: {}, followups: {}, todos: {}, history: {} };
+    state._tombstones = { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
     state._changeLog = [];
     state._operationLog = [];
 }
@@ -7872,6 +7902,7 @@ function custPlanSave() {
     wp.updatedAt = new Date().toISOString();
     wp._rev = (wp._rev || 0) + 1;
     wp._deviceId = DEVICE_ID;
+    _mirrorPlanEntities(); // 保持 dailyPlans / focusItems 镜像与 workPlan 同步，供同步层逐条合并
     recordChange('update', 'plan', 'current', '工作计划', null);
     saveData();
     showToast('工作计划已保存');
@@ -8666,7 +8697,7 @@ function deleteCustomer() {
     showConfirm(`确定要删除客户"${customer.name}"吗？相关的跟进记录也会被删除。`, () => {
         const deletedName = customer.name;
         // 墓碑：记录被删除的客户和跟进
-        if (!state._tombstones) state._tombstones = { customers: {}, followups: {}, todos: {}, history: {} };
+        if (!state._tombstones) state._tombstones = { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
         state._tombstones.customers[customer.id] = new Date().toISOString();
         const deletedFids = state.followups.filter(f => f.customer === customer.name).map(f => f.id);
         deletedFids.forEach(fid => {
@@ -9489,6 +9520,63 @@ function normalizeFocusListWeb(list, legacyFocus) {
     if (typeof legacyFocus === 'string' && legacyFocus.trim()) return [{ text: legacyFocus, completed: false }];
     return [];
 }
+// ==================== 同步边界：workPlan ⇄ 独立实体镜像 ====================
+// 渲染层以 workPlan（每周 day 数组 + focusList）为唯一真值；同步层以 dailyPlans / focusItems
+// （按 周+天+下标 为稳定 id）为粒度做逐条合并/冲突。二者在同步边界互转：
+//   - getSyncPayload / recordSyncBasis / detectTrueConflicts / buildConflictRecords 用派生镜像；
+//   - applyRemoteData / resolveMerge 合并完镜像后写回 workPlan。
+// 这样渲染层零改动，又达到「手机改周一、桌面改周二 两端都保留；同一天同位置双端都改才报冲突」的语义。
+function _planItemId(wkey, day, idx) { return 'dp_' + wkey + '_' + day + '_' + idx; }
+function _focusId(wkey, idx) { return 'fc_' + wkey + '_' + idx; }
+function _workPlanToPlanEntities(plan) {
+    plan = plan || {};
+    const dp = [], fi = [];
+    ['thisWeek', 'nextWeek'].forEach(function (p) {
+        const wk = plan[p]; if (!wk) return;
+        const wkey = (p === 'thisWeek') ? 'this' : 'next';
+        PLAN_DAYS.forEach(function (d) {
+            planToItems(wk[d]).forEach(function (it, idx) {
+                if (!it.text && !it.customer && !it.customerId) return; // 跳过空项
+                dp.push({ id: _planItemId(wkey, d, idx), week: wkey, day: d, text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString(), _rev: 1, updatedAt: '' });
+            });
+        });
+        let fl = wk.focusList;
+        if (typeof fl === 'string') fl = normalizeFocusListWeb(null, fl);
+        (fl || []).forEach(function (it, idx) {
+            if (!it || !it.text) return;
+            fi.push({ id: _focusId(wkey, idx), week: wkey, text: (it.text || '').toString(), completed: !!(it.completed), starred: !!(it.starred), _rev: 1, updatedAt: '' });
+        });
+    });
+    return { dailyPlans: dp, focusItems: fi };
+}
+function _planEntitiesToWorkPlan(dp, fi, focusPlan) {
+    const wp = {
+        thisWeek: { focus: ((focusPlan && focusPlan.thisWeek && focusPlan.thisWeek.focus) || '').toString() },
+        nextWeek: { focus: ((focusPlan && focusPlan.nextWeek && focusPlan.nextWeek.focus) || '').toString() }
+    };
+    ['thisWeek', 'nextWeek'].forEach(function (p) {
+        PLAN_DAYS.forEach(function (d) { wp[p][d] = []; });
+        wp[p].focusList = [];
+    });
+    (dp || []).forEach(function (it) {
+        const p = (it.week === 'next') ? 'nextWeek' : 'thisWeek';
+        const d = it.day;
+        if (!wp[p][d]) wp[p][d] = [];
+        wp[p][d].push({ text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString() });
+    });
+    (fi || []).forEach(function (it) {
+        const p = (it.week === 'next') ? 'nextWeek' : 'thisWeek';
+        wp[p].focusList.push({ text: (it.text || '').toString(), completed: !!(it.completed), starred: !!(it.starred) });
+    });
+    return wp;
+}
+// 保持 dailyPlans / focusItems 镜像与 workPlan 同步（每次 workPlan 落盘或加载后调用）
+function _mirrorPlanEntities() {
+    if (!state.workPlan) state.workPlan = { thisWeek: { focus: '' }, nextWeek: { focus: '' } };
+    const pe = _workPlanToPlanEntities(state.workPlan);
+    state.dailyPlans = pe.dailyPlans;
+    state.focusItems = pe.focusItems;
+}
 // 渲染某周期的重点事项列表（多条卡片，可增删、可标记完成）
 function renderFocusList(period, containerId, week) {
     const container = document.getElementById(containerId);
@@ -10197,6 +10285,7 @@ function savePlan(silent) {
     wp.updatedAt = new Date().toISOString();
     wp._rev = (wp._rev || 0) + 1;
     wp._deviceId = DEVICE_ID;
+    _mirrorPlanEntities(); // 保持 dailyPlans / focusItems 镜像与 workPlan 同步，供同步层逐条合并
     recordChange('update', 'plan', 'current', '工作计划', null);
     saveData();
     if (!silent) showToast('工作计划已保存');
@@ -10356,7 +10445,7 @@ function deleteHistory(idx) {
     const h = state.history[idx];
     if (!h) return;
     showConfirm(`确定要删除"${h.week}"的历史记录吗？`, () => {
-        if (!state._tombstones) state._tombstones = { customers: {}, followups: {}, todos: {}, history: {} };
+        if (!state._tombstones) state._tombstones = { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
         if (!state._tombstones.history) state._tombstones.history = {};
         // 墓碑必须用记录 id（h.id）作 key，与 applyRemoteData 合并时按 h.id 过滤保持一致；
         // 之前用数组下标 idx 作 key，与合并过滤的 h.id 永不匹配，导致已删/已归档历史在下次同步被重新加回
@@ -10641,10 +10730,11 @@ function doImportData(data, counts, mode) {
             state.followups = (data.followups || []).map(f => ({ ...f }));
             state.todos = (data.todos || []).map(t => ({ ...t }));
             state.workPlan = data.workPlan || { thisWeek: {}, nextWeek: {} };
+            _mirrorPlanEntities();
             state.history = (data.history || []).map(h => ({ ...h }));
             state.statuses = (data.statuses && data.statuses.length) ? data.statuses : state.statuses;
             state.reportCustomers = (data.reportCustomers || []).map(r => ({ ...r }));
-            state._tombstones = data._tombstones || { customers: {}, followups: {}, todos: {}, history: {} };
+            state._tombstones = data._tombstones || { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
             state._changeLog = data._changeLog || [];
             // _operationLog 保留本地（恢复业务数据但不清操作日志）
             state._meta = Object.assign({}, keepMeta, data._meta || {});
@@ -11260,14 +11350,17 @@ function _applyReportConflictChoice(localArr, remoteArr, localDel, remoteDel) {
 
 function recordSyncBasis() {
     try {
+        _mirrorPlanEntities(); // 确保基准基于最新 workPlan 派生镜像
         const basis = {
             _format: SYNC_BASIS_FORMAT,
             customer: _hashMap(state.customers, 'customer', CONFLICT_FIELDS),
             followup: _hashMap(state.followups, 'followup', CONFLICT_FIELDS),
             todo: _hashMap(state.todos, 'todo', CONFLICT_FIELDS),
             history: _hashMap(state.history, 'history', CONFLICT_FIELDS),
-            // 工作计划（单对象）：纳入同步基准，使双端并发编辑计划能被真冲突检测捕获
-            // 否则 applyRemoteData 的整体 LWW 会静默整包覆盖，导致「本周重点」等被同步丢失
+            // 每日计划 / 重点客户：独立列表实体，逐条哈希（id 为稳定键），支持单条粒度冲突，避免整表互相覆盖
+            dailyPlan: _hashMap(state.dailyPlans || [], 'dailyPlan', CONFLICT_FIELDS),
+            focus: _hashMap(state.focusItems || [], 'focus', CONFLICT_FIELDS),
+            // 工作计划（仅每周重点文本）：纳入同步基准，使双端并发编辑计划能被真冲突检测捕获
             plan: _hashItem('plan', state.workPlan, CONFLICT_FIELDS),
             // 近期汇报客户：逐条哈希（name 为稳定键），支持单条粒度冲突；reportDeleted 单独记录墓碑基准
             report: _hashMapByName(state.reportCustomers || [], ['note', 'starred']),
@@ -11290,7 +11383,9 @@ function detectTrueConflicts(remote) {
         ['customer', state.customers, (remote.customers || [])],
         ['followup', state.followups, (remote.followups || [])],
         ['todo', state.todos, (remote.todos || [])],
-        ['history', state.history, (remote.history || [])]
+        ['history', state.history, (remote.history || [])],
+        ['dailyPlan', state.dailyPlans || [], (remote.dailyPlans || [])],
+        ['focus', state.focusItems || [], (remote.focusItems || [])]
     ].forEach((ent) => {
         const [name, localArr, remoteArr] = ent;
         const bMap = basis[name] || {};
@@ -11334,16 +11429,7 @@ function detectTrueConflicts(remote) {
             if (lDel[nm] && lDel[nm].hash !== rReport[nm]) res.push('report:' + nm);
         }
     });
-    if (basis.dashboardOrder != null) {
-        const lo = _stableHashVal((state._meta && state._meta.dashboardOrder) || []);
-        const ro = _stableHashVal((remote._meta && remote._meta.dashboardOrder) || []);
-        if (lo !== ro && basis.dashboardOrder !== lo && basis.dashboardOrder !== ro) res.push('dashboardOrder:current');
-    }
-    if (basis.customerStatusFilter != null) {
-        const ls = _stableHashVal((state._meta && state._meta.customerStatusFilter) || []);
-        const rs = _stableHashVal((remote._meta && state._meta.customerStatusFilter) || []);
-        if (ls !== rs && basis.customerStatusFilter !== ls && basis.customerStatusFilter !== rs) res.push('statusFilter:current');
-    }
+    // 看板卡片顺序 / 客户状态筛选：现已按元素并集合并，不再视为冲突，故此处不加入 res。
     return res;
 }
 function showConflictBanner(n) {
@@ -11439,7 +11525,7 @@ function pushSettingsDebounced() {
 // ==================== 墓碑清理 ====================
 function cleanTombstones() {
     if (!state._tombstones) {
-        state._tombstones = { customers: {}, followups: {}, todos: {}, history: {} };
+        state._tombstones = { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
         return;
     }
     const cutoff = Date.now() - 30 * 24 * 3600 * 1000; // 30天
@@ -13047,8 +13133,44 @@ function _newerRecord(a, b) {
  * - _meta 取自 lastSyncedAt 最新的远端；墓碑 / 变更日志 / 操作日志做去重并集。
  * 合并后的单一远端再交给既有的 applyRemoteData（本地 vs 远端 2-way 合并），实现三端一致。
  */
+// 旧端兼容：远端若仍是旧 workPlan 结构（每日计划天数组 / 重点客户 focusList），
+// 派生出 dailyPlans / focusItems，避免混合版本过渡期同步时丢失旧端数据。
+function _derivePlanEntities(remote) {
+    if (!remote || typeof remote !== 'object') return remote;
+    if (!Array.isArray(remote.dailyPlans) && remote.workPlan) {
+        const srcPlan = remote.workPlan;
+        const dpOut = [], fiOut = [];
+        ['thisWeek', 'nextWeek'].forEach(function (p) {
+            const wk = srcPlan[p]; if (!wk) return;
+            const wkey = (p === 'thisWeek') ? 'this' : 'next';
+            PLAN_DAYS.forEach(function (d) {
+                planToItems(wk[d]).forEach(function (it, idx) {
+                    if (!it.text && !it.customer && !it.customerId) return;
+                    dpOut.push({ id: _planItemId(wkey, d, idx), week: wkey, day: d, text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString(), _rev: 1, updatedAt: '' });
+                });
+            });
+            // 注意：必须在规范化 workPlan 之前读取原始 focusList，否则会被上一行清掉
+            let fl = wk.focusList;
+            if (typeof fl === 'string') fl = normalizeFocusListWeb(null, fl);
+            (fl || []).forEach(function (it, idx) {
+                if (!it || !it.text) return;
+                fiOut.push({ id: _focusId(wkey, idx), week: wkey, text: (it.text || '').toString(), completed: !!(it.completed), starred: !!(it.starred), _rev: 1, updatedAt: '' });
+            });
+        });
+        remote.dailyPlans = dpOut;
+        remote.focusItems = fiOut;
+        // 派生后把旧 workPlan 规范为只含每周重点文本，避免后续 workPlan 整体 LWW 把旧天数组整包写回、覆盖新实体。
+        remote.workPlan = {
+            thisWeek: { focus: ((srcPlan.thisWeek || {}).focus || '').toString() },
+            nextWeek: { focus: ((srcPlan.nextWeek || {}).focus || '').toString() }
+        };
+    }
+    return remote;
+}
+
 function unionTwoRemotes(list) {
-    if (list.length === 1) return list[0];
+    if (list.length === 1) return _derivePlanEntities(list[0]);
+    list = list.map(_derivePlanEntities);
     const primary = list.slice().sort(function (a, b) {
         return new Date((b._meta && b._meta.lastSyncedAt) || 0) - new Date((a._meta && a._meta.lastSyncedAt) || 0);
     })[0];
@@ -13058,7 +13180,7 @@ function unionTwoRemotes(list) {
         workPlan: primary.workPlan || { thisWeek: {}, nextWeek: {} },
         statuses: primary.statuses || [],
         reportCustomers: primary.reportCustomers || [],
-        _tombstones: { customers: {}, followups: {}, todos: {}, history: {} },
+        _tombstones: { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} },
         _changeLog: [], operationLog: []
     };
     [['customers', 'customer'], ['followups', 'followup'], ['todos', 'todo'], ['history', 'history']].forEach(function (pair) {
@@ -13073,7 +13195,20 @@ function unionTwoRemotes(list) {
         });
         out[k] = Object.keys(byId).map(function (id) { return byId[id]; });
     });
-    ['customers', 'followups', 'todos', 'history'].forEach(function (k) {
+    // 每日计划 / 重点客户：多远端按 id 并集合并（与 customers 同口径）
+    [['dailyPlans', 'dailyPlan'], ['focusItems', 'focus']].forEach(function (pair) {
+        const k = pair[0];
+        const byId = {};
+        list.forEach(function (r) {
+            (r[k] || []).forEach(function (it) {
+                if (!it || !it.id) return;
+                const cur = byId[it.id];
+                byId[it.id] = cur ? _newerRecord(cur, it) : it;
+            });
+        });
+        out[k] = Object.keys(byId).map(function (id) { return byId[id]; });
+    });
+    ['customers', 'followups', 'todos', 'history', 'dailyPlans', 'focusItems'].forEach(function (k) {
         list.forEach(function (r) {
             const t = (r._tombstones || {})[k] || {};
             Object.keys(t).forEach(function (id) { out._tombstones[k][id] = t[id]; });
@@ -13114,6 +13249,7 @@ async function pushToAllBackends(content) {
 function getSyncPayload() {
     cleanTombstones();
     cleanupChangeLog();
+    _mirrorPlanEntities(); // 确保 dailyPlans / focusItems 镜像与当前 workPlan 一致
     return {
         _meta: {
             lastModified: state._meta.lastModified,
@@ -13140,6 +13276,8 @@ function getSyncPayload() {
         followups: state.followups,
         todos: state.todos,
         workPlan: state.workPlan,
+        dailyPlans: state.dailyPlans || [],
+        focusItems: state.focusItems || [],
         history: state.history,
         statuses: state.statuses,
         reportCustomers: state.reportCustomers,
@@ -13267,21 +13405,28 @@ function parseRemoteGist(gist) {
 
 function applyRemoteData(remoteData) {
     // 合并墓碑：本地墓碑优先
-    const localTombstones = state._tombstones || { customers: {}, followups: {}, todos: {}, history: {} };
-    const remoteTombstones = remoteData._tombstones || { customers: {}, followups: {}, todos: {}, history: {} };
+    const localTombstones = state._tombstones || { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
+    const remoteTombstones = remoteData._tombstones || { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
     const mergedTombstones = {
         customers: { ...remoteTombstones.customers, ...localTombstones.customers },
         followups: { ...remoteTombstones.followups, ...localTombstones.followups },
         todos: { ...remoteTombstones.todos, ...localTombstones.todos },
-        history: { ...remoteTombstones.history, ...localTombstones.history }
+        history: { ...remoteTombstones.history, ...localTombstones.history },
+        dailyPlans: { ...remoteTombstones.dailyPlans, ...localTombstones.dailyPlans },
+        focusItems: { ...remoteTombstones.focusItems, ...localTombstones.focusItems }
     };
+
+    // 旧端兼容：派生 dailyPlans/focusItems（并规范 workPlan 只含 focus），再过滤墓碑
+    remoteData = _derivePlanEntities(remoteData);
 
     // 应用数据时过滤掉已墓碑化的条目
     const remoteCustomers = (remoteData.customers || []).filter(c => !mergedTombstones.customers[c.id]);
     const remoteFollowups = (remoteData.followups || []).filter(f => !mergedTombstones.followups[f.id]);
     const remoteTodos = (remoteData.todos || []).filter(t => !mergedTombstones.todos[t.id]);
     const remoteHistory = (remoteData.history || []).filter(h => !mergedTombstones.history[h.id]);
-    const remoteWorkPlan = remoteData.workPlan || { thisWeek: {}, nextWeek: {} };
+    const remoteWorkPlan = remoteData.workPlan || { thisWeek: { focus: '' }, nextWeek: { focus: '' } };
+    const remoteDailyPlans = (remoteData.dailyPlans || []).filter(x => !mergedTombstones.dailyPlans[x.id]);
+    const remoteFocusItems = (remoteData.focusItems || []).filter(x => !mergedTombstones.focusItems[x.id]);
     const remoteStatuses = remoteData.statuses || state.statuses || INITIAL_DATA.statuses || STATUS_CONFIG;
 
     // 计算云端相对本地的具体变化（add / update / delete）
@@ -13352,6 +13497,13 @@ function applyRemoteData(remoteData) {
     if (JSON.stringify(remoteData.reportCustomers || []) !== JSON.stringify(state.reportCustomers || [])) {
         changes.push({ id: 'reportCustomers', entity: 'report', type: 'update', name: '近期汇报客户', data: remoteData.reportCustomers, prev: state.reportCustomers });
     }
+    // 每日计划 / 重点客户：差异计入 changes（同汇报客户，确保拉取后计划页重绘）
+    if (JSON.stringify(remoteData.dailyPlans || []) !== JSON.stringify(state.dailyPlans || [])) {
+        changes.push({ id: 'dailyPlans', entity: 'dailyPlan', type: 'update', name: '每日计划', data: remoteData.dailyPlans, prev: state.dailyPlans });
+    }
+    if (JSON.stringify(remoteData.focusItems || []) !== JSON.stringify(state.focusItems || [])) {
+        changes.push({ id: 'focusItems', entity: 'focus', type: 'update', name: '重点客户', data: remoteData.focusItems, prev: state.focusItems });
+    }
 
     // 写回本地 —— Union Merge（并集合并），防止任何一端的数据丢失
     // 参考 ToDo.html 的 mergeData 思路：取本地和远端的并集，按规则选择版本
@@ -13417,29 +13569,47 @@ function applyRemoteData(remoteData) {
     const tsMapF = mergedTombstones.followups || {};
     const tsMapT = mergedTombstones.todos || {};
     const tsMapH = mergedTombstones.history || {};
+    const tsMapDP = mergedTombstones.dailyPlans || {};
+    const tsMapFI = mergedTombstones.focusItems || {};
 
     state.customers = unionMerge(state.customers, remoteCustomers, 'customer', tsMapC);
     state.followups = unionMerge(state.followups, remoteFollowups, 'followup', tsMapF);
     state.todos = unionMerge(state.todos, remoteTodos, 'todo', tsMapT);
     state.history = unionMerge(state.history, remoteHistory, 'history', tsMapH);
+    // 每日计划 / 重点客户：独立列表实体，逐条并集合并（按 id；墓碑过滤；无 pending 时按 _rev → updatedAt 决胜）
+    state.dailyPlans = unionMerge(state.dailyPlans || [], remoteDailyPlans, 'dailyPlan', tsMapDP);
+    state.focusItems = unionMerge(state.focusItems || [], remoteFocusItems, 'focus', tsMapFI);
     // Gist 拉回的旧结构数据（无 customerId）合并后立即补齐外键（幂等，随下方 saveData 落盘）
     backfillCustomerIds();
 
-    // 工作计划：本地有未同步修改则保留本地，否则比较 _rev → updatedAt
+    // 工作计划：通过「派生镜像」实现按天/按条逐条合并（不再整表 LWW 覆盖）。
+    // 本地 workPlan 派生为 dailyPlans / focusItems（按 周+天+下标 为稳定 id），与远端逐条并集合并；
+    // 本地有未同步修改（pending plan）时整体保留本地，避免被云端覆盖。合并结果写回 workPlan 供渲染层消费。
     const hasPendingPlan = pendingLocal.some(c => c.entity === 'plan');
-    if (!hasPendingPlan) {
-        const localRev = (state.workPlan && state.workPlan._rev) || 0;
-        const remoteRev = (remoteWorkPlan && remoteWorkPlan._rev) || 0;
-        if (remoteRev > localRev) {
-            state.workPlan = remoteWorkPlan;
-        } else if (remoteRev === localRev) {
-            const localPlanUpdated = (state.workPlan && state.workPlan.updatedAt) || '1970-01-01T00:00:00Z';
-            const remotePlanUpdated = (remoteWorkPlan && remoteWorkPlan.updatedAt) || '1970-01-01T00:00:00Z';
-            if (new Date(remotePlanUpdated).getTime() > new Date(localPlanUpdated).getTime()) {
-                state.workPlan = remoteWorkPlan;
-            }
-        }
+    const localPE = _workPlanToPlanEntities(state.workPlan);
+    let mergedDP, mergedFI;
+    if (hasPendingPlan) {
+        mergedDP = localPE.dailyPlans;
+        mergedFI = localPE.focusItems;
+    } else {
+        mergedDP = unionMerge(localPE.dailyPlans, remoteDailyPlans, 'dailyPlan', tsMapDP);
+        mergedFI = unionMerge(localPE.focusItems, remoteFocusItems, 'focus', tsMapFI);
     }
+    // 每周重点文本（focus）：本地有 pending 时保留本地，否则比较 _rev → updatedAt
+    let focusPlan;
+    if (hasPendingPlan) {
+        focusPlan = state.workPlan;
+    } else {
+        const lr = (state.workPlan && state.workPlan._rev) || 0;
+        const rr = (remoteWorkPlan && remoteWorkPlan._rev) || 0;
+        focusPlan = (rr > lr || (rr === lr && new Date((remoteWorkPlan && remoteWorkPlan.updatedAt) || 0).getTime() >= new Date((state.workPlan && state.workPlan.updatedAt) || 0).getTime())) ? remoteWorkPlan : state.workPlan;
+    }
+    state.dailyPlans = mergedDP;
+    state.focusItems = mergedFI;
+    state.workPlan = _planEntitiesToWorkPlan(mergedDP, mergedFI, focusPlan);
+    state.workPlan.updatedAt = new Date().toISOString();
+    state.workPlan._rev = Math.max((state.workPlan._rev || 0), (remoteWorkPlan && remoteWorkPlan._rev) || 0) + 1;
+    state.workPlan._deviceId = DEVICE_ID;
     // 状态列表：单份全局配置，push 为整体覆盖（最后写赢）。
     // 本地无未同步修改时，直接采纳云端最新全量——保证多端状态名一致；
     // 本地有未同步修改（pending）则保留本地，等本端下次 push 覆盖云端。
@@ -13513,26 +13683,22 @@ function applyRemoteData(remoteData) {
         reportRev: Math.max(localReportRev, remoteReportRev),
         lastSyncedAt: new Date().toISOString()
     });
-    // 客户总表状态筛选：last-write-wins（以 customerStatusFilterAt 较新者为准），避免任一端改完筛选后下次同步被对端旧值覆盖
-    if (_remoteFilterAt > _localFilterAt) {
-        state._meta.customerStatusFilter = _remoteFilter;
-        state._meta.customerStatusFilterAt = _remoteFilterAt;
-    } else {
-        state._meta.customerStatusFilter = _localFilter;
-        state._meta.customerStatusFilterAt = _localFilterAt;
-    }
-    // 看板卡片顺序：同状态筛选的 LWW 口径（dashboardOrderAt 较新者胜）
+    // 客户总表状态筛选 & 看板卡片顺序：改为「按元素并集合并」（不再整表 LWW 覆盖），
+    // 使双端并发改筛选 / 顺序时不会互相抹掉另一端的选择。
     const _localOrder = Array.isArray(state._meta && state._meta.dashboardOrder) ? state._meta.dashboardOrder.slice() : [];
     const _localOrderAt = (state._meta && state._meta.dashboardOrderAt) || 0;
     const _remoteOrder = Array.isArray(remoteData._meta && remoteData._meta.dashboardOrder) ? remoteData._meta.dashboardOrder.slice() : [];
     const _remoteOrderAt = (remoteData._meta && remoteData._meta.dashboardOrderAt) || 0;
-    if (_remoteOrderAt > _localOrderAt) {
-        state._meta.dashboardOrder = _remoteOrder;
-        state._meta.dashboardOrderAt = _remoteOrderAt;
-    } else {
-        state._meta.dashboardOrder = _localOrder;
-        state._meta.dashboardOrderAt = _localOrderAt;
-    }
+    // 状态筛选：两端选中的状态并集（去重，本地顺序优先）
+    const _filterUnion = (function () { const seen = {}; const out = []; _localFilter.concat(_remoteFilter).forEach(function (s) { if (s == null) return; if (!seen[s]) { seen[s] = 1; out.push(s); } }); return out; })();
+    state._meta.customerStatusFilter = _filterUnion;
+    state._meta.customerStatusFilterAt = Math.max(_localFilterAt, _remoteFilterAt) || Date.now();
+    // 看板卡片顺序：本地顺序优先、云端独有卡片追加在后
+    const _localOrderSet = {}; _localOrder.forEach(function (x) { _localOrderSet[x] = 1; });
+    const _orderUnion = _localOrder.slice();
+    _remoteOrder.forEach(function (x) { if (!(x in _localOrderSet)) _orderUnion.push(x); });
+    state._meta.dashboardOrder = _orderUnion;
+    state._meta.dashboardOrderAt = Math.max(_localOrderAt, _remoteOrderAt) || Date.now();
     // 同步后应用客户总表「状态多选筛选」：更新内存工作副本，使各端筛选一致
     if (typeof currentFilter !== 'undefined') {
         currentFilter.status = Array.isArray(state._meta.customerStatusFilter) ? state._meta.customerStatusFilter.slice() : [];
@@ -13729,6 +13895,7 @@ const FIELD_LABELS = {
     dueDate: '截止日期', dueTime: '截止时间', customerName: '关联客户',
     completedAt: '完成时间', manualStatus: '手动状态标记',
     week: '周次', data: '内容', statuses: '状态列表',
+    text: '内容', customerId: '客户ID', completed: '已完成',
     thisWeek: '本周计划', nextWeek: '下周计划', focus: '重点'
 };
 
@@ -13739,6 +13906,8 @@ const DIFF_FIELDS = {
     todo: ['title', 'desc', 'priority', 'status', 'dueDate', 'dueTime', 'customerName', 'completedAt', 'manualStatus', 'updatedAt'],
     history: ['week', 'data', 'updatedAt'],
     plan: ['thisWeek', 'nextWeek', 'updatedAt'],
+    dailyPlan: ['text', 'customer', 'customerId', 'updatedAt'],
+    focus: ['text', 'completed', 'starred', 'updatedAt'],
     status: ['statuses'],
     report: ['note', 'starred']
 };
@@ -13752,6 +13921,8 @@ const CONFLICT_FIELDS = {
     todo: DIFF_FIELDS.todo.filter(f => f !== 'updatedAt'),
     history: DIFF_FIELDS.history.filter(f => f !== 'updatedAt'),
     plan: DIFF_FIELDS.plan.filter(f => f !== 'updatedAt'),
+    dailyPlan: DIFF_FIELDS.dailyPlan.filter(f => f !== 'updatedAt'),
+    focus: DIFF_FIELDS.focus.filter(f => f !== 'updatedAt'),
     status: DIFF_FIELDS.status
 };
 
@@ -14049,7 +14220,7 @@ function clearLocalData() {
             state.workPlan = { thisWeek: {}, nextWeek: {} };
             state.history = [];
             state._meta = { lastModified: new Date().toISOString(), lastSyncedAt: null };
-            state._tombstones = { customers: {}, followups: {}, todos: {}, history: {} };
+            state._tombstones = { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
             state._changeLog = [];
             state._operationLog = state._operationLog || []; // 保留操作日志
             // 清空同步基准，防止随后误同步把空数据覆盖云端
@@ -14186,7 +14357,26 @@ function normVal(v) {
 }
 
 // 比较本地与云端，找出「同一记录、字段内容不同」的冲突
+// 列表实体（每日计划 / 重点客户）逐条字段级冲突：仅当两端同一 id 都存在且字段不同才生成记录
+function _buildItemConflicts(localArr, remoteArr, entity, labelFn, fields) {
+    const lr = _indexBy(localArr || [], 'id'), rr = _indexBy(remoteArr || [], 'id');
+    const out = [];
+    Object.keys(rr).forEach(function (id) {
+        const l = lr[id], r = rr[id];
+        if (l && r) {
+            const fs = (fields || []).map(function (fk) {
+                return { key: fk, label: FIELD_LABELS[fk] || fk, local: l[fk], remote: r[fk], same: normVal(l[fk]) === normVal(r[fk]) };
+            });
+            if (fs.some(function (f) { return !f.same; })) {
+                out.push({ entity: entity, id: id, key: entity + ':' + id, label: labelFn(l, r), fields: fs });
+            }
+        }
+    });
+    return out;
+}
+
 function buildConflictRecords(local, remote) {
+    _mirrorPlanEntities(); // 确保本地冲突检测基于最新 workPlan 派生镜像
     const entities = [
         { name: 'customer', list: local.customers, rlist: remote.customers || [], fields: DIFF_FIELDS.customer, label: '客户' },
         { name: 'followup', list: local.followups, rlist: remote.followups || [], fields: DIFF_FIELDS.followup, label: '跟进' },
@@ -14256,18 +14446,16 @@ function buildConflictRecords(local, remote) {
             ] });
         }
     });
-    const lo = (state._meta && state._meta.dashboardOrder) || [], ro = (remote._meta && remote._meta.dashboardOrder) || [];
-    if (JSON.stringify(lo) !== JSON.stringify(ro)) {
-        records.push({ entity: 'meta', id: 'current', key: 'dashboardOrder:current', label: '看板卡片顺序', fields: [
-            { key: 'list', label: '卡片顺序', local: lo.join('、') || '（空）', remote: ro.join('、') || '（空）', same: false }
-        ] });
-    }
-    const ls = (state._meta && state._meta.customerStatusFilter) || [], rs = (remote._meta && remote._meta.customerStatusFilter) || [];
-    if (JSON.stringify(ls) !== JSON.stringify(rs)) {
-        records.push({ entity: 'meta', id: 'current', key: 'statusFilter:current', label: '客户状态筛选（多选）', fields: [
-            { key: 'list', label: '选中状态', local: ls.join('、') || '（全部）', remote: rs.join('、') || '（全部）', same: false }
-        ] });
-    }
+    // 每日计划 / 重点客户：逐条字段级冲突（按 id），与 report 同粒度，避免整表二选一丢数据
+    records.push.apply(records, _buildItemConflicts(state.dailyPlans, remote.dailyPlans, 'dailyPlan',
+        function (l) { return '每日计划：' + (l.week === 'next' ? '下周' : '本周') + '·' + (PLAN_DAY_LABELS[l.day] || l.day) + (l.text ? '（' + _truncate(l.text, 12) + '）' : '（空）'); },
+        (DIFF_FIELDS.dailyPlan || []).filter(function (f) { return f !== 'updatedAt'; })));
+    records.push.apply(records, _buildItemConflicts(state.focusItems, remote.focusItems, 'focus',
+        function (l) { return '重点客户：' + (l.week === 'next' ? '下周' : '本周') + (l.text ? '（' + _truncate(l.text, 12) + '）' : '（空）'); },
+        (DIFF_FIELDS.focus || []).filter(function (f) { return f !== 'updatedAt'; })));
+
+    // 看板卡片顺序 / 客户状态筛选：现已改为按元素并集合并（见 applyRemoteData），
+    // 不再作为冲突弹出整条二选一，故此处不再生成对应冲突记录。
     return records;
 }
 
@@ -14390,23 +14578,16 @@ async function resolveMerge() {
         state.customers = reapplyFieldChoices(state.customers, snap.customers, remote.customers || [], 'customer');
         state.followups = reapplyFieldChoices(state.followups, snap.followups, remote.followups || [], 'followup');
         state.todos = reapplyFieldChoices(state.todos, snap.todos, remote.todos || [], 'todo');
-        // 工作计划（单对象）：按字段级选择合并，thisWeek/nextWeek 各自保留用户所选的一端
+        // 工作计划（单对象，仅每周重点文本）：按字段级选择合并，thisWeek/nextWeek 各自保留用户所选的一端
         state.workPlan = _applyPlanConflictChoice(snap.workPlan, remote.workPlan || {});
         // 近期汇报客户：逐条字段级合并（note / starred），删除经墓碑生效
         state.reportCustomers = _applyReportConflictChoice(snap.reportCustomers || [], remote.reportCustomers || [], snap.reportDeleted || {}, remote.reportDeleted || {});
-        const _odChoice = conflictChoices['dashboardOrder:current|list'];
-        if (_odChoice === 'local' || _odChoice === 'remote') {
-            const _os = _odChoice === 'local' ? (snap._meta || {}) : (remote._meta || {});
-            state._meta.dashboardOrder = Array.isArray(_os.dashboardOrder) ? _clone(_os.dashboardOrder) : [];
-            state._meta.dashboardOrderAt = Date.now();
-        }
-        const _sfChoice = conflictChoices['statusFilter:current|list'];
-        if (_sfChoice === 'local' || _sfChoice === 'remote') {
-            const _ss = _sfChoice === 'local' ? (snap._meta || {}) : (remote._meta || {});
-            state._meta.customerStatusFilter = Array.isArray(_ss.customerStatusFilter) ? _clone(_ss.customerStatusFilter) : [];
-            state._meta.customerStatusFilterAt = Date.now();
-            if (typeof currentFilter !== 'undefined' && currentFilter) currentFilter.status = state._meta.customerStatusFilter.slice();
-        }
+        // 每日计划 / 重点客户：逐条字段级合并（text / customer / completed / starred），删除经墓碑生效
+        state.dailyPlans = reapplyFieldChoices(state.dailyPlans, snap.dailyPlans || [], remote.dailyPlans || [], 'dailyPlan');
+        state.focusItems = reapplyFieldChoices(state.focusItems, snap.focusItems || [], remote.focusItems || [], 'focus');
+        // 把逐条合并结果写回 workPlan（渲染层唯一真值），每周重点文本沿用用户在弹窗中的选择
+        state.workPlan = _planEntitiesToWorkPlan(state.dailyPlans, state.focusItems, state.workPlan);
+        // 看板卡片顺序 / 客户状态筛选：已在 applyRemoteData 中按元素并集合并，此处无需再按整条二选一
         // Fix B：所有覆盖（汇报客户 / 看板顺序 / 状态筛选）都完成后再记同步基准，
         // 使基准与最终值完全一致，避免下次同步又误报同一条冲突
         recordSyncBasis();
@@ -15653,7 +15834,7 @@ function deleteTodo() {
 
     showConfirm(`确定要删除待办"${todo.title}"吗？`, () => {
         // 墓碑记录
-        if (!state._tombstones) state._tombstones = { customers: {}, followups: {}, todos: {}, history: {} };
+        if (!state._tombstones) state._tombstones = { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
         if (!state._tombstones.todos) state._tombstones.todos = {};
         state._tombstones.todos[editingTodoId] = new Date().toISOString();
         recordChange('delete', 'todo', editingTodoId, todo.title);
