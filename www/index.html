@@ -11146,6 +11146,24 @@ function _hashMapByName(arr, fields) {
     });
     return m;
 }
+// 汇报客户统一 name 键（trim 后）：与 _hashMapByName / 同步基准口径完全一致。
+// 此前 _indexBy(...,'name') 用原始 name、而哈希与顺序用 trim 后 name，名字首尾带空格时会
+// 匹配失败 → 本地条目被当成「云端独有」替换或直接丢弃。统一走本函数即可。
+// 无名字（异常/历史）条目单独收集，合并时原样保留，不做静默丢弃。
+function _reportKey(rc) { return (rc && (rc.name || '').trim()) || ''; }
+function _reportIndex(arr) {
+    const map = {}, unnamed = [];
+    (arr || []).forEach(it => {
+        const k = _reportKey(it);
+        if (k) map[k] = it; else if (it) unnamed.push(it);
+    });
+    return { map: map, unnamed: unnamed };
+}
+// 无名条目内容指纹：用于去重，避免每次同步把云端同名无名项重复追加
+function _unnamedFp(u) {
+    try { return JSON.stringify({ n: (u && (u.note || '')) || '', s: !!(u && u.starred) }); }
+    catch (e) { return ''; }
+}
 // 汇报客户删除墓碑合并：跨端删除生效（并集，按 ts 取较新），并剔除超过 30 天的陈旧墓碑
 function mergeReportDeleted(localDel, remoteDel) {
     const out = {};
@@ -11164,12 +11182,12 @@ function mergeReportDeleted(localDel, remoteDel) {
 // 仅一端有 → 采纳该端（并集）；被任一侧墓碑删除 → 剔除；顺序本地优先、云端独有追加末尾
 function mergeReportCustomers(localArr, remoteArr, localDel, remoteDel) {
     const del = mergeReportDeleted(localDel, remoteDel);
-    const lMap = _indexBy(localArr || [], 'name');
-    const rMap = _indexBy(remoteArr || [], 'name');
+    const _li = _reportIndex(localArr), _ri = _reportIndex(remoteArr);
+    const lMap = _li.map, rMap = _ri.map;
     const bMap = (state._meta && state._meta.syncBasis && state._meta.syncBasis.report) || {};
     const order = []; const seen = {};
-    (localArr || []).forEach(rc => { const nm = (rc && (rc.name || '')).trim(); if (nm && !seen[nm]) { seen[nm] = true; order.push(nm); } });
-    (remoteArr || []).forEach(rr => { const nm = (rr && (rr.name || '')).trim(); if (nm && !seen[nm]) { seen[nm] = true; order.push(nm); } });
+    (localArr || []).forEach(rc => { const k = _reportKey(rc); if (k && !seen[k]) { seen[k] = true; order.push(k); } });
+    (remoteArr || []).forEach(rr => { const k = _reportKey(rr); if (k && !seen[k]) { seen[k] = true; order.push(k); } });
     const out = [];
     order.forEach(nm => {
         if (del[nm]) return;
@@ -11185,21 +11203,30 @@ function mergeReportCustomers(localArr, remoteArr, localDel, remoteDel) {
         } else if (l) out.push(_clone(l));
         else if (r) out.push(_clone(r));
     });
+    // 无名字条目：一律保留（本地在前、云端去重追加），避免异常/历史数据被静默丢弃
+    const _fpSeen = {};
+    _li.unnamed.forEach(u => { _fpSeen[_unnamedFp(u)] = true; out.push(_clone(u)); });
+    _ri.unnamed.forEach(u => { const fp = _unnamedFp(u); if (!_fpSeen[fp]) { _fpSeen[fp] = true; out.push(_clone(u)); } });
     return out;
 }
 // 汇报客户冲突合并：按用户在弹窗中的逐条、逐字段选择覆盖。
-// 字段级（note/starred）：choice=remote 取云端、local 取本端；保留/删除（__keep__）：remote=撤销删除保留云端、local=维持删除
+// 字段级（note/starred）：choice=remote 取云端、local 取本端。
+// 保留/删除（__keep__）语义必须与 buildConflictRecords 的展示一致：
+//   · 本端有、云端无（UI: local=保留 / remote=已在其他端删除）→ local 保留、remote 接受删除
+//   · 本端无、云端有（UI: local=本端已删除 / remote=保留）     → local 维持删除、remote 恢复
+// 默认值必须是「保留」（showConflictModal 默认填 local），否则未冲突的本端独有条目也会被清掉。
 function _applyReportConflictChoice(localArr, remoteArr, localDel, remoteDel) {
-    const lMap = _indexBy(localArr || [], 'name');
-    const rMap = _indexBy(remoteArr || [], 'name');
+    const _li = _reportIndex(localArr), _ri = _reportIndex(remoteArr);
+    const lMap = _li.map, rMap = _ri.map;
     const del = mergeReportDeleted(localDel, remoteDel);
     const order = []; const seen = {};
-    (localArr || []).forEach(rc => { const nm = (rc && (rc.name || '')).trim(); if (nm && !seen[nm]) { seen[nm] = true; order.push(nm); } });
-    (remoteArr || []).forEach(rr => { const nm = (rr && (rr.name || '')).trim(); if (nm && !seen[nm]) { seen[nm] = true; order.push(nm); } });
+    (localArr || []).forEach(rc => { const k = _reportKey(rc); if (k && !seen[k]) { seen[k] = true; order.push(k); } });
+    (remoteArr || []).forEach(rr => { const k = _reportKey(rr); if (k && !seen[k]) { seen[k] = true; order.push(k); } });
     const out = [];
     order.forEach(nm => {
         const l = lMap[nm], r = rMap[nm];
         const key = 'report:' + nm;
+        const keep = conflictChoices[key + '|__keep__'];
         if (l && r) {
             const item = _clone(l);
             (DIFF_FIELDS.report || []).forEach(fk => {
@@ -11207,15 +11234,26 @@ function _applyReportConflictChoice(localArr, remoteArr, localDel, remoteDel) {
                 if (choice === 'remote') item[fk] = _clone(r[fk]);
                 else if (choice === 'local') item[fk] = _clone(l[fk]);
             });
-            if (conflictChoices[key + '|__keep__'] === 'remote') delete del[nm];
+            if (keep === 'remote') delete del[nm];
             out.push(item);
         } else if (l && !r) {
-            if (conflictChoices[key + '|__keep__'] === 'remote') { out.push(_clone(l)); delete del[nm]; }
+            // local=保留本端条目；remote=接受其他端的删除。
+            // 默认（含「本端独有、尚未同步」的非冲突条目）一律保留，避免静默丢数据。
+            if (keep === 'remote') { /* 接受删除：不 push，保留墓碑使其继续传播 */ }
+            else { out.push(_clone(l)); delete del[nm]; }
         } else if (!l && r) {
-            if (conflictChoices[key + '|__keep__'] === 'local') { delete del[nm]; }
-            else { out.push(_clone(r)); delete del[nm]; }
+            if (del[nm]) {
+                // 已有墓碑（本端或任一端删除）：默认维持删除，仅当用户明确选 remote 才恢复
+                if (keep === 'remote') { out.push(_clone(r)); delete del[nm]; }
+            } else {
+                out.push(_clone(r)); // 云端独有新增：并集保留
+            }
         }
     });
+    // 无名字条目：保留（本地在前、云端去重追加）
+    const _fpSeen = {};
+    _li.unnamed.forEach(u => { _fpSeen[_unnamedFp(u)] = true; out.push(_clone(u)); });
+    _ri.unnamed.forEach(u => { const fp = _unnamedFp(u); if (!_fpSeen[fp]) { _fpSeen[fp] = true; out.push(_clone(u)); } });
     state.reportDeleted = del;
     return out;
 }
@@ -14197,8 +14235,8 @@ function buildConflictRecords(local, remote) {
         return names.slice(0, 5).join('、') + (names.length > 5 ? ' …等共 ' + names.length + ' 项' : (names.length ? '' : '（空）'));
     };
     // 近期汇报客户：单条粒度、字段级冲突（note / starred），删除经墓碑跨端生效
-    const _lrByName = _indexBy(state.reportCustomers || [], 'name');
-    const _rrByName = _indexBy(remote.reportCustomers || [], 'name');
+    const _lrIdx = _reportIndex(state.reportCustomers || []), _rrIdx = _reportIndex(remote.reportCustomers || []);
+    const _lrByName = _lrIdx.map, _rrByName = _rrIdx.map;
     const _repAllNames = new Set([].concat(Object.keys(_lrByName), Object.keys(_rrByName)));
     _repAllNames.forEach(nm => {
         const l = _lrByName[nm], r = _rrByName[nm];
@@ -14356,8 +14394,6 @@ async function resolveMerge() {
         state.workPlan = _applyPlanConflictChoice(snap.workPlan, remote.workPlan || {});
         // 近期汇报客户：逐条字段级合并（note / starred），删除经墓碑生效
         state.reportCustomers = _applyReportConflictChoice(snap.reportCustomers || [], remote.reportCustomers || [], snap.reportDeleted || {}, remote.reportDeleted || {});
-        // Fix B：用户选择覆盖后再记一次同步基准，使基准与最终值一致，避免下次同步又误报同一条冲突
-        recordSyncBasis();
         const _odChoice = conflictChoices['dashboardOrder:current|list'];
         if (_odChoice === 'local' || _odChoice === 'remote') {
             const _os = _odChoice === 'local' ? (snap._meta || {}) : (remote._meta || {});
@@ -14371,6 +14407,9 @@ async function resolveMerge() {
             state._meta.customerStatusFilterAt = Date.now();
             if (typeof currentFilter !== 'undefined' && currentFilter) currentFilter.status = state._meta.customerStatusFilter.slice();
         }
+        // Fix B：所有覆盖（汇报客户 / 看板顺序 / 状态筛选）都完成后再记同步基准，
+        // 使基准与最终值完全一致，避免下次同步又误报同一条冲突
+        recordSyncBasis();
         saveData(true);
         await pushToGist();
         refreshCurrentPage();
