@@ -11360,8 +11360,6 @@ function recordSyncBasis() {
             // 每日计划 / 重点客户：独立列表实体，逐条哈希（id 为稳定键），支持单条粒度冲突，避免整表互相覆盖
             dailyPlan: _hashMap(state.dailyPlans || [], 'dailyPlan', CONFLICT_FIELDS),
             focus: _hashMap(state.focusItems || [], 'focus', CONFLICT_FIELDS),
-            // 工作计划（仅每周重点文本）：纳入同步基准，使双端并发编辑计划能被真冲突检测捕获
-            plan: _hashItem('plan', state.workPlan, CONFLICT_FIELDS),
             // 近期汇报客户：逐条哈希（name 为稳定键），支持单条粒度冲突；reportDeleted 单独记录墓碑基准
             report: _hashMapByName(state.reportCustomers || [], ['note', 'starred']),
             reportDeleted: _stableHashVal(state.reportDeleted || {}),
@@ -11400,14 +11398,6 @@ function detectTrueConflicts(remote) {
             }
         });
     });
-    // 工作计划（单对象）：基于同步基准检测双端是否都改过计划。
-    // 仅当「本地≠基准 且 云端≠基准」时判为冲突——单端修改不算冲突，避免每次同步都弹窗。
-    const basisPlan = basis.plan;
-    if (basisPlan) {
-        const lp = _hashItem('plan', state.workPlan, CONFLICT_FIELDS);
-        const rp = _hashItem('plan', remote.workPlan || { thisWeek: {}, nextWeek: {} }, CONFLICT_FIELDS);
-        if (basisPlan !== lp && basisPlan !== rp) res.push('plan:current');
-    }
     // 近期汇报客户：单条粒度冲突（name 为稳定键）。
     // 仅当「本地≠云端 且 本地≠基准 且 云端≠基准」才判该条冲突——加 本地≠云端 防一致仍误报；
     // 删除冲突：一端墓碑删除、另一端保留且内容已变（编辑 vs 删除）也判冲突
@@ -13905,7 +13895,6 @@ const DIFF_FIELDS = {
     followup: ['customer', 'content', 'time', 'updatedAt'],
     todo: ['title', 'desc', 'priority', 'status', 'dueDate', 'dueTime', 'customerName', 'completedAt', 'manualStatus', 'updatedAt'],
     history: ['week', 'data', 'updatedAt'],
-    plan: ['thisWeek', 'nextWeek', 'updatedAt'],
     dailyPlan: ['text', 'customer', 'customerId', 'updatedAt'],
     focus: ['text', 'completed', 'starred', 'updatedAt'],
     status: ['statuses'],
@@ -13920,7 +13909,6 @@ const CONFLICT_FIELDS = {
     followup: DIFF_FIELDS.followup.filter(f => f !== 'updatedAt'),
     todo: DIFF_FIELDS.todo.filter(f => f !== 'updatedAt'),
     history: DIFF_FIELDS.history.filter(f => f !== 'updatedAt'),
-    plan: DIFF_FIELDS.plan.filter(f => f !== 'updatedAt'),
     dailyPlan: DIFF_FIELDS.dailyPlan.filter(f => f !== 'updatedAt'),
     focus: DIFF_FIELDS.focus.filter(f => f !== 'updatedAt'),
     status: DIFF_FIELDS.status
@@ -14404,20 +14392,8 @@ function buildConflictRecords(local, remote) {
             }
         });
     });
-    // 工作计划（单对象，非列表）：整体作为一条冲突记录，thisWeek/nextWeek 两个字段可分别选择保留哪一端
-    const lp0 = state.workPlan || { thisWeek: {}, nextWeek: {} };
-    const rp0 = remote.workPlan || { thisWeek: {}, nextWeek: {} };
-    const planFields = (DIFF_FIELDS.plan || []).filter(f => f !== 'updatedAt');
-    const pfields = planFields.map(fk => ({
-        key: fk,
-        label: fk === 'thisWeek' ? '本周计划' : (fk === 'nextWeek' ? '下周计划' : fk),
-        local: lp0[fk],
-        remote: rp0[fk],
-        same: JSON.stringify(lp0[fk] || {}) === JSON.stringify(rp0[fk] || {})
-    }));
-    if (pfields.some(f => !f.same)) {
-        records.push({ entity: 'plan', id: 'current', key: 'plan:current', label: '工作计划（本周 / 下周）', fields: pfields });
-    }
+    // 工作计划（本周重点/每日计划）已改为「逐条+字段级」独立实体（dailyPlans / focusItems）同步，
+    // 不再作为整体对象判定冲突——其冲突由列表实体的字段级合并逐条处理，故此处不再生成 plan 整条冲突记录。
     // 单对象数据/偏好：整体一条冲突记录，选择保留本地或云端整端值
     const _sumNames = (arr) => {
         const list = arr || [];
@@ -14527,23 +14503,8 @@ function resolveAllConflicts(side) {
     renderConflictModal();
 }
 
-// 工作计划冲突合并：按用户在冲突弹窗中的逐字段选择，保留「本地」或「云端」版的各子字段。
-// 工作计划是单对象（非列表），故不走 reapplyFieldChoices（那是为按 id 索引的数组设计的）。
-function _applyPlanConflictChoice(localPlan, remotePlan) {
-    const out = localPlan ? JSON.parse(JSON.stringify(localPlan)) : {};
-    (DIFF_FIELDS.plan || []).forEach(fk => {
-        if (fk === 'updatedAt') return; // 时间戳不参与字段选择
-        const choice = conflictChoices['plan:current|' + fk];
-        if (choice === 'remote') out[fk] = _clone((remotePlan || {})[fk]);
-        else if (choice === 'local') out[fk] = _clone((localPlan || {})[fk]);
-        // 未选择（理论上 conflictChoices 已默认 local）则保留 out 现状（本地基线）
-    });
-    // 合并结果作为新版本：rev 取两端较大者 +1，避免下次同步再次判为冲突；updatedAt 刷新
-    const lr = (localPlan && localPlan._rev) || 0, rr = (remotePlan && remotePlan._rev) || 0;
-    out._rev = Math.max(lr, rr) + 1;
-    out.updatedAt = new Date().toISOString();
-    return out;
-}
+// 工作计划已改为「逐条+字段级」独立实体同步，其冲突由列表实体的字段级合并（reapplyFieldChoices）逐条处理，
+// 不再需要单对象整体的 _applyPlanConflictChoice 合并函数。
 
 // 在 applyRemoteData 合并的基础上，按用户字段选择覆盖冲突记录的字段
 function reapplyFieldChoices(currentList, localList, remoteList, entity) {
@@ -14578,8 +14539,8 @@ async function resolveMerge() {
         state.customers = reapplyFieldChoices(state.customers, snap.customers, remote.customers || [], 'customer');
         state.followups = reapplyFieldChoices(state.followups, snap.followups, remote.followups || [], 'followup');
         state.todos = reapplyFieldChoices(state.todos, snap.todos, remote.todos || [], 'todo');
-        // 工作计划（单对象，仅每周重点文本）：按字段级选择合并，thisWeek/nextWeek 各自保留用户所选的一端
-        state.workPlan = _applyPlanConflictChoice(snap.workPlan, remote.workPlan || {});
+        // 工作计划（本周重点 / 每日计划）：已改为逐条+字段级独立实体，
+        // 由下方 reapplyFieldChoices(dailyPlans/focusItems) + _planEntitiesToWorkPlan 写回处理，不再整体二选一。
         // 近期汇报客户：逐条字段级合并（note / starred），删除经墓碑生效
         state.reportCustomers = _applyReportConflictChoice(snap.reportCustomers || [], remote.reportCustomers || [], snap.reportDeleted || {}, remote.reportDeleted || {});
         // 每日计划 / 重点客户：逐条字段级合并（text / customer / completed / starred），删除经墓碑生效
