@@ -3618,6 +3618,39 @@ td.col-followup-content { position: relative; }
 
 /* ============ 第四批：跟进时间筛选下拉（需求③） ============ */
 .followup-filter-wrap { position: relative; flex: 0 0 auto; }
+/* ===== 跟进标签 + 距上次跟进徽标 ===== */
+.fu-tag-badge {
+    display: inline-flex; align-items: center; white-space: nowrap;
+    padding: 1px 8px; font-size: 11px; font-weight: 500; line-height: 16px;
+    border-radius: 10px; vertical-align: middle;
+}
+.fu-tag-badge.ghost { background: var(--gray-100, #F3F4F6); color: var(--text-secondary, #6B7280); }
+.fu-tag-chip {
+    display: inline-flex; align-items: center; white-space: nowrap;
+    padding: 3px 12px; font-size: 12px; font-weight: 500;
+    background: var(--card-bg, #fff); border: 1px solid var(--border, #E5E7EB);
+    border-radius: 14px; cursor: pointer; color: var(--text, #1F2937);
+    transition: all .15s;
+}
+.fu-tag-chip.active { background: var(--primary, #1F6FEB); border-color: var(--primary, #1F6FEB); color: #fff; }
+.fu-tag-chip-row { display: flex; gap: 6px; overflow-x: auto; padding: 6px 0 2px; -webkit-overflow-scrolling: touch; }
+.fu-tag-chip-row::-webkit-scrollbar { display: none; }
+.fu-tag-select { display: flex; flex-wrap: wrap; gap: 6px; }
+.fu-days-badge {
+    display: inline-flex; align-items: center; white-space: nowrap;
+    padding: 1px 8px; font-size: 11px; font-weight: 600; line-height: 16px;
+    border-radius: 10px; margin-left: 6px; vertical-align: middle;
+}
+.fu-days-badge.ok   { background: #ECFDF5; color: #059669; }
+.fu-days-badge.warn { background: #FEF3C7; color: #B45309; }
+.fu-days-badge.over { background: #FEE2E2; color: #B91C1C; }
+/* 跟进偏好（标签管理 + 提醒阈值） */
+.fu-pref-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+.fu-pref-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+.fu-pref-row input.fu-pref-name { flex: 1 1 auto; min-width: 0; }
+.fu-pref-del { flex: 0 0 auto; background: none; border: none; color: #EF4444; font-size: 13px; cursor: pointer; padding: 4px 6px; }
+.fu-pref-add { display: flex; gap: 8px; margin-top: 8px; }
+.fu-pref-add input { flex: 1 1 auto; min-width: 0; }
 .followup-filter-btn {
     display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
     padding: 6px 12px; font-size: 12px; font-weight: 500; color: var(--text);
@@ -3844,6 +3877,11 @@ td.col-followup-content { position: relative; }
                             <div class="settings-card-icon" style="background:#EEF2FF;color:#4F46E5;" data-page-node-id="R3bIAcY1Gm0hC4kc1FqCDU"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="B9qCfXRMMWtEpiZV94hn6n"><path d="M21.5 2v6h-6M2.5 22v-6h6" data-page-node-id="GTNIT0SY9CbOhf94H56HPh"/><path d="M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" data-page-node-id="oo8CSLp0tggLID8wYjswmy"/></svg></div>
                             <div class="settings-card-title" data-page-node-id="Iyt2oSOkKXHSNZvE4R7Dgk">云端同步</div>
                             <div class="settings-card-desc" data-page-node-id="h8NtFf5v2kXhiMAFZNvRGG">主 Gist 同步设置</div>
+                        </div>
+                        <div class="settings-card" onclick="window._crm.closeSettingsCenter();window._crm.openFollowupPrefs()" >
+                            <div class="settings-card-icon" style="background:#FEF3C7;color:#B45309;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div>
+                            <div class="settings-card-title">跟进偏好</div>
+                            <div class="settings-card-desc">跟进标签管理 · 未跟进提醒阈值</div>
                         </div>
                         <div class="settings-card" onclick="window._crm.closeSettingsCenter();window._crm.openManualBackupModal()" data-page-node-id="Cr52QWN32Cj1JjqUHnLGms">
                             <div class="settings-card-icon" style="background:#ECFDF5;color:#059669;" data-page-node-id="pKzZXwjLv8dd1FDnQY84qi"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="agJFnV8kHLuw22AFQhnCEo"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" data-page-node-id="dVujYf5sHT3RqO0XpEEieV"/><polyline points="7 10 12 15 17 10" data-page-node-id="CkG94OqL7HaTUDGFCbiKoQ"/><line x1="12" y1="15" x2="12" y2="3" data-page-node-id="g6yCfT21wJmctmKJQY9WXi"/></svg></div>
@@ -4142,6 +4180,13 @@ td.col-followup-content { position: relative; }
                             <button type="button" class="followup-filter-opt" data-filter="no_week2" data-page-node-id="rFKIKpRUT1lio6DaLCgvUt">二周未跟进</button>
                             <button type="button" class="followup-filter-opt" data-filter="no_week3" data-page-node-id="HZY50bGYj4X7mYfWvxSjHf">三周未跟进</button>
                         </div>
+                    </div>
+                    <div class="followup-filter-wrap" id="followupTagFilterWrap">
+                        <button type="button" class="followup-filter-btn" id="followupTagFilterBtn">
+                            <span class="ff-label" id="followupTagFilterLabel">标签</span>
+                            <span class="ff-arrow">▾</span>
+                        </button>
+                        <div class="followup-filter-menu hidden" id="followupTagFilterMenu"></div>
                     </div>
                     <div class="followup-view-toggle" id="followupViewToggle" data-page-node-id="arKzoJmS7IvQZ3JsAbogSC">
                         <button type="button" class="followup-view-btn active" data-view="record" data-page-node-id="o4mXx9oskiDUVueY3HjEuK">按记录</button>
@@ -4484,6 +4529,44 @@ td.col-followup-content { position: relative; }
         </div>
     </div>
 
+    <!-- 跟进偏好弹窗（标签管理 + 未跟进提醒阈值） -->
+    <div class="modal-overlay" id="followupPrefsModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title">跟进偏好</h2>
+                <button class="modal-close" id="followupPrefsClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>跟进标签（新增跟进记录时可选，支持增删改）</label>
+                    <div id="fuPrefTagList"></div>
+                    <div class="fu-pref-add">
+                        <input type="text" id="fuPrefNewName" maxlength="12" placeholder="新标签名（最多 12 字）">
+                        <button class="btn btn-sm btn-primary" id="fuPrefAddBtn">添加</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>距上次跟进提醒阈值（详情页「最后跟进」徽标变色）</label>
+                    <div class="fu-pref-row">
+                        <span class="fu-days-badge warn">黄</span>
+                        <span>≥</span>
+                        <input type="number" id="fuRemindYellow" min="1" max="365" style="width:80px;"> 天
+                    </div>
+                    <div class="fu-pref-row">
+                        <span class="fu-days-badge over">红</span>
+                        <span>&gt;</span>
+                        <input type="number" id="fuRemindRed" min="2" max="365" style="width:80px;"> 天
+                    </div>
+                    <div style="color:var(--text-secondary);font-size:12px;margin-top:4px;">默认黄 ≥7 天、红 &gt;14 天；「从未跟进」恒为红色。</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="fuPrefsCancelBtn">取消</button>
+                <button class="btn btn-primary" id="fuPrefsSaveBtn">保存阈值</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 跟进记录弹窗 -->
     <div class="modal-overlay" id="followupModal" data-page-node-id="OxeFGI0gMCw7CFDdgT4fHC">
         <div class="modal" data-page-node-id="jKz8vO7zIS1sGMorjRDbob">
@@ -4504,6 +4587,10 @@ td.col-followup-content { position: relative; }
                 <div class="form-group" data-page-node-id="NOfyl3CtvOAESj1NBkxYrT">
                     <label data-page-node-id="Yaz3yYKGBBBD4lSlLk7UD4">跟进内容 <span class="required" data-page-node-id="6RLhjC8nuEEDtikl7mYbFB">*</span></label>
                     <textarea id="followupContent" rows="4" placeholder="请输入跟进内容..." oninput="window._crm.autoResizeTextarea(this)"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>跟进标签（可再点一次取消）</label>
+                    <div id="followupTagChips" class="fu-tag-select"></div>
                 </div>
                 <div class="form-group" data-page-node-id="NpxZoHAInvsjYDYACpMI2F">
                     <label data-page-node-id="H85ewz8NX2n13SUzldt7nw">跟进时间</label>
@@ -5477,6 +5564,7 @@ let editingCustomerBaseline = null;   // 打开编辑弹窗时该客户的快照
 let editingCustomerWarnedHash = null; // 已对“正在编辑的客户被远端更新”提示过的远端哈希，避免每次同步重复提示
 let currentFilter = { status: [], city: 'all' };
 let followupFilter = 'all';
+let followupTagFilter = 'all'; // 跟进标签筛选：all=全部 / none=未分类 / 标签名
 var followupView = 'record';
 let followupStart = '';
 let followupEnd = '';
@@ -8091,7 +8179,7 @@ function openCustomerDetail(id) {
                 </div>
                 <div class="detail-info-item">
                     <div class="label">最后跟进</div>
-                    <div class="value">${customer.last_followup_time ? formatDateTime(customer.last_followup_time) : '从未跟进'}</div>
+                    <div class="value">${customer.last_followup_time ? formatDateTime(customer.last_followup_time) : '从未跟进'}${fuDaysBadgeHtml(customer)}</div>
                 </div>
             </div>
         </div>
@@ -8104,7 +8192,7 @@ function openCustomerDetail(id) {
         ${customFieldsHtml}
         ${customer.last_followup ? `
         <div class="detail-section">
-            <div class="detail-section-title">最新跟进记录</div>
+            <div class="detail-section-title">最新跟进记录${followups[0] ? fuTagBadgeHtml(followups[0].tag) : ''}</div>
             <div class="detail-section-content" style="padding:10px;background:var(--gray-50);border-radius:8px;">${escapeHtml(customer.last_followup)}</div>
         </div>
         ` : ''}
@@ -8113,16 +8201,7 @@ function openCustomerDetail(id) {
                 <span>跟进历史 (${followups.length})</span>
                 ${followups.length > 0 ? `<a href="javascript:void(0)" onclick="${setRet}window._crm.openFollowupHistory('${safeName}')" style="font-size:12px;font-weight:500;color:var(--primary);text-transform:none;letter-spacing:0;">查看全部 &rsaquo;</a>` : ''}
             </div>
-            <div class="detail-followup-list">
-                ${followups.length === 0 ? '<div style="color:var(--text-secondary);font-size:13px;padding:8px 0;">暂无跟进记录</div>' : 
-                    followups.slice(0, 3).map(f => `
-                    <div class="detail-followup-item">
-                        <div class="time">${formatDateTime(f.time)}</div>
-                        <div class="content">${escapeHtml(f.content)}</div>
-                    </div>
-                `).join('')}
-                ${followups.length > 3 ? `<div style="text-align:center;padding:8px;"><a href="javascript:void(0)" onclick="${setRet}window._crm.openFollowupHistory('${safeName}')" style="font-size:13px;color:var(--primary);font-weight:500;">查看全部 ${followups.length} 条记录 &rsaquo;</a></div>` : ''}
-            </div>
+            <div id="detailFuHistoryBox"></div>
         </div>
         ${todosHtml}
         ${planMentionsHtml}
@@ -8135,6 +8214,47 @@ function openCustomerDetail(id) {
     `;
 
     document.getElementById('customerModal').classList.add('show');
+    // 跟进历史标签筛选：每次打开详情重置为「全部」并渲染 chip 行 + 列表
+    _detailFuTag = 'all';
+    renderDetailFollowupHistory();
+}
+
+// 详情页「跟进历史」区块：标签 chip 行 + 按标签筛选的列表（最多 3 条，点查看全部进历史弹窗）
+let _detailFuTag = 'all';
+function renderDetailFollowupHistory() {
+    const box = document.getElementById('detailFuHistoryBox');
+    if (!box || !currentDetailCustomerId) return;
+    const customer = state.customers.find(c => c.id === currentDetailCustomerId);
+    if (!customer) { box.innerHTML = ''; return; }
+    const all = state.followups
+        .filter(f => f.customer === customer.name)
+        .sort((a, b) => new Date(b.time) - new Date(a.time));
+    // 该客户跟进中出现过的标签：定义内标签按定义顺序，孤儿标签排后面
+    const defs = getFollowupTags();
+    const present = [];
+    all.forEach(f => { const t = String(f.tag || '').trim(); if (t && present.indexOf(t) < 0) present.push(t); });
+    present.sort((a, b) => (defs.indexOf(a) < 0 ? 99 : defs.indexOf(a)) - (defs.indexOf(b) < 0 ? 99 : defs.indexOf(b)));
+    const chips = [{ v: 'all', t: '全部', n: all.length }].concat(present.map(t => ({ v: t, t: t, n: all.filter(f => String(f.tag || '').trim() === t).length })));
+    const filtered = (_detailFuTag === 'all') ? all : all.filter(f => String(f.tag || '').trim() === _detailFuTag);
+    const setRet = `window._crm._setDetailReturn('${customer.id}');window._crm.closeCustomerModal();`;
+    const safeName = customer.name.replace(/'/g, "\\'");
+    box.innerHTML = `
+        ${chips.length > 1 ? `<div class="fu-tag-chip-row">${chips.map(c =>
+            `<button type="button" class="fu-tag-chip${c.v === _detailFuTag ? ' active' : ''}" onclick="window._crm.filterDetailFu('${escapeHtml(c.v)}')">${escapeHtml(c.t)}(${c.n})</button>`).join('')}</div>` : ''}
+        <div class="detail-followup-list">
+            ${filtered.length === 0 ? '<div style="color:var(--text-secondary);font-size:13px;padding:8px 0;">' + (_detailFuTag === 'all' ? '暂无跟进记录' : '该标签下暂无跟进记录') + '</div>' :
+                filtered.slice(0, 3).map(f => `
+                    <div class="detail-followup-item">
+                        <div class="time">${formatDateTime(f.time)} ${fuTagBadgeHtml(f.tag)}</div>
+                        <div class="content">${escapeHtml(f.content)}</div>
+                    </div>
+                `).join('')}
+            ${filtered.length > 3 ? `<div style="text-align:center;padding:8px;"><a href="javascript:void(0)" onclick="${setRet}window._crm.openFollowupHistory('${safeName}')" style="font-size:13px;color:var(--primary);font-weight:500;">查看全部 ${filtered.length} 条记录 &rsaquo;</a></div>` : ''}
+        </div>`;
+}
+function filterDetailFu(tag) {
+    _detailFuTag = tag || 'all';
+    renderDetailFollowupHistory();
 }
 
 function closeCustomerModal() {
@@ -9042,6 +9162,80 @@ function deleteStatus() {
 }
 
 // ==================== 跟进记录 ====================
+// ===== 跟进标签（单选，自定义可增删改）+ 距上次跟进提醒 =====
+const DEFAULT_FOLLOWUP_TAGS = ['日常跟进', '价格跟进', '需求跟进'];
+// 标签色板：按标签名 hash 取色，三端一致；不用配置色（少一个同步字段，视觉仍可区分）
+function _fuTagColor(name) {
+    const palette = [
+        { bg: '#EEF2FF', fg: '#4F46E5' }, { bg: '#ECFDF5', fg: '#059669' },
+        { bg: '#FEF3C7', fg: '#B45309' }, { bg: '#FEE2E2', fg: '#B91C1C' },
+        { bg: '#E0F2FE', fg: '#0369A1' }, { bg: '#F3E8FF', fg: '#7C3AED' },
+        { bg: '#FCE7F3', fg: '#BE185D' }, { bg: '#CCFBF1', fg: '#0F766E' }
+    ];
+    let h = 0;
+    const s = String(name || '');
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return palette[h % palette.length];
+}
+function getFollowupTags() {
+    const t = state._meta && state._meta.followupTags;
+    return (Array.isArray(t) && t.length > 0) ? t.slice() : DEFAULT_FOLLOWUP_TAGS.slice();
+}
+// 跟进标签小色块（ghost=孤儿/历史标签：定义列表里已删除，仅保留原文展示）
+function fuTagBadgeHtml(tag, extraClass) {
+    const t = String(tag || '').trim();
+    if (!t) return '';
+    const known = getFollowupTags().indexOf(t) >= 0;
+    if (!known) return '<span class="fu-tag-badge ghost' + (extraClass ? ' ' + extraClass : '') + '">' + escapeHtml(t) + '</span>';
+    const c = _fuTagColor(t);
+    return '<span class="fu-tag-badge' + (extraClass ? ' ' + extraClass : '') + '" style="background:' + c.bg + ';color:' + c.fg + '">' + escapeHtml(t) + '</span>';
+}
+// 距上次跟进提醒阈值（可配，默认 7/14 天）：yellow ≤ N 天未跟 → 黄；> M 天或从未跟进 → 红
+function getFollowupRemind() {
+    const r = (state._meta && state._meta.followupRemind) || {};
+    const y = parseInt(r.yellow, 10) || 7;
+    const m = parseInt(r.red, 10) || 14;
+    return { yellow: Math.max(1, y), red: Math.max(y + 1, m) };
+}
+// 距上次跟进整天数；从未跟进返回 null
+function getLastFollowupAgeDays(customer) {
+    if (!customer || !customer.last_followup_time) return null;
+    const t = new Date(customer.last_followup_time).getTime();
+    if (isNaN(t)) return null;
+    return Math.floor((Date.now() - t) / 86400000);
+}
+function fuDaysBadgeHtml(customer) {
+    const d = getLastFollowupAgeDays(customer);
+    const th = getFollowupRemind();
+    if (d === null) return '<span class="fu-days-badge over" title="该客户还没有跟进记录">从未跟进</span>';
+    const cls = d > th.red ? 'over' : (d >= th.yellow ? 'warn' : 'ok');
+    return '<span class="fu-days-badge ' + cls + '" title="距上次跟进 ' + d + ' 天（黄 ≥' + th.yellow + ' 天，红 >' + th.red + ' 天）">' + d + ' 天未跟进</span>';
+}
+// 跟进记录页「标签 ▾」菜单（每次打开时重建，含 全部/未分类/各标签）
+function renderFollowupTagMenu(menuEl) {
+    if (!menuEl) return;
+    const tags = getFollowupTags();
+    const opts = [{ v: 'all', t: '全部标签' }, { v: 'none', t: '未分类' }].concat(tags.map(t => ({ v: t, t: t })));
+    menuEl.innerHTML = opts.map(o =>
+        '<button type="button" class="followup-filter-opt' + (o.v === followupTagFilter ? ' active' : '') + '" data-tag="' + escapeHtml(o.v) + '">' + escapeHtml(o.t) + '</button>'
+    ).join('');
+}
+// ===== 跟进弹窗：标签单选 chips（点击选中 / 再点取消 = 未分类） =====
+let _followupTagSel = '';
+function renderFollowupTagSelect(selected) {
+    _followupTagSel = String(selected || '').trim();
+    const box = document.getElementById('followupTagChips');
+    if (!box) return;
+    const tags = getFollowupTags();
+    box.innerHTML = tags.map(t =>
+        '<button type="button" class="fu-tag-chip' + (t === _followupTagSel ? ' active' : '') + '" data-tag="' + escapeHtml(t) + '" onclick="window._crm.pickFollowupTag(\'' + escapeHtml(t) + '\')">' + escapeHtml(t) + '</button>'
+    ).join('') + '<button type="button" class="fu-tag-chip" style="color:var(--text-secondary);border-style:dashed;" title="在 设置中心 → 跟进偏好 中自定义标签" onclick="window._crm.openFollowupPrefs()">管理</button>';
+}
+function pickFollowupTag(tag) {
+    _followupTagSel = (_followupTagSel === tag) ? '' : tag;
+    const box = document.getElementById('followupTagChips');
+    if (box) box.querySelectorAll('.fu-tag-chip[data-tag]').forEach(c => c.classList.toggle('active', c.dataset.tag === _followupTagSel));
+}
 function renderFollowups() {
     const container = document.getElementById('followupTimeline');
     let filtered = [...state.followups];
@@ -9073,6 +9267,12 @@ function renderFollowups() {
             return ok;
         });
     }
+    // 跟进标签筛选（与时间筛选叠加）：all=全部；none=未打标签；其他=标签名精确匹配
+    if (followupTagFilter === 'none') {
+        filtered = filtered.filter(f => !String(f.tag || '').trim());
+    } else if (followupTagFilter !== 'all') {
+        filtered = filtered.filter(f => String(f.tag || '').trim() === followupTagFilter);
+    }
 
     // 按客户聚合视图：按客户分组展示，组内时间倒序
     if (followupView === 'customer') {
@@ -9101,6 +9301,7 @@ function renderFollowups() {
                 <div class="followup-card">
                     <div class="followup-card-header">
                         <span class="followup-customer" onclick="window._crm.openCustomerDetailByName('${escapeHtml(f.customer)}')">${escapeHtml(f.customer)}</span>
+                        ${fuTagBadgeHtml(f.tag)}
                         <span class="followup-time">${formatDateTime(f.time)}</span>
                     </div>
                     <div class="followup-content">${escapeHtml(f.content)}</div>
@@ -9137,6 +9338,7 @@ function renderFollowupsByCustomer(container, followups) {
                 <div class="followup-item">
                     <div class="followup-card">
                         <div class="followup-card-header">
+                            ${fuTagBadgeHtml(f.tag)}
                             <span class="followup-time">${formatDateTime(f.time)}</span>
                         </div>
                 <div class="followup-content">${escapeHtml(f.content)}</div>
@@ -9176,6 +9378,7 @@ function openFollowupModal(customerName, id) {
         document.getElementById('followupCustomer').value = f.customer || '';
         document.getElementById('followupContent').value = f.content || '';
         document.getElementById('followupTime').value = toLocalInputValue(f.time);
+        renderFollowupTagSelect(f.tag);
         if (deleteBtn) deleteBtn.style.display = 'block';
         // 编辑已有记录时不提供「存草稿」（本身是真实记录）
         if (draftBtn) draftBtn.style.display = 'none';
@@ -9183,6 +9386,7 @@ function openFollowupModal(customerName, id) {
         if (titleEl) titleEl.textContent = '新增跟进记录';
         document.getElementById('followupCustomer').value = customerName || '';
         document.getElementById('followupContent').value = '';
+        renderFollowupTagSelect('');
         if (deleteBtn) deleteBtn.style.display = 'none';
         if (draftBtn) draftBtn.style.display = '';
         // 新建模式：若有草稿则展示草稿入口
@@ -9222,6 +9426,7 @@ function saveFollowup() {
 
     const now = new Date().toISOString();
     const savedTime = time ? new Date(time).toISOString() : now;
+    const savedTag = String(_followupTagSel || '').trim();
     let followup;
 
     if (editingFollowupId) {
@@ -9233,6 +9438,7 @@ function saveFollowup() {
         followup.customerId = (state.customers.find(c => c.name === customer) || {}).id || '';
         followup.content = content;
         followup.time = savedTime;
+        followup.tag = savedTag;
         followup.updatedAt = now;
         recordChange('update', 'followup', followup, followup.customer, prevFollowup);
         // 客户名变更时，旧客户需重算最后跟进
@@ -9243,6 +9449,7 @@ function saveFollowup() {
             customer: customer,
             customerId: (state.customers.find(c => c.name === customer) || {}).id || '',
             content: content,
+            tag: savedTag,
             time: savedTime,
             createdAt: now,
             updatedAt: now
@@ -9274,12 +9481,16 @@ function saveFollowup() {
     // 以该客户全部跟进中最新一条为准重算最后跟进（新增/编辑/改客户均适用）
     recomputeCustomerLastFollowup(customer);
 
+    // 打了跟进标签才记操作日志（避免每条跟进都刷屏）；注意 closeFollowupModal 会清 editingFollowupId，先快照
+    const _wasEdit = !!editingFollowupId;
+    if (savedTag) logOperation('跟进打标：' + customer + '「' + savedTag + '」' + (_wasEdit ? '（编辑）' : ''), 'info');
+
     saveData();
     closeFollowupModal();
     renderFollowups();
     if (currentPage === 'dashboard') renderDashboard();
     if (currentPage === 'customers') renderCustomers();
-    showToast(editingFollowupId ? '跟进记录已更新' : '跟进记录已添加');
+    showToast(_wasEdit ? '跟进记录已更新' : '跟进记录已添加');
 }
 
 function deleteFollowup(id, onDone) {
@@ -9375,7 +9586,7 @@ function stashFollowupDraft() {
     const time = document.getElementById('followupTime').value || '';
     if (!customer && !content) { showToast('没有可保存的草稿内容'); return; }
     const drafts = loadFollowupDrafts();
-    drafts.unshift({ id: genId('d'), customer: customer, content: content, time: time, savedAt: new Date().toISOString() });
+    drafts.unshift({ id: genId('d'), customer: customer, content: content, time: time, tag: String(_followupTagSel || '').trim(), savedAt: new Date().toISOString() });
     saveFollowupDrafts(drafts);
     showToast('已存为草稿');
     closeFollowupModal();
@@ -9388,6 +9599,7 @@ function restoreFollowupDraft(id) {
     document.getElementById('followupCustomer').value = d.customer || '';
     document.getElementById('followupContent').value = d.content || '';
     document.getElementById('followupTime').value = d.time || '';
+    renderFollowupTagSelect(d.tag || '');
     autoResizeTextarea(document.getElementById('followupContent'));
     saveFollowupDrafts(drafts.filter(x => x.id !== id));
     const panel = document.getElementById('followupDraftPanel');
@@ -9476,6 +9688,8 @@ function openFollowupHistory(customerName) {
     const sc = customer ? getStatusConfig(customer.status) : getStatusConfig('');
 
     document.getElementById('followupHistoryTitle').textContent = '跟进历史';
+    _histFuCustomer = customerName;
+    _histFuTag = 'all';
 
     const body = document.getElementById('followupHistoryBody');
     const lastTime = customer && customer.last_followup_time ? formatDateTime(customer.last_followup_time) : '从未跟进';
@@ -9489,32 +9703,7 @@ function openFollowupHistory(customerName) {
                 ${customer ? `<span>状态：${sc.name || '未分类'}</span>` : ''}
             </div>
         </div>
-        <div class="followup-history-list">
-            ${followups.length === 0 ? `
-                <div class="empty-state" style="padding: 40px 20px;">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-                    <div class="title">暂无跟进记录</div>
-                    <div class="desc">点击下方按钮添加跟进</div>
-                </div>
-            ` : `
-                <div class="followup-timeline">
-                    ${followups.map(f => `
-                        <div class="followup-item">
-                            <div class="followup-card">
-                                <div class="followup-card-header">
-                                    <span class="followup-time">${formatDateTime(f.time)}</span>
-                                </div>
-                                <div class="followup-content">${escapeHtml(f.content)}</div>
-                                <div class="followup-actions">
-                                    <button onclick="window._crm.editFollowup('${f.id}')">编辑</button>
-                                    <button onclick="window._crm.deleteFollowup('${f.id}')">删除</button>
-                                </div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            `}
-        </div>
+        <div id="fuHistListBox"></div>
         <div class="followup-history-add-btn" style="display:none">
             <button class="btn btn-primary" style="width:100%;" onclick="window._crm.closeFollowupHistoryKeepReturn();window._crm.openFollowupModal('${customerName.replace(/'/g, "\\'")}')">
                 + 添加跟进记录
@@ -9524,7 +9713,166 @@ function openFollowupHistory(customerName) {
 
     const addBtnTop = document.getElementById('followupAddBtnTop');
     if (addBtnTop) addBtnTop.onclick = function () { window._crm.closeFollowupHistoryKeepReturn(); window._crm.openFollowupModal(customerName); };
+    renderFollowupHistoryList();
     document.getElementById('followupHistoryModal').classList.add('show');
+}
+
+// 跟进历史弹窗：标签 chip 行 + 筛选后的完整列表
+let _histFuTag = 'all';
+let _histFuCustomer = '';
+function renderFollowupHistoryList() {
+    const box = document.getElementById('fuHistListBox');
+    if (!box || !_histFuCustomer) return;
+    const all = state.followups
+        .filter(f => f.customer === _histFuCustomer)
+        .sort((a, b) => new Date(b.time) - new Date(a.time));
+    const defs = getFollowupTags();
+    const present = [];
+    all.forEach(f => { const t = String(f.tag || '').trim(); if (t && present.indexOf(t) < 0) present.push(t); });
+    present.sort((a, b) => (defs.indexOf(a) < 0 ? 99 : defs.indexOf(a)) - (defs.indexOf(b) < 0 ? 99 : defs.indexOf(b)));
+    const chips = [{ v: 'all', t: '全部', n: all.length }].concat(present.map(t => ({ v: t, t: t, n: all.filter(f => String(f.tag || '').trim() === t).length })));
+    const filtered = (_histFuTag === 'all') ? all : all.filter(f => String(f.tag || '').trim() === _histFuTag);
+    box.innerHTML = `
+        ${chips.length > 1 ? `<div class="fu-tag-chip-row" style="padding:8px 4px 2px;">${chips.map(c =>
+            `<button type="button" class="fu-tag-chip${c.v === _histFuTag ? ' active' : ''}" onclick="window._crm.filterHistFu('${escapeHtml(c.v)}')">${escapeHtml(c.t)}(${c.n})</button>`).join('')}</div>` : ''}
+        ${filtered.length === 0 ? `
+            <div class="empty-state" style="padding: 40px 20px;">
+                <div class="title">${_histFuTag === 'all' ? '暂无跟进记录' : '该标签下暂无跟进记录'}</div>
+                <div class="desc">点击下方按钮添加跟进</div>
+            </div>
+        ` : `
+            <div class="followup-timeline">
+                ${filtered.map(f => `
+                    <div class="followup-item">
+                        <div class="followup-card">
+                            <div class="followup-card-header">
+                                ${fuTagBadgeHtml(f.tag)}
+                                <span class="followup-time">${formatDateTime(f.time)}</span>
+                            </div>
+                            <div class="followup-content">${escapeHtml(f.content)}</div>
+                            <div class="followup-actions">
+                                <button onclick="window._crm.editFollowup('${f.id}')">编辑</button>
+                                <button onclick="window._crm.deleteFollowup('${f.id}')">删除</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `}`;
+}
+function filterHistFu(tag) {
+    _histFuTag = tag || 'all';
+    renderFollowupHistoryList();
+}
+
+// ==================== 跟进偏好（标签管理 + 未跟进提醒阈值） ====================
+function openFollowupPrefs() {
+    renderFuPrefTagList();
+    const th = getFollowupRemind();
+    const yEl = document.getElementById('fuRemindYellow');
+    const rEl = document.getElementById('fuRemindRed');
+    if (yEl) yEl.value = th.yellow;
+    if (rEl) rEl.value = th.red;
+    document.getElementById('followupPrefsModal').classList.add('show');
+}
+function closeFollowupPrefs() {
+    document.getElementById('followupPrefsModal').classList.remove('show');
+}
+function renderFuPrefTagList() {
+    const box = document.getElementById('fuPrefTagList');
+    if (!box) return;
+    const tags = getFollowupTags();
+    const usedCount = {};
+    state.followups.forEach(f => { const t = String(f.tag || '').trim(); if (t) usedCount[t] = (usedCount[t] || 0) + 1; });
+    if (tags.length === 0) box.innerHTML = '<div style="color:var(--text-secondary);font-size:13px;padding:4px 0;">暂无标签，新增跟进记录时将无法打标</div>';
+    else box.innerHTML = tags.map(t => {
+        const c = _fuTagColor(t);
+        return '<div class="fu-pref-row">' +
+            '<span class="fu-pref-dot" style="background:' + c.fg + '"></span>' +
+            '<input type="text" class="fu-pref-name" maxlength="12" value="' + escapeHtml(t) + '" data-old="' + escapeHtml(t) + '" onchange="window._crm.fuTagRename(this)">' +
+            '<span style="color:var(--text-secondary);font-size:12px;flex:0 0 auto;">' + (usedCount[t] || 0) + ' 条</span>' +
+            '<button type="button" class="fu-pref-del" onclick="window._crm.fuTagDelete(\'' + escapeHtml(t) + '\')">删除</button>' +
+            '</div>';
+    }).join('');
+}
+function _bumpFollowupTagsAt() {
+    state._meta = state._meta || {};
+    state._meta.followupTagsAt = Date.now();
+}
+// 标签名清洗：去引号/反斜杠/尖括号（内联 onclick 属性安全）+ 限长
+function _cleanTagName(s) {
+    return sanitizeInput(String(s || '')).replace(/['"\\<>`&]/g, '').trim().slice(0, 12);
+}
+function fuTagAdd() {
+    const el = document.getElementById('fuPrefNewName');
+    const name = _cleanTagName(el && el.value);
+    if (!name) { showToast('请输入标签名'); return; }
+    const tags = getFollowupTags();
+    if (tags.indexOf(name) >= 0) { showToast('标签已存在'); return; }
+    tags.push(name);
+    state._meta = state._meta || {};
+    state._meta.followupTags = tags;
+    _bumpFollowupTagsAt();
+    saveData(); pushSettingsDebounced();
+    if (el) el.value = '';
+    logOperation('新增跟进标签「' + name + '」', 'info');
+    renderFuPrefTagList();
+    renderFollowups();
+    showToast('标签已添加');
+}
+function fuTagRename(inputEl) {
+    const oldName = inputEl.getAttribute('data-old') || '';
+    const newName = _cleanTagName(inputEl.value);
+    if (!oldName || newName === oldName) { renderFuPrefTagList(); return; }
+    if (!newName) { showToast('标签名不能为空'); renderFuPrefTagList(); return; }
+    const tags = getFollowupTags();
+    if (tags.indexOf(newName) >= 0) { showToast('已有同名标签'); renderFuPrefTagList(); return; }
+    // 同步改写所有使用旧名的跟进记录（进入正常同步通道，逐条 update）
+    let n = 0;
+    const now = new Date().toISOString();
+    state.followups.forEach(f => {
+        if (String(f.tag || '').trim() === oldName) {
+            f.tag = newName; f.updatedAt = now;
+            recordChange('update', 'followup', f, f.customer);
+            n++;
+        }
+    });
+    state._meta = state._meta || {};
+    state._meta.followupTags = tags.map(t => t === oldName ? newName : t);
+    _bumpFollowupTagsAt();
+    saveData(); pushSettingsDebounced();
+    logOperation('跟进标签改名：「' + oldName + '」→「' + newName + '」（' + n + ' 条记录已同步更新）', 'info');
+    renderFuPrefTagList();
+    renderFollowups();
+    showToast('标签已改名' + (n ? '，' + n + ' 条记录已更新' : ''));
+}
+function fuTagDelete(tag) {
+    const used = state.followups.filter(f => String(f.tag || '').trim() === tag).length;
+    showConfirm('删除标签「' + tag + '」？已有 ' + used + ' 条跟进记录保留该标签原文，显示为灰色历史标签，不影响数据。', function () {
+        state._meta = state._meta || {};
+        state._meta.followupTags = getFollowupTags().filter(t => t !== tag);
+        _bumpFollowupTagsAt();
+        saveData(); pushSettingsDebounced();
+        logOperation('删除跟进标签「' + tag + '」（' + used + ' 条记录保留原文）', 'warning');
+        renderFuPrefTagList();
+        renderFollowups();
+        showToast('标签已删除');
+    }, '删除标签', '删除', '取消');
+}
+function saveFuPrefs() {
+    const yEl = document.getElementById('fuRemindYellow');
+    const rEl = document.getElementById('fuRemindRed');
+    const y = parseInt(yEl && yEl.value, 10);
+    const m = parseInt(rEl && rEl.value, 10);
+    if (!y || y < 1 || y > 365) { showToast('黄色阈值需为 1~365 的整数'); return; }
+    if (!m || m < 2 || m > 365) { showToast('红色阈值需为 2~365 的整数'); return; }
+    if (m <= y) { showToast('红色阈值需大于黄色阈值'); return; }
+    const prev = getFollowupRemind();
+    state._meta = state._meta || {};
+    state._meta.followupRemind = { yellow: y, red: m };
+    saveData(); pushSettingsDebounced();
+    if (prev.yellow !== y || prev.red !== m) logOperation('修改未跟进提醒阈值为 黄≥' + y + ' 天 / 红>' + m + ' 天（原 ' + prev.yellow + '/' + prev.red + '）', 'info');
+    showToast('提醒阈值已保存');
 }
 
 function closeFollowupHistory() {
@@ -13580,6 +13928,10 @@ function getSyncPayload() {
             autoBackupEnabled: (state._meta && state._meta.autoBackupEnabled !== undefined) ? !!state._meta.autoBackupEnabled : true,
             autoBackupIntervalHours: (state._meta && parseInt(state._meta.autoBackupIntervalHours, 10)) || 24,
             historyRetention: (state._meta && state._meta.historyRetention) || null,
+            // 跟进标签定义（At 时间戳 LWW）+ 未跟进提醒阈值，随设置跨设备同步
+            followupTags: (state._meta && Array.isArray(state._meta.followupTags)) ? state._meta.followupTags.slice() : [],
+            followupTagsAt: (state._meta && state._meta.followupTagsAt) || 0,
+            followupRemind: (state._meta && state._meta.followupRemind) || null,
             customerStatusFilter: (state._meta && Array.isArray(state._meta.customerStatusFilter)) ? state._meta.customerStatusFilter.slice() : [],
             customerStatusFilterAt: (state._meta && state._meta.customerStatusFilterAt) || 0,
             // 看板卡片顺序：此前从未进过 payload（注释称三端互通但实际没同步），现补上并按 At 时间戳 LWW
@@ -14005,6 +14357,8 @@ function applyRemoteData(remoteData) {
             || (state._meta && parseInt(state._meta.autoBackupIntervalHours, 10)) || 24,
         historyRetention: (remoteData._meta && remoteData._meta.historyRetention) || (state._meta && state._meta.historyRetention),
         deviceName: (state._meta && state._meta.deviceName) || (remoteData._meta && remoteData._meta.deviceName),
+        // 未跟进提醒阈值：云端优先、本端兜底（同备份提醒口径）
+        followupRemind: (remoteData._meta && remoteData._meta.followupRemind) || (state._meta && state._meta.followupRemind) || null,
         // 汇报客户版本号取两端较大者：上方合并若保留了本端（rev 更高）版本，
         // 此处不能把 _meta.reportRev 降级成云端值，否则下次推送携带的版本号偏低，
         // 本端的新数据将无法传播到其他设备。
@@ -14027,6 +14381,27 @@ function applyRemoteData(remoteData) {
     _remoteOrder.forEach(function (x) { if (!(x in _localOrderSet)) _orderUnion.push(x); });
     state._meta.dashboardOrder = _orderUnion;
     state._meta.dashboardOrderAt = Math.max(_localOrderAt, _remoteOrderAt) || Date.now();
+    // 跟进标签定义：At 时间戳 LWW（整表覆盖）。改名/增删都会 bump At，
+    // 改名同时逐条改写本地记录的 tag（走正常 update 通道传播到对端），
+    // 对端晚到的旧标签记录会显示为灰色历史标签，不丢数据。
+    // 注意：上方 Object.assign 已把 remote._meta 整体并入，此处须按 At 显式裁决回本地更新版本。
+    const _localFuTags = Array.isArray(state._meta && state._meta.followupTags) ? state._meta.followupTags.slice() : [];
+    const _localFuTagsAt = (state._meta && state._meta.followupTagsAt) || 0;
+    const _remoteFuTags = Array.isArray(remoteData._meta && remoteData._meta.followupTags) ? remoteData._meta.followupTags.slice() : [];
+    const _remoteFuTagsAt = (remoteData._meta && remoteData._meta.followupTagsAt) || 0;
+    if (_remoteFuTagsAt > _localFuTagsAt) {
+        // 远端较新：保留 Object.assign 并入的远端列表（显式写回以自文档）
+        state._meta.followupTags = _remoteFuTags;
+        state._meta.followupTagsAt = _remoteFuTagsAt;
+    } else if (_localFuTagsAt > 0) {
+        // 本端较新（或相等且本端曾编辑过）：恢复本地列表，防被旧远端覆盖
+        state._meta.followupTags = _localFuTags;
+        state._meta.followupTagsAt = _localFuTagsAt;
+    } else if (_remoteFuTags.length) {
+        // 两端都还没编辑过：本地未定义时采纳远端（首个新设备接入场景）
+        state._meta.followupTags = _remoteFuTags;
+        state._meta.followupTagsAt = _remoteFuTagsAt;
+    }
     // 同步后应用客户总表「状态多选筛选」：更新内存工作副本，使各端筛选一致
     if (typeof currentFilter !== 'undefined') {
         currentFilter.status = Array.isArray(state._meta.customerStatusFilter) ? state._meta.customerStatusFilter.slice() : [];
@@ -14230,7 +14605,7 @@ const FIELD_LABELS = {
 // 不同实体的可比较字段
 const DIFF_FIELDS = {
     customer: ['name', 'status', 'city', 'contact', 'remark', 'last_followup', 'last_followup_time', 'customFields', 'starred', 'updatedAt'],
-    followup: ['customer', 'content', 'time', 'updatedAt'],
+    followup: ['customer', 'content', 'tag', 'time', 'updatedAt'],
     todo: ['title', 'desc', 'priority', 'status', 'dueDate', 'dueTime', 'customerName', 'completedAt', 'manualStatus', 'updatedAt'],
     history: ['week', 'data', 'updatedAt'],
     dailyPlan: ['text', 'customer', 'customerId', 'updatedAt'],
@@ -15125,6 +15500,18 @@ function bindEvents() {
     document.getElementById('draftFollowupBtn').addEventListener('click', stashFollowupDraft);
     document.getElementById('followupDraftChip').addEventListener('click', toggleFollowupDraftPanel);
 
+    // 跟进偏好弹窗（标签管理 + 未跟进提醒阈值）
+    const prefsClose = document.getElementById('followupPrefsClose');
+    if (prefsClose) prefsClose.addEventListener('click', closeFollowupPrefs);
+    const prefsCancel = document.getElementById('fuPrefsCancelBtn');
+    if (prefsCancel) prefsCancel.addEventListener('click', closeFollowupPrefs);
+    const prefsSave = document.getElementById('fuPrefsSaveBtn');
+    if (prefsSave) prefsSave.addEventListener('click', saveFuPrefs);
+    const prefsAdd = document.getElementById('fuPrefAddBtn');
+    if (prefsAdd) prefsAdd.addEventListener('click', fuTagAdd);
+    const prefsNewName = document.getElementById('fuPrefNewName');
+    if (prefsNewName) prefsNewName.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); fuTagAdd(); } });
+
     // 跟进筛选：全部 ▾ 下拉（需求③，与小程序 TIME_OPTIONS 拉齐）
     const ffWrap = document.getElementById('followupFilterWrap');
     const ffBtn = document.getElementById('followupFilterBtn');
@@ -15179,6 +15566,42 @@ function bindEvents() {
             if (e.target !== ffBtn && !(ffWrap && ffWrap.contains(e.target))) {
                 if (ffWrap) ffWrap.classList.remove('open');
                 ffMenu.classList.add('hidden');
+            }
+        });
+    }
+
+    // 跟进标签筛选 ▾（与时间筛选叠加；菜单项按标签定义动态生成）
+    const ftWrap = document.getElementById('followupTagFilterWrap');
+    const ftBtn = document.getElementById('followupTagFilterBtn');
+    const ftMenu = document.getElementById('followupTagFilterMenu');
+    const ftLabel = document.getElementById('followupTagFilterLabel');
+    if (ftBtn && ftMenu) {
+        ftBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            const willOpen = ftMenu.classList.contains('hidden');
+            if (ftWrap) ftWrap.classList.remove('open');
+            ftMenu.classList.add('hidden');
+            if (willOpen) {
+                renderFollowupTagMenu(ftMenu);
+                if (ftWrap) ftWrap.classList.add('open');
+                ftMenu.classList.remove('hidden');
+            }
+        });
+        ftMenu.addEventListener('click', function (e) {
+            const opt = e.target.closest('.followup-filter-opt');
+            if (!opt) return;
+            e.stopPropagation();
+            followupTagFilter = opt.dataset.tag;
+            if (ftLabel) ftLabel.textContent = followupTagFilter === 'all' ? '标签' : (followupTagFilter === 'none' ? '未分类' : followupTagFilter);
+            ftMenu.querySelectorAll('.followup-filter-opt').forEach(o => o.classList.toggle('active', o.dataset.tag === followupTagFilter));
+            if (ftWrap) ftWrap.classList.remove('open');
+            ftMenu.classList.add('hidden');
+            renderFollowups();
+        });
+        document.addEventListener('click', function (e) {
+            if (e.target !== ftBtn && !(ftWrap && ftWrap.contains(e.target))) {
+                if (ftWrap) ftWrap.classList.remove('open');
+                ftMenu.classList.add('hidden');
             }
         });
     }
@@ -16329,6 +16752,15 @@ window._crm = {
     closeEditModal,
     openFollowupModal,
     closeFollowupModal,
+    // 跟进标签 + 未跟进提醒
+    pickFollowupTag,
+    filterDetailFu,
+    filterHistFu,
+    openFollowupPrefs,
+    closeFollowupPrefs,
+    fuTagAdd,
+    fuTagRename,
+    fuTagDelete,
     editFollowup,
     deleteFollowupFromModal,
     stashFollowupDraft,
