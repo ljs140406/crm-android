@@ -4984,7 +4984,8 @@ td.col-followup-content { position: relative; }
                         <option value="24" selected data-page-node-id="abH24">每 24 小时</option>
                         <option value="48" data-page-node-id="abH48">每 48 小时</option>
                     </select>
-                    <span style="font-size:12px;color:#6B7280;" data-page-node-id="abTip">仅桌面端/安卓端 + WebDAV 目标生效；后台静默执行，只写日志。</span>
+                    <span id="abTip" style="font-size:12px;color:#6B7280;" data-page-node-id="abTip">仅桌面端/安卓端 + WebDAV 目标生效；后台静默执行，只写日志。</span>
+                    <span id="abGistHint" style="display:none;font-size:12px;color:#B45309;" data-page-node-id="abGistHint">当前备份目标为 Gist，自动备份仅对 WebDAV 生效，开关已禁用。</span>
                 </div>
                 <div style="margin:10px 0;" data-page-node-id="WFIMqnN7wiLlnzmj2XcLSk">
                     <label style="font-size:13px;font-weight:600;" data-page-node-id="hsLsHYBlx1vLzbvIJvv25U">本机设备名</label>
@@ -12885,6 +12886,12 @@ function openManualBackupModal() {
     const brid = document.getElementById('backupRemindDays'); if (brid) brid.value = (state._meta && state._meta.backupRemindDays) || 7;
     const abOn = document.getElementById('autoBackupEnabled'); if (abOn) abOn.value = ((state._meta && state._meta.autoBackupEnabled) === false) ? '0' : '1';
     const abH = document.getElementById('autoBackupIntervalHours'); if (abH) abH.value = String(parseInt((state._meta && state._meta.autoBackupIntervalHours), 10) || 24);
+    // 方案A：自动备份仅 WebDAV 支持；当前目标为 Gist 时禁用开关并切换提示，避免误以为 Gist 也能自动
+    const _abWebdav = getBackupTarget() === 'webdav';
+    const _abTip = document.getElementById('abTip'); if (_abTip) _abTip.style.display = _abWebdav ? '' : 'none';
+    const _abGistHint = document.getElementById('abGistHint'); if (_abGistHint) _abGistHint.style.display = _abWebdav ? 'none' : '';
+    if (abOn) abOn.disabled = !_abWebdav;
+    if (abH) abH.disabled = !_abWebdav;
     const dnEl = document.getElementById('deviceNameInput'); if (dnEl) dnEl.value = (state._meta && state._meta.deviceName) || '';
     const m = document.getElementById('manualBackupModal'); if (m) m.classList.add('show');
     loadBackupOverview();
