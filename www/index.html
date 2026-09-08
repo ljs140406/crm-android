@@ -12516,6 +12516,8 @@ function bindBackupEvents() {
             _backupArrCache = null; _backupArrSource = null;
             renderBackupModalByProvider();
             setBackupTargetActive(t);
+            // 同步刷新自动备份控件可用状态：切到 WebDAV 启用，切到 Gist 禁用
+            updateAutoBackupControlState();
             loadBackupOverview(); // 重新拉取新目标的真实数据，列表/占用按实际来源展示
         });
     }
@@ -12876,6 +12878,18 @@ function setBackupTargetActive(t) {
         b.classList.toggle('active', b.getAttribute('data-target') === cur);
     });
 }
+// 自动备份控件状态：仅 WebDAV 支持，Gist 目标下禁用开关+间隔并切换提示
+function updateAutoBackupControlState() {
+    const _abWebdav = getBackupTarget() === 'webdav';
+    const abOn = document.getElementById('autoBackupEnabled');
+    const abH = document.getElementById('autoBackupIntervalHours');
+    const _abTip = document.getElementById('abTip');
+    const _abGistHint = document.getElementById('abGistHint');
+    if (_abTip) _abTip.style.display = _abWebdav ? '' : 'none';
+    if (_abGistHint) _abGistHint.style.display = _abWebdav ? 'none' : '';
+    if (abOn) abOn.disabled = !_abWebdav;
+    if (abH) abH.disabled = !_abWebdav;
+}
 function openManualBackupModal() {
     loadBackupSettings();
     renderBackupModalByProvider();
@@ -12887,11 +12901,7 @@ function openManualBackupModal() {
     const abOn = document.getElementById('autoBackupEnabled'); if (abOn) abOn.value = ((state._meta && state._meta.autoBackupEnabled) === false) ? '0' : '1';
     const abH = document.getElementById('autoBackupIntervalHours'); if (abH) abH.value = String(parseInt((state._meta && state._meta.autoBackupIntervalHours), 10) || 24);
     // 方案A：自动备份仅 WebDAV 支持；当前目标为 Gist 时禁用开关并切换提示，避免误以为 Gist 也能自动
-    const _abWebdav = getBackupTarget() === 'webdav';
-    const _abTip = document.getElementById('abTip'); if (_abTip) _abTip.style.display = _abWebdav ? '' : 'none';
-    const _abGistHint = document.getElementById('abGistHint'); if (_abGistHint) _abGistHint.style.display = _abWebdav ? 'none' : '';
-    if (abOn) abOn.disabled = !_abWebdav;
-    if (abH) abH.disabled = !_abWebdav;
+    updateAutoBackupControlState();
     const dnEl = document.getElementById('deviceNameInput'); if (dnEl) dnEl.value = (state._meta && state._meta.deviceName) || '';
     const m = document.getElementById('manualBackupModal'); if (m) m.classList.add('show');
     loadBackupOverview();
