@@ -185,6 +185,18 @@ textarea { resize: vertical; }
 .bk-grid .bk-time { font-variant-numeric:tabular-nums; font-weight:500; }
 .bk-grid .bk-detail { font-size:12px; color:var(--text-secondary); }
 .bk-grid .bk-size { color:var(--text-secondary); }
+/* 移动端（安卓窄屏）：6 列固定网格挤成竖条，改两行卡片式布局 */
+@media (max-width: 640px) {
+    .bk-grid { grid-template-columns: 1fr auto; gap: 4px 10px; }
+    .bk-grid.bk-head { display: none; }
+    .bk-grid.bk-row { padding: 10px 12px; }
+    .bk-grid .bk-time { grid-column: 1 / 2; grid-row: 1; }
+    .bk-grid .bk-store-badge { grid-column: 2 / 3; grid-row: 1; justify-self: end; }
+    .bk-grid .dev-badge { grid-column: 1 / 3; grid-row: 2; max-width: 100%; }
+    .bk-grid .bk-detail { grid-column: 1 / 3; grid-row: 3; }
+    .bk-grid .bk-size { grid-column: 1 / 2; grid-row: 4; font-size: 12px; }
+    .bk-grid.bk-row > div:last-child { grid-column: 2 / 3; grid-row: 4; justify-self: end; }
+}
 .backup-modal-actions { display:flex; gap:10px; margin-top:14px; align-items:center; }
 .backup-sel-count { font-size:13px; color:var(--text-secondary); }
 .sync-status-card {
@@ -3645,6 +3657,8 @@ td.col-followup-content { position: relative; }
 .fu-days-badge.warn { background: #FEF3C7; color: #B45309; }
 .fu-days-badge.over { background: #FEE2E2; color: #B91C1C; }
 /* 跟进偏好（标签管理 + 提醒阈值） */
+/* 层级：高于 syncModal/dynModal(450)——从跟进弹窗「管理」进入时弹窗仍开着，DOM 又在本弹窗之前，不提升会被遮挡 */
+#followupPrefsModal { z-index: 500; }
 .fu-pref-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
 .fu-pref-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
 .fu-pref-row input.fu-pref-name { flex: 1 1 auto; min-width: 0; }
@@ -3954,10 +3968,6 @@ td.col-followup-content { position: relative; }
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="3wbFGe4i7wUbH6MLtUsweF"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" data-page-node-id="OzIfJY1LpKZY474mRvu9hy"/><line x1="16" y1="2" x2="16" y2="6" data-page-node-id="LPpKBA4UyL3ZqVCBrHdIM6"/><line x1="8" y1="2" x2="8" y2="6" data-page-node-id="pSZhAts6JGLZ03BGPBlIQa"/><line x1="3" y1="10" x2="21" y2="10" data-page-node-id="UB0TeWAY4imlF9Fr3U2ERS"/></svg>
                     <span data-page-node-id="nM5guMZEQDYISAriXbJ7kH">工作计划</span>
                 </li>
-                <li class="nav-item" data-page="report" data-page-node-id="g47tKrqdBVkzqG7YaHs1y7">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="Eqg8DUE3ulawMyT3Y5FSzJ"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" data-page-node-id="37kSGyKjoiQJ00m1ljM1Nr"/><polyline points="14 2 14 8 20 8" data-page-node-id="NEek4WmUdgZMXq9jtZ9iBb"/><line x1="9" y1="13" x2="15" y2="13" data-page-node-id="bWNMA7mS4gNju0jTxzWKz7"/><line x1="9" y1="17" x2="15" y2="17" data-page-node-id="0HfMAmjoFHhqLyPuOD8I0g"/></svg>
-                    <span data-page-node-id="3WSAuM1cyjPhUL7psfkLA1">汇报客户</span>
-                </li>
                 <li class="nav-item" data-page="followups" data-page-node-id="9bDf6qEpCNAHaVBmYNl6mh">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="TOZ3w5AOvOed1iTy6RDHTS"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" data-page-node-id="F5ek0Hsh3BZodgYxSbl4dl"/></svg>
                     <span data-page-node-id="lGUcdIMu9SBzdtZ5AWU2Nf">跟进记录</span>
@@ -4188,6 +4198,7 @@ td.col-followup-content { position: relative; }
                         </button>
                         <div class="followup-filter-menu hidden" id="followupTagFilterMenu"></div>
                     </div>
+                    <button type="button" class="followup-filter-btn hidden" id="fuCollapseAllBtn" onclick="window._crm.toggleFuCollapseAll()">全部折叠</button>
                     <div class="followup-view-toggle" id="followupViewToggle" data-page-node-id="arKzoJmS7IvQZ3JsAbogSC">
                         <button type="button" class="followup-view-btn active" data-view="record" data-page-node-id="o4mXx9oskiDUVueY3HjEuK">按记录</button>
                         <button type="button" class="followup-view-btn" data-view="customer" data-page-node-id="SHSqpjPr4RPsCvP6Shi1bD">按客户</button>
@@ -4219,6 +4230,7 @@ td.col-followup-content { position: relative; }
                 </div>
                     <div class="plan-sections" data-page-node-id="fs8IlogHRJWt8A9AHmSXhO">
                     <div class="plan-section this-week" id="planSectionThis" data-page-node-id="K0cDcQH5AvdTv1sHG0JrQp">
+                        <div class="acc-block" data-acc id="reportAccBlock"><div class="acc-head" onclick="window._crm.toggleAcc(this)"><div class="acc-left"><span class="acc-icon" style="background:#ECFDF5;color:#059669;">📊</span><span class="acc-title">近期汇报客户</span><span class="acc-meta" id="reportCountBadge"></span></div><span class="acc-chev">›</span></div><div class="acc-body"><div class="plan-cell plan-focus"><div class="focus-list" id="reportList" data-page-node-id="4qLnYNE6Nc8IXBitTQfgws"></div></div></div></div>
                         <div class="acc-block" data-acc data-page-node-id="rhr99CrwlCrtla7a9a91cW">
                             <div class="acc-head" onclick="window._crm.toggleAcc(this)" data-page-node-id="uekNCjnuMdDpqa3dR90hts">
                                 <div class="acc-left" data-page-node-id="LzX6qicd8lyZIEXGOAvEfI"><span class="acc-icon" data-page-node-id="ClCtEHFJRuJIVG2JEESEka">🎯</span><span class="acc-title" data-page-node-id="0Wl14itN2n5AmClLcPWEM2">本周计划</span><span class="week-label" id="thisWeekLabel" data-page-node-id="8lpmCEyvyl3wDtPYSXmwVQ"></span></div>
@@ -4357,17 +4369,6 @@ td.col-followup-content { position: relative; }
             </div>
             </div>
 
-            <!-- 近期汇报客户（独立页面） -->
-            <div class="page hidden" id="page-report" data-page-node-id="62tTiRjHXUYG1E4hOOKal2">
-                <div class="plan-container" data-page-node-id="9wct9tvENhPzb43l48FcHh">
-                    <div class="plan-section report-section" data-page-node-id="dOU6CFsHpCbTiS6hkBVrgc">
-                        <div class="plan-cell plan-focus" data-page-node-id="lTzgnGjL1DygVCEkWyYLIs">
-                            <div class="focus-list" id="reportList" data-page-node-id="4qLnYNE6Nc8IXBitTQfgws"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <!-- 待办事项 -->
             <div class="page hidden" id="page-todos" data-page-node-id="HuN3FNrp0VcZQLJv96s8Vc">
                 <div class="todo-stats" id="todoStats" data-page-node-id="AqsaugYcsn1KTeTEqb5UG4"></div>
@@ -4434,10 +4435,6 @@ td.col-followup-content { position: relative; }
             <div class="bottom-nav-item" data-page="plan" data-page-node-id="sS2WodbJM6uubLSfApWAcf">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="pwDwqG59oGuqhEYea69Doq"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" data-page-node-id="zoO2IcLsJfaGicSyoZLBLu"/><line x1="16" y1="2" x2="16" y2="6" data-page-node-id="lliHUzRnuj3vNiMbt0BgYr"/><line x1="8" y1="2" x2="8" y2="6" data-page-node-id="ImRJ2o0QyQ5iT6Z417B9yK"/><line x1="3" y1="10" x2="21" y2="10" data-page-node-id="TN7lVPrds8GNqzRiup6CQv"/></svg>
                 <span data-page-node-id="xqgYsLMnAR4XLKCZOiDU1A">计划</span>
-            </div>
-            <div class="bottom-nav-item" data-page="report" data-page-node-id="e9T3HgBLKcScimMiaEo8sA">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="UQFoJYRaMxiYK2kVyaAD5Z"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" data-page-node-id="8FF7F2bPfbThHv55cOGA6g"/><polyline points="14 2 14 8 20 8" data-page-node-id="wCIoNFMjOY2D2umMUX03BD"/><line x1="9" y1="13" x2="15" y2="13" data-page-node-id="j50AswpKhIGGGEgPW8d9x4"/><line x1="9" y1="17" x2="15" y2="17" data-page-node-id="bDrR20AQcD4KxTsIbUFZnc"/></svg>
-                <span data-page-node-id="9EzdFCeOdoMhe20FwsibBv">汇报</span>
             </div>
             <div class="bottom-nav-item" data-page="followups" data-page-node-id="NTHlHCQc8auxI0VP5WCS77">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="1ABwHAwGtN5dpmZPrxWvtO"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" data-page-node-id="nAJ390h8xtS7sCTILXD3C3"/></svg>
@@ -5566,6 +5563,9 @@ let currentFilter = { status: [], city: 'all' };
 let followupFilter = 'all';
 let followupTagFilter = 'all'; // 跟进标签筛选：all=全部 / none=未分类 / 标签名
 var followupView = 'record';
+// 按客户聚合视图折叠：_fuCollapseAll 全局折叠默认态（随 _meta.followupCollapse 多端同步）；_fuExpandedCustomers 单客户本会话展开覆盖
+let _fuCollapseAll = false;
+let _fuExpandedCustomers = {};
 let followupStart = '';
 let followupEnd = '';
 let editingStatusCode = null;
@@ -6297,6 +6297,8 @@ const PAGE_TITLES = {
 };
 
 function navigateTo(page, opts) {
+    // 「近期汇报客户」已并入工作计划页（本周计划上方，默认折叠），旧路由重定向
+    if (page === 'report') page = 'plan';
     currentPage = page;
     drillFromDashboard = false;
     document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
@@ -6318,7 +6320,7 @@ function navigateTo(page, opts) {
     const addBtn = document.getElementById('headerAddBtn');
     const syncBtn = document.getElementById('headerSyncBtn');
     if (addBtn) {
-        if (page === 'customers' || page === 'todos' || page === 'followups' || page === 'report') {
+        if (page === 'customers' || page === 'todos' || page === 'followups') {
             addBtn.classList.remove('hidden');
             addBtn.dataset.targetPage = page;
         } else {
@@ -6394,7 +6396,7 @@ function navigateTo(page, opts) {
             case 'customers': renderCustomers(); break;
             case 'followups': renderFollowups(); break;
             case 'todos': renderTodos(); break;
-            case 'plan': renderPlan(); renderPlanRelated(); renderLastWeekRelated(); break;
+            case 'plan': renderPlan(); renderPlanRelated(); renderLastWeekRelated(); renderReportCustomers(); break;
             case 'report': renderReportCustomers(); break;
             case 'history': renderHistory(); break;
         }
@@ -8050,8 +8052,7 @@ function custPlanSave() {
     showToast('工作计划已保存');
     _custPlanLoad(); // 回到查看态
     renderCustomers(); // 刷新客户列表「N计划」标签
-    if (currentPage === 'plan') { renderPlan(); renderPlanRelated(); renderLastWeekRelated(); }
-    if (currentPage === 'report') { renderReportCustomers(); }
+    if (currentPage === 'plan') { renderPlan(); renderPlanRelated(); renderLastWeekRelated(); renderReportCustomers(); }
 }
 
 function closeCustomerPlan() {
@@ -9274,6 +9275,12 @@ function renderFollowups() {
         filtered = filtered.filter(f => String(f.tag || '').trim() === followupTagFilter);
     }
 
+    // 折叠按钮仅按客户视图显示
+    const _fuColBtn = document.getElementById('fuCollapseAllBtn');
+    if (_fuColBtn) {
+        _fuColBtn.classList.toggle('hidden', followupView !== 'customer');
+        _fuColBtn.textContent = _fuCollapseAll ? '全部展开' : '全部折叠';
+    }
     // 按客户聚合视图：按客户分组展示，组内时间倒序
     if (followupView === 'customer') {
         renderFollowupsByCustomer(container, filtered);
@@ -9316,6 +9323,8 @@ function renderFollowups() {
 }
 
 // 按客户聚合：把跟进记录按客户分组，组头可点进客户详情
+// 按客户聚合视图：支持全局「全部折叠」（每客户只显示最新一条，随 _meta.followupCollapse 多端同步）
+// 与单客户展开/收起（仅本会话生效）。组头点击=折叠切换；组头右侧「N 条 ›」=客户详情。
 function renderFollowupsByCustomer(container, followups) {
     if (!followups || followups.length === 0) {
         container.innerHTML = '<div class="empty-state"><div class="title">暂无跟进记录</div><div class="desc">点击右下角按钮添加跟进</div></div>';
@@ -9333,7 +9342,10 @@ function renderFollowupsByCustomer(container, followups) {
         return tb - ta;
     });
     container.innerHTML = names.map(function (name) {
-        const items = groups[name].slice().sort(function (a, b) { return new Date(b.time).getTime() - new Date(a.time).getTime(); }).map(function (f) {
+        const items = groups[name].slice().sort(function (a, b) { return new Date(b.time).getTime() - new Date(a.time).getTime(); });
+        const collapsed = _fuCollapseAll && !_fuExpandedCustomers[name];
+        const shown = collapsed ? items.slice(0, 1) : items;
+        const cards = shown.map(function (f) {
             return `
                 <div class="followup-item">
                     <div class="followup-card">
@@ -9350,17 +9362,69 @@ function renderFollowupsByCustomer(container, followups) {
         </div>`;
         }).join('');
         const escaped = escapeHtml(name);
+        const chev = collapsed ? '▸' : '▾';
+        const more = (collapsed && items.length > 1)
+            ? '<div class="followup-item"><div class="followup-card" style="text-align:center;color:var(--primary);font-size:12px;padding:8px;cursor:pointer;" onclick="event.stopPropagation();window._crm.toggleFuCustomer(\'' + escaped.replace(/'/g, "\\'") + '\')">展开该客户其余 ' + (items.length - 1) + ' 条 ▾</div></div>'
+            : '';
         return `
             <div class="followup-group">
-                <div class="followup-group-header" onclick="window._crm.openCustomerDetailByName('${escaped}')">
-                    <span class="followup-group-name">${escaped}</span>
-                    <span class="followup-group-count">${groups[name].length} 条</span>
+                <div class="followup-group-header" onclick="window._crm.toggleFuCustomer('${escaped}')" style="cursor:pointer;">
+                    <span class="followup-group-name">${escaped}<span style="margin-left:6px;color:var(--text-secondary);font-size:12px;">${chev}</span></span>
+                    <span class="followup-group-count" onclick="event.stopPropagation();window._crm.openCustomerDetailByName('${escaped}')" title="查看客户详情">${groups[name].length} 条 ›</span>
                 </div>
-                ${items}
+                ${cards}
+                ${more}
             </div>`;
     }).join('');
 }
 
+function toggleFuCustomer(name) {
+    const key = String(name || '');
+    if (_fuExpandedCustomers[key]) delete _fuExpandedCustomers[key];
+    else _fuExpandedCustomers[key] = true;
+    renderFollowups();
+}
+
+function setFuCollapseAll(on) {
+    _fuCollapseAll = !!on;
+    _fuExpandedCustomers = {};
+    state._meta = state._meta || {};
+    state._meta.followupCollapse = _fuCollapseAll;
+    state._meta.followupCollapseAt = Date.now();
+    saveData();
+    pushSettingsDebounced();
+    renderFollowups();
+}
+
+function toggleFuCollapseAll() { setFuCollapseAll(!_fuCollapseAll); }
+
+// 数据加载完成后调用（init 与安卓 hydrate 回调共用）：
+// 1) 从 _meta 恢复「按客户折叠」默认态；2) 一次性把无标签的历史跟进记录补默认标签「日常跟进」（幂等，防重复迁移）
+function _afterDataLoaded() {
+    state._meta = state._meta || {};
+    _fuCollapseAll = !!state._meta.followupCollapse;
+    _fuExpandedCustomers = {};
+    if (!state._meta.fuTagMigrated) {
+        const def = getFollowupTags()[0];
+        if (def) {
+            let n = 0;
+            const now = new Date().toISOString();
+            state.followups.forEach(function (f) {
+                if (!String(f.tag || '').trim()) {
+                    f.tag = def;
+                    f.updatedAt = now;
+                    recordChange('update', 'followup', f, f.customer);
+                    n++;
+                }
+            });
+            state._meta.fuTagMigrated = true;
+            if (n > 0) {
+                saveData();
+                logOperation('已为 ' + n + ' 条无标签跟进记录补默认标签「' + def + '」', 'info');
+            }
+        }
+    }
+}
 function openFollowupModal(customerName, id) {
     editingFollowupId = id || null;
     // 填充客户名称列表
@@ -9386,7 +9450,7 @@ function openFollowupModal(customerName, id) {
         if (titleEl) titleEl.textContent = '新增跟进记录';
         document.getElementById('followupCustomer').value = customerName || '';
         document.getElementById('followupContent').value = '';
-        renderFollowupTagSelect('');
+        renderFollowupTagSelect(getFollowupTags()[0] || '');
         if (deleteBtn) deleteBtn.style.display = 'none';
         if (draftBtn) draftBtn.style.display = '';
         // 新建模式：若有草稿则展示草稿入口
@@ -9574,10 +9638,28 @@ function recomputeCustomerLastFollowup(name) {
 // ==================== 跟进草稿（localStorage 暂存，不污染真实记录） ====================
 const FOLLOWUP_DRAFT_KEY = 'crm_followup_drafts_v1';
 function loadFollowupDrafts() {
-    try { return JSON.parse(localStorage.getItem(FOLLOWUP_DRAFT_KEY)) || []; } catch (e) { return []; }
+    // 草稿箱多端同步：存 state._meta.followupDrafts（整表 At-LWW）；
+    // 旧版本存 localStorage 的草稿在这里一次性迁移，迁移后移除旧键
+    try {
+        if (!state._meta) state._meta = {};
+        if (!Array.isArray(state._meta.followupDrafts)) {
+            let old = [];
+            try { old = JSON.parse(CRMStore.getItem(FOLLOWUP_DRAFT_KEY)) || []; } catch (e) { old = []; }
+            state._meta.followupDrafts = Array.isArray(old) ? old.slice(0, 20) : [];
+            if (state._meta.followupDrafts.length) { state._meta.followupDraftsAt = Date.now(); saveData(); }
+            try { CRMStore.removeItem(FOLLOWUP_DRAFT_KEY); } catch (e) {}
+        }
+        return state._meta.followupDrafts.slice();
+    } catch (e) { return []; }
 }
 function saveFollowupDrafts(arr) {
-    try { localStorage.setItem(FOLLOWUP_DRAFT_KEY, JSON.stringify(arr.slice(0, 20))); } catch (e) {}
+    try {
+        state._meta = state._meta || {};
+        state._meta.followupDrafts = (arr || []).slice(0, 20);
+        state._meta.followupDraftsAt = Date.now();
+        saveData();
+        pushSettingsDebounced();
+    } catch (e) {}
 }
 // 把当前未写完的跟进存为草稿，不实装为真实记录
 function stashFollowupDraft() {
@@ -9599,7 +9681,7 @@ function restoreFollowupDraft(id) {
     document.getElementById('followupCustomer').value = d.customer || '';
     document.getElementById('followupContent').value = d.content || '';
     document.getElementById('followupTime').value = d.time || '';
-    renderFollowupTagSelect(d.tag || '');
+    renderFollowupTagSelect(d.tag || getFollowupTags()[0] || '');
     autoResizeTextarea(document.getElementById('followupContent'));
     saveFollowupDrafts(drafts.filter(x => x.id !== id));
     const panel = document.getElementById('followupDraftPanel');
@@ -10313,6 +10395,8 @@ function ensureReportList() {
 function renderReportCustomers() {
     const box = document.getElementById('reportList');
     if (!box) return;
+    const _repBadge = document.getElementById('reportCountBadge');
+    if (_repBadge) _repBadge.textContent = (Array.isArray(state.reportCustomers) ? state.reportCustomers.length : 0) + ' 位';
     if (!Array.isArray(state.reportCustomers)) state.reportCustomers = [];
     // 渲染前：记录当前正在编辑的 textarea（轮询/同步/移动/删除任何路径触发的重建 都不能打断用户输入）
     const active = document.activeElement;
@@ -13932,6 +14016,11 @@ function getSyncPayload() {
             followupTags: (state._meta && Array.isArray(state._meta.followupTags)) ? state._meta.followupTags.slice() : [],
             followupTagsAt: (state._meta && state._meta.followupTagsAt) || 0,
             followupRemind: (state._meta && state._meta.followupRemind) || null,
+            // 草稿箱（整表 At-LWW）与「按客户折叠」默认态（布尔 At-LWW）跨设备同步
+            followupDrafts: (state._meta && Array.isArray(state._meta.followupDrafts)) ? state._meta.followupDrafts.slice() : [],
+            followupDraftsAt: (state._meta && state._meta.followupDraftsAt) || 0,
+            followupCollapse: (state._meta && !!state._meta.followupCollapse) || false,
+            followupCollapseAt: (state._meta && state._meta.followupCollapseAt) || 0,
             customerStatusFilter: (state._meta && Array.isArray(state._meta.customerStatusFilter)) ? state._meta.customerStatusFilter.slice() : [],
             customerStatusFilterAt: (state._meta && state._meta.customerStatusFilterAt) || 0,
             // 看板卡片顺序：此前从未进过 payload（注释称三端互通但实际没同步），现补上并按 At 时间戳 LWW
@@ -14402,6 +14491,29 @@ function applyRemoteData(remoteData) {
         state._meta.followupTags = _remoteFuTags;
         state._meta.followupTagsAt = _remoteFuTagsAt;
     }
+    // 草稿箱：整表 At-LWW（临时数据量小，冲突代价低）
+    {
+        const _lDraftsAt = (state._meta && state._meta.followupDraftsAt) || 0;
+        const _rDraftsAt = (remoteData._meta && remoteData._meta.followupDraftsAt) || 0;
+        if (_rDraftsAt > _lDraftsAt && Array.isArray(remoteData._meta.followupDrafts)) {
+            state._meta.followupDrafts = remoteData._meta.followupDrafts.slice();
+            state._meta.followupDraftsAt = _rDraftsAt;
+        } else if (_lDraftsAt > 0) {
+            state._meta.followupDrafts = Array.isArray(state._meta.followupDrafts) ? state._meta.followupDrafts : [];
+            state._meta.followupDraftsAt = _lDraftsAt;
+        }
+    }
+    // 「按客户折叠」默认态：布尔 At-LWW
+    {
+        const _lColAt = (state._meta && state._meta.followupCollapseAt) || 0;
+        const _rColAt = (remoteData._meta && remoteData._meta.followupCollapseAt) || 0;
+        if (_rColAt > _lColAt) {
+            state._meta.followupCollapse = !!(remoteData._meta && remoteData._meta.followupCollapse);
+            state._meta.followupCollapseAt = _rColAt;
+        } else if (_lColAt > 0) {
+            state._meta.followupCollapseAt = _lColAt;
+        }
+    }
     // 同步后应用客户总表「状态多选筛选」：更新内存工作副本，使各端筛选一致
     if (typeof currentFilter !== 'undefined') {
         currentFilter.status = Array.isArray(state._meta.customerStatusFilter) ? state._meta.customerStatusFilter.slice() : [];
@@ -14696,7 +14808,7 @@ function refreshCurrentPage() {
         case 'customers': renderCustomers(); break;
         case 'followups': renderFollowups(); break;
         case 'todos': renderTodos(); break;
-        case 'plan': renderPlan(); renderPlanRelated(); renderLastWeekRelated(); break;
+        case 'plan': renderPlan(); renderPlanRelated(); renderLastWeekRelated(); renderReportCustomers(); break;
         case 'report': renderReportCustomers(); break;
         case 'history': renderHistory(); break;
     }
@@ -15758,9 +15870,21 @@ function bindEvents() {
         _gistTestBtn.dataset.bound = '1';
         _gistTestBtn.addEventListener('click', function () { testConnection(); });
     }
+    // 镜像到 Gist 开关：改动即时保存（此前只在点「保存」时读取，取消勾选后直接关弹窗不落盘，
+    // 重开又回显为开，用户误以为「被自动打开」）
+    const _mgChk = document.getElementById('mirrorGistChk');
+    if (_mgChk && !_mgChk.dataset.bound) {
+        _mgChk.dataset.bound = '1';
+        _mgChk.addEventListener('change', function () {
+            syncSettings.mirrorGist = !!_mgChk.checked;
+            saveSyncSettings();
+            logOperation('镜像到 Gist：' + (_mgChk.checked ? '开' : '关'), 'info');
+            showToast('已' + (_mgChk.checked ? '开启' : '关闭') + '镜像到 Gist');
+        });
+    }
     document.getElementById('saveSyncBtn').addEventListener('click', () => {
-        loadSyncSettings();
-        loadWebdavSettings();
+        // 注意：不再 loadSyncSettings()/loadWebdavSettings() 读回——openSyncModal 打开时已加载，
+        // 这里再读会在特定时机（如安卓 hydrate 前）把旧值冲掉内存中刚改的内容
         const wasUnconfigured = !syncReady();
         // provider 反映「当前环境可用的主后端」：桌面/安卓用 WebDAV，网页端降级为 Gist。
         // 这样既保留 isWebdavProvider() 对备份等既有逻辑的含义，又由 activeBackends() 驱动双后端同步。
@@ -16658,13 +16782,17 @@ window.addEventListener('unhandledrejection', function (e) {
 function init() {
     loadSyncSettings();
     loadWebdavSettings();
-    loadData();
+    loadData(); _afterDataLoaded();
     loadSyncLog();
     // 原生存储（安卓 Filesystem 为异步）hydrate 完成后，重新载入数据并刷新当前页。
     // 桌面端走同步 IPC，hydrate 在 CRMStore 构造时即完成，此回调不会被触发，无竞态。
     try {
         CRMStore._onHydrate(function () {
-            loadData();
+            // 安卓异步 hydrate 完成：原生文件内容已覆盖内存镜像，
+            // 必须重载全部设置对象（syncSettings/webdavSettings/backupSettings），
+            // 否则内存里还是 hydrate 前的旧值，之后 saveSyncSettings() 等会把旧值写回、覆盖用户已改的设置（镜像 Gist 开关被自动打开的根因）
+            loadSyncSettings(); loadWebdavSettings(); loadBackupSettings();
+            loadData(); _afterDataLoaded();
             if (typeof refreshCurrentPage === 'function') { try { refreshCurrentPage(); } catch (e) {} }
         });
     } catch (e) {}
@@ -16760,6 +16888,8 @@ window._crm = {
     closeFollowupPrefs,
     fuTagAdd,
     fuTagRename,
+    toggleFuCustomer,
+    toggleFuCollapseAll,
     fuTagDelete,
     editFollowup,
     deleteFollowupFromModal,
