@@ -14432,6 +14432,17 @@ function applyRemoteData(remoteData) {
     // 本端修改经由 pushSettingsDebounced 推到云端，故拉取时云端始终为最新
     const _localFilter = Array.isArray(state._meta && state._meta.customerStatusFilter) ? state._meta.customerStatusFilter.slice() : [];
     const _localFilterAt = (state._meta && state._meta.customerStatusFilterAt) || 0;
+    // ⚠️ 下方 Object.assign 会用远端 _meta 覆盖本地同名字段。凡需要在覆盖后做「本端 vs 远端」裁决的字段，
+    // 必须在此（覆盖前）取本地快照：否则裁决时读到的已是远端值，「本端较新」分支永不生效，
+    // 本端刚存的数据（草稿 / 跟进标签 / 折叠偏好 / 看板顺序）会被远端空值静默清掉。
+    const _localOrderSnap = Array.isArray(state._meta && state._meta.dashboardOrder) ? state._meta.dashboardOrder.slice() : [];
+    const _localOrderAtSnap = (state._meta && state._meta.dashboardOrderAt) || 0;
+    const _localFuTagsSnap = Array.isArray(state._meta && state._meta.followupTags) ? state._meta.followupTags.slice() : [];
+    const _localFuTagsAtSnap = (state._meta && state._meta.followupTagsAt) || 0;
+    const _localDraftsSnap = Array.isArray(state._meta && state._meta.followupDrafts) ? state._meta.followupDrafts.slice() : [];
+    const _localDraftsAtSnap = (state._meta && state._meta.followupDraftsAt) || 0;
+    const _localColSnap = !!(state._meta && state._meta.followupCollapse);
+    const _localColAtSnap = (state._meta && state._meta.followupCollapseAt) || 0;
     const _remoteFilter = Array.isArray(remoteData._meta && remoteData._meta.customerStatusFilter) ? remoteData._meta.customerStatusFilter.slice() : [];
     const _remoteFilterAt = (remoteData._meta && remoteData._meta.customerStatusFilterAt) || 0;
     state._meta = Object.assign({}, (state._meta || {}), (remoteData._meta || {}), {
@@ -14456,8 +14467,8 @@ function applyRemoteData(remoteData) {
     });
     // 客户总表状态筛选 & 看板卡片顺序：改为「按元素并集合并」（不再整表 LWW 覆盖），
     // 使双端并发改筛选 / 顺序时不会互相抹掉另一端的选择。
-    const _localOrder = Array.isArray(state._meta && state._meta.dashboardOrder) ? state._meta.dashboardOrder.slice() : [];
-    const _localOrderAt = (state._meta && state._meta.dashboardOrderAt) || 0;
+    const _localOrder = _localOrderSnap.slice();
+    const _localOrderAt = _localOrderAtSnap;
     const _remoteOrder = Array.isArray(remoteData._meta && remoteData._meta.dashboardOrder) ? remoteData._meta.dashboardOrder.slice() : [];
     const _remoteOrderAt = (remoteData._meta && remoteData._meta.dashboardOrderAt) || 0;
     // 状态筛选：两端选中的状态并集（去重，本地顺序优先）
@@ -14474,8 +14485,8 @@ function applyRemoteData(remoteData) {
     // 改名同时逐条改写本地记录的 tag（走正常 update 通道传播到对端），
     // 对端晚到的旧标签记录会显示为灰色历史标签，不丢数据。
     // 注意：上方 Object.assign 已把 remote._meta 整体并入，此处须按 At 显式裁决回本地更新版本。
-    const _localFuTags = Array.isArray(state._meta && state._meta.followupTags) ? state._meta.followupTags.slice() : [];
-    const _localFuTagsAt = (state._meta && state._meta.followupTagsAt) || 0;
+    const _localFuTags = _localFuTagsSnap.slice();
+    const _localFuTagsAt = _localFuTagsAtSnap;
     const _remoteFuTags = Array.isArray(remoteData._meta && remoteData._meta.followupTags) ? remoteData._meta.followupTags.slice() : [];
     const _remoteFuTagsAt = (remoteData._meta && remoteData._meta.followupTagsAt) || 0;
     if (_remoteFuTagsAt > _localFuTagsAt) {
@@ -14493,24 +14504,26 @@ function applyRemoteData(remoteData) {
     }
     // 草稿箱：整表 At-LWW（临时数据量小，冲突代价低）
     {
-        const _lDraftsAt = (state._meta && state._meta.followupDraftsAt) || 0;
+        const _lDraftsAt = _localDraftsAtSnap;
         const _rDraftsAt = (remoteData._meta && remoteData._meta.followupDraftsAt) || 0;
         if (_rDraftsAt > _lDraftsAt && Array.isArray(remoteData._meta.followupDrafts)) {
             state._meta.followupDrafts = remoteData._meta.followupDrafts.slice();
             state._meta.followupDraftsAt = _rDraftsAt;
-        } else if (_lDraftsAt > 0) {
-            state._meta.followupDrafts = Array.isArray(state._meta.followupDrafts) ? state._meta.followupDrafts : [];
+        } else {
+            // 本端较新或相等：恢复本端快照（Object.assign 已把远端值写过来了）
+            state._meta.followupDrafts = _localDraftsSnap.slice();
             state._meta.followupDraftsAt = _lDraftsAt;
         }
     }
     // 「按客户折叠」默认态：布尔 At-LWW
     {
-        const _lColAt = (state._meta && state._meta.followupCollapseAt) || 0;
+        const _lColAt = _localColAtSnap;
         const _rColAt = (remoteData._meta && remoteData._meta.followupCollapseAt) || 0;
         if (_rColAt > _lColAt) {
             state._meta.followupCollapse = !!(remoteData._meta && remoteData._meta.followupCollapse);
             state._meta.followupCollapseAt = _rColAt;
-        } else if (_lColAt > 0) {
+        } else {
+            state._meta.followupCollapse = _localColSnap;
             state._meta.followupCollapseAt = _lColAt;
         }
     }
