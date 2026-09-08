@@ -11891,6 +11891,7 @@ function clearOperationLog() {
 function getBackupGistApiUrl() { return 'https://api.github.com/gists/' + normalizeGistId(backupSettings.gistId); }
 let _backupArrCache = null; // 备份列表缓存：写操作后直接内存重绘，避免重复回云端拉取
 let _backupArrSource = null; // 备份缓存数组的真实来源（'webdav'|'gist'）：「存储」徽标以此为准，而非当前设置（修复徽标跟随设置切换的假显示）
+let _backupOverviewGen = 0; // loadBackupOverview 请求代数：丢弃目标已切换或后续请求先返回的陈旧响应
 // 周计划条目计数：网页端与云函数统一算法（只数 thisWeek/nextWeek 周期对象里有内容的格子）
 function countWorkPlanItems(plan) {
     if (!plan) return 0;
@@ -12514,6 +12515,9 @@ function bindBackupEvents() {
             logOperation('切换备份目标为 ' + (t === 'webdav' ? 'WebDAV' : 'Gist'), 'info');
             // 切换目标即作废旧缓存：缓存数组来自另一目标，若继续复用，列表徽标会标成新目标而数据实为旧目标（且删除会写错位置）
             _backupArrCache = null; _backupArrSource = null;
+            // 立即清空旧列表为「查询中」，避免在异步拉取完成前仍显示旧目标数据（用户会误以为是 bug）
+            const _bkList = document.getElementById('backupList');
+            if (_bkList) _bkList.innerHTML = '<div class="sync-log-empty">查询中…</div>';
             renderBackupModalByProvider();
             setBackupTargetActive(t);
             // 同步刷新自动备份控件可用状态：切到 WebDAV 启用，切到 Gist 禁用
@@ -12909,18 +12913,25 @@ function openManualBackupModal() {
 // 合并查询：一次拉取，列表 + 占用共用，避免重复回云端；同时记录缓存数组的真实来源
 function loadBackupOverview() {
     if (!backupReady()) { renderBackupUsage(); renderBackupList(); return; }
+    const _gen = ++_backupOverviewGen;
+    const _targetAtStart = getBackupTarget();
     (async function () {
-        const _fname = getBackupFilename();
         try {
             const gist = await fetchBackupGist();
+            // 如果切换目标后又有新请求发起，或目标已变，丢弃这次陈旧响应，避免旧数据覆盖新列表
+            if (getBackupTarget() !== _targetAtStart || _gen !== _backupOverviewGen) return;
             _backupArrSource = (gist.source === 'webdav' || gist.source === 'gist') ? gist.source : getBackupTarget();
-            const file = gist.files && gist.files[_fname];
+            const file = gist.files && gist.files[getBackupFilename()];
             let arr = [];
             if (file && file.content) { try { arr = gistDecode(file.content); } catch (e) {} }
             if (!Array.isArray(arr)) arr = [];
             _backupArrCache = arr;
             renderBackupUsage(arr); renderBackupList(arr);
-        } catch (e) { renderBackupUsage(); renderBackupList(); }
+        } catch (e) {
+            // 同样只让最新请求渲染错误/空态，旧请求静默丢弃
+            if (_gen !== _backupOverviewGen) return;
+            renderBackupUsage(); renderBackupList();
+        }
     })();
 }
 function closeManualBackupModal() { const m = document.getElementById('manualBackupModal'); if (m) m.classList.remove('show'); }
