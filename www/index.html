@@ -15322,38 +15322,9 @@ function bindEvents() {
     // 打开数据录入弹窗（跟进/待办/客户编辑）后记录字段快照；
     // 点击遮罩或按 ESC 时，若表单有未保存内容则阻止关闭（防数据丢失），
     // 仅空白/未改动表单可直接关闭；×/取消 按钮保留为显式丢弃。
-    const _modalSnapshots = {};
-    function serializeModalInputs(overlay) {
-        const vals = {};
-        overlay.querySelectorAll('input, textarea, select').forEach(function (el) {
-            const key = el.id || el.name;
-            if (!key) return;
-            if (el.type === 'checkbox' || el.type === 'radio') vals[key] = el.checked;
-            else vals[key] = el.value;
-        });
-        return vals;
-    }
-    function snapshotModal(overlayId) {
-        const overlay = document.getElementById(overlayId);
-        if (!overlay) return;
-        _modalSnapshots[overlayId] = serializeModalInputs(overlay);
-    }
-    function isModalDirty(overlayId) {
-        const overlay = document.getElementById(overlayId);
-        if (!overlay) return false;
-        const snap = _modalSnapshots[overlayId];
-        if (!snap) return false;
-        const cur = serializeModalInputs(overlay);
-        let changed = false;
-        const keys = Object.keys(snap).concat(Object.keys(cur));
-        keys.forEach(function (k) { if (snap[k] !== cur[k]) changed = true; });
-        if (!changed) return false;
-        // 仅空白表单（所有字段均为空）不算脏，允许直接关闭
-        const hasContent = Object.keys(cur).some(function (k) {
-            return String(cur[k] == null ? '' : cur[k]).trim() !== '';
-        });
-        return hasContent;
-    }
+    // 注：_modalSnapshots / serializeModalInputs / snapshotModal / isModalDirty 已提升到脚本「顶层作用域」
+    // （见 openTodoModal 前的顶层定义），以便 openTodoModal / openFollowupModal / openEditModal（均为顶层函数）可调用；
+    // 本初始化块内注册的点击事件 / ESC 监听仍经由作用域链引用顶层 isModalDirty。
 
     // 点击遮罩关闭弹窗
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
@@ -15854,6 +15825,40 @@ function toggleTodoComplete(id) {
     if (currentPage === 'dashboard') renderDashboard();
     if (typeof renderPlanRelated === 'function') renderPlanRelated();
     if (typeof renderLastWeekRelated === 'function') renderLastWeekRelated();
+}
+
+// ===== 模态框脏检查守卫（提升到脚本顶层作用域，供 openTodoModal / openFollowupModal / openEditModal 及下方事件监听共用）=====
+const _modalSnapshots = {};
+function serializeModalInputs(overlay) {
+    const vals = {};
+    overlay.querySelectorAll('input, textarea, select').forEach(function (el) {
+        const key = el.id || el.name;
+        if (!key) return;
+        if (el.type === 'checkbox' || el.type === 'radio') vals[key] = el.checked;
+        else vals[key] = el.value;
+    });
+    return vals;
+}
+function snapshotModal(overlayId) {
+    const overlay = document.getElementById(overlayId);
+    if (!overlay) return;
+    _modalSnapshots[overlayId] = serializeModalInputs(overlay);
+}
+function isModalDirty(overlayId) {
+    const overlay = document.getElementById(overlayId);
+    if (!overlay) return false;
+    const snap = _modalSnapshots[overlayId];
+    if (!snap) return false;
+    const cur = serializeModalInputs(overlay);
+    let changed = false;
+    const keys = Object.keys(snap).concat(Object.keys(cur));
+    keys.forEach(function (k) { if (snap[k] !== cur[k]) changed = true; });
+    if (!changed) return false;
+    // 仅空白表单（所有字段均为空）不算脏，允许直接关闭
+    const hasContent = Object.keys(cur).some(function (k) {
+        return String(cur[k] == null ? '' : cur[k]).trim() !== '';
+    });
+    return hasContent;
 }
 
 function openTodoModal(id, presetCustomerName) {
