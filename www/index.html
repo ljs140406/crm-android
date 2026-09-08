@@ -4973,6 +4973,19 @@ td.col-followup-content { position: relative; }
                         <option value="30" data-page-node-id="hbTYkRQWQY1E6IRINu0eRU">每 30 天</option>
                     </select>
                 </div>
+                <div style="display:flex;gap:10px;align-items:center;margin:10px 0;flex-wrap:wrap;" data-page-node-id="abRowWrap">
+                    <label style="margin:0;font-size:13px;font-weight:600;" data-page-node-id="abLabel">自动备份</label>
+                    <select id="autoBackupEnabled" style="padding:8px 10px;border:1px solid #E5E7EB;border-radius:8px;" data-page-node-id="abSelOn">
+                        <option value="1" selected data-page-node-id="abOn">开启</option>
+                        <option value="0" data-page-node-id="abOff">关闭</option>
+                    </select>
+                    <select id="autoBackupIntervalHours" style="padding:8px 10px;border:1px solid #E5E7EB;border-radius:8px;" data-page-node-id="abSelH">
+                        <option value="12" data-page-node-id="abH12">每 12 小时</option>
+                        <option value="24" selected data-page-node-id="abH24">每 24 小时</option>
+                        <option value="48" data-page-node-id="abH48">每 48 小时</option>
+                    </select>
+                    <span style="font-size:12px;color:#6B7280;" data-page-node-id="abTip">仅桌面端/安卓端 + WebDAV 目标生效；后台静默执行，只写日志。</span>
+                </div>
                 <div style="margin:10px 0;" data-page-node-id="WFIMqnN7wiLlnzmj2XcLSk">
                     <label style="font-size:13px;font-weight:600;" data-page-node-id="hsLsHYBlx1vLzbvIJvv25U">本机设备名</label>
                     <input type="text" id="deviceNameInput" placeholder="如：我的笔记本 / 办公室电脑" style="width:100%;padding:8px 10px;border:1px solid #E5E7EB;border-radius:8px;margin-top:6px;" data-page-node-id="Rjrs9rz082D2b6mCt34MkX">
@@ -11955,20 +11968,27 @@ async function updateBackupGist(content) {
     saveBackupSettings();
     return await res.json();
 }
-async function createBackup() {
+async function createBackup(_label, _preArr) {
+    const _isAuto = (_label === '自动');
+    const _bakLabel = _isAuto ? '自动' : '手动';
     const _btn = document.getElementById('backupNowBtn');
-    if (_btn) { _btn.disabled = true; _btn.dataset.label = _btn.textContent; _btn.textContent = '备份中…'; }
+    if (_btn && !_isAuto) { _btn.disabled = true; _btn.dataset.label = _btn.textContent; _btn.textContent = '备份中…'; }
     try {
-        if (!backupReady()) { showToast(getBackupTarget() === 'webdav' ? '请先在「云端同步」填写 WebDAV 服务器地址、用户名和密码' : '请先在「云端同步」填写备份 Gist 的 Token 和 Gist ID'); openSyncModal(); return; }
+        if (!backupReady()) {
+            if (_isAuto) return; // 自动备份：未配置目标则静默跳过，不打扰用户
+            showToast(getBackupTarget() === 'webdav' ? '请先在「云端同步」填写 WebDAV 服务器地址、用户名和密码' : '请先在「云端同步」填写备份 Gist 的 Token 和 Gist ID'); openSyncModal(); return;
+        }
         const snapshot = getSyncPayload();
         snapshot._backupTime = new Date().toISOString();
-        let arr = [];
+        let arr = Array.isArray(_preArr) ? _preArr.slice() : [];
         const _backupFname = getBackupFilename();
-        try {
-            const gist = await fetchBackupGist();
-            const file = gist.files && gist.files[_backupFname];
-            if (file && file.content) { const parsed = gistDecode(file.content); if (Array.isArray(parsed)) arr = parsed; }
-        } catch(e) { /* 可能还没有备份文件，视为空 */ }
+        if (!Array.isArray(_preArr)) {
+            try {
+                const gist = await fetchBackupGist();
+                const file = gist.files && gist.files[_backupFname];
+                if (file && file.content) { const parsed = gistDecode(file.content); if (Array.isArray(parsed)) arr = parsed; }
+            } catch(e) { /* 可能还没有备份文件，视为空 */ }
+        }
         _backupArrCache = arr;
         const sizeKB = Math.round(gistEncode(snapshot).length / 1024);
         // 去重：同一 backupTime 已存在则覆盖，避免重复写入
@@ -11983,7 +12003,7 @@ async function createBackup() {
         };
         arr.unshift({
             backupTime: snapshot._backupTime,
-            label: '手动',
+            label: _bakLabel,
             sizeKB: sizeKB,
             counts: _counts,
             device: DEVICE_ID,
@@ -12002,18 +12022,68 @@ async function createBackup() {
         renderBackupUsage(arr);
         checkBackupReminder();
         const _backendName = getBackupTarget() === 'webdav' ? 'WebDAV 网盘' : '副 Gist';
-        showToast('已备份到' + _backendName + '（共 ' + arr.length + ' 份）');
-        logSyncGlobal('手动备份到' + _backendName + '（共 ' + arr.length + ' 份）', 'success');
-        logOperation('手动备份到' + _backendName + '（共 ' + arr.length + ' 份）', 'success', '本次 ' + _counts.customers + ' 客户 / ' + _counts.followups + ' 跟进 / ' + _counts.todos + ' 待办');
+        if (!_isAuto) showToast('已备份到' + _backendName + '（共 ' + arr.length + ' 份）');
+        logSyncGlobal((_isAuto ? '自动' : '手动') + '备份到' + _backendName + '（共 ' + arr.length + ' 份）', 'success');
+        logOperation((_isAuto ? '自动' : '手动') + '备份到' + _backendName + '（共 ' + arr.length + ' 份）', 'success', '本次 ' + _counts.customers + ' 客户 / ' + _counts.followups + ' 跟进 / ' + _counts.todos + ' 待办');
     } catch (err) {
         // 之前 createBackup 只有 try/finally、无 catch：WebDAV 上传抛错会变成未捕获 Promise rejection，
         // 被全局处理器显示为笼统的「异步请求失败，已记录（数据不受影响）」，真实原因（鉴权/网络/CORS/路径）被吞掉。
         // 这里把真正的错误暴露出来，方便定位（例如 WebDAV 401 鉴权失败、CORS 拦截、目录不存在等）。
         const msg = (err && (err.message || err.reason)) ? String(err.message || err.reason) : '未知错误';
-        showToast('备份失败：' + msg);
-        logSyncGlobal('手动备份失败：' + msg, 'error');
-        logOperation('手动备份失败', 'error', msg);
-    } finally { if (_btn) { _btn.disabled = false; _btn.textContent = _btn.dataset.label || '立即备份（追加快照）'; } }
+        if (!_isAuto) showToast('备份失败：' + msg);
+        logSyncGlobal((_isAuto ? '自动' : '手动') + '备份失败：' + msg, 'error');
+        logOperation((_isAuto ? '自动' : '手动') + '备份失败', 'error', msg);
+    } finally { if (_btn && !_isAuto) { _btn.disabled = false; _btn.textContent = _btn.dataset.label || '立即备份（追加快照）'; } }
+}
+// ===== 自动备份（仅桌面端/安卓端 + 备份目标为 WebDAV）=====
+// 触发条件：距「云端备份数组最新一条」超过设定间隔（12/24/48h）才拍，避免多端各自触发导致一天多份。
+// 全程静默：不弹 toast，只写同步日志 + 操作日志；未配置/离线/读取失败均静默跳过。
+function isNativeAppRuntime() {
+    // 桌面端注入 window.electronAPI；安卓端由原生注入 window.Capacitor；网页端两者皆无
+    return !!(window.electronAPI) || !!(window.Capacitor && window.Capacitor.Plugins);
+}
+function autoBackupIsOn() {
+    const v = state._meta && state._meta.autoBackupEnabled;
+    return (v === undefined || v === null) ? true : !!v; // 默认开启
+}
+function autoBackupIntervalMs() {
+    const h = parseInt((state._meta && state._meta.autoBackupIntervalHours), 10) || 24;
+    return h * 3600000;
+}
+async function maybeAutoBackup() {
+    try {
+        if (!isNativeAppRuntime()) return;                 // 仅桌面/安卓，网页端不自动备份
+        if (!autoBackupIsOn()) return;                     // 开关关闭
+        if (getBackupTarget() !== 'webdav') return;        // 仅 WebDAV；Gist 不做自动备份
+        if (!backupReady()) return;                        // 未配置则静默跳过
+        const interval = autoBackupIntervalMs();
+
+        // ① 本地廉价预判：本地记录显示未到间隔则直接返回，避免每次启动都拉云端
+        const localLast = state._meta && state._meta.lastBackupAt;
+        if (localLast) {
+            if ((Date.now() - new Date(localLast).getTime()) < interval) return;
+        }
+
+        // ② 云端权威校验：读备份数组，取最新 backupTime（多端共享，防止重复快照）
+        let arr = [];
+        try {
+            const gist = await fetchBackupGist();
+            const file = gist.files && gist.files[getBackupFilename()];
+            if (file && file.content) { const p = gistDecode(file.content); if (Array.isArray(p)) arr = p; }
+        } catch (e) {
+            return; // 离线或读取失败：不盲备份，静默跳过
+        }
+        if (arr.length) {
+            const newest = arr.reduce(function (m, e) {
+                const t = new Date(e && e.backupTime).getTime();
+                return (t && t > m) ? t : m;
+            }, 0);
+            if (newest && (Date.now() - newest) < interval) return;
+        }
+        await createBackup('自动', arr);
+    } catch (e) {
+        try { logSyncGlobal('自动备份已跳过：' + ((e && e.message) || e), 'info'); } catch (_) {}
+    }
 }
 async function renderBackupList(providedArr) {
     const el = document.getElementById('backupList');
@@ -12426,7 +12496,7 @@ function quickBackupGist() {
 function dismissBackupRemind() { const b = document.getElementById('backupRemindBanner'); if (b) b.style.display = 'none'; }
 function bindBackupEvents() {
     const nowBtn = document.getElementById('backupNowBtn');
-    if (nowBtn && !nowBtn.dataset.bound) { nowBtn.dataset.bound = '1'; nowBtn.addEventListener('click', createBackup); }
+    if (nowBtn && !nowBtn.dataset.bound) { nowBtn.dataset.bound = '1'; nowBtn.addEventListener('click', function () { createBackup(); }); }
     const resBtn = document.getElementById('backupRestoreBtn');
     if (resBtn && !resBtn.dataset.bound) { resBtn.dataset.bound = '1'; resBtn.addEventListener('click', openBackupRestoreModal); }
     // 备份目标分段切换（独立于日常同步 provider）：Gist / WebDAV
@@ -12452,6 +12522,12 @@ function bindBackupEvents() {
     if (keepEl && !keepEl.dataset.bound) { keepEl.dataset.bound = '1'; keepEl.addEventListener('change', function () { const _v = parseInt(keepEl.value, 10) || 20; state._meta = state._meta || {}; const _old = state._meta.backupKeepCount || 20; state._meta.backupKeepCount = _v; saveData(); pushSettingsDebounced(); if (_old !== _v) logOperation('修改备份保留数为 ' + _v + '（原 ' + _old + '）', 'info'); }); }
     const remindEl = document.getElementById('backupRemindDays');
     if (remindEl && !remindEl.dataset.bound) { remindEl.dataset.bound = '1'; remindEl.addEventListener('change', function () { const _v = parseInt(remindEl.value, 10) || 7; state._meta = state._meta || {}; const _old = state._meta.backupRemindDays || 7; state._meta.backupRemindDays = _v; saveData(); checkBackupReminder(); pushSettingsDebounced(); if (_old !== _v) logOperation('修改备份提醒间隔为 ' + _v + ' 天（原 ' + _old + ' 天）', 'info'); }); }
+    // 自动备份开关（默认开；仅桌面/安卓 + WebDAV 生效）
+    const abOnEl = document.getElementById('autoBackupEnabled');
+    if (abOnEl && !abOnEl.dataset.bound) { abOnEl.dataset.bound = '1'; abOnEl.addEventListener('change', function () { const _v = (abOnEl.value === '0') ? false : true; state._meta = state._meta || {}; const _old = (state._meta.autoBackupEnabled === undefined) ? true : !!state._meta.autoBackupEnabled; state._meta.autoBackupEnabled = _v; saveData(); pushSettingsDebounced(); if (_old !== _v) logOperation((_v ? '开启' : '关闭') + '自动备份', 'info'); }); }
+    // 自动备份间隔（12/24/48 小时）
+    const abHEl = document.getElementById('autoBackupIntervalHours');
+    if (abHEl && !abHEl.dataset.bound) { abHEl.dataset.bound = '1'; abHEl.addEventListener('change', function () { const _v = parseInt(abHEl.value, 10) || 24; state._meta = state._meta || {}; const _old = parseInt(state._meta.autoBackupIntervalHours, 10) || 24; state._meta.autoBackupIntervalHours = _v; saveData(); pushSettingsDebounced(); if (_old !== _v) logOperation('修改自动备份间隔为 ' + _v + ' 小时（原 ' + _old + ' 小时）', 'info'); }); }
     const devNameEl = document.getElementById('deviceNameInput');
     if (devNameEl && !devNameEl.dataset.bound) { devNameEl.dataset.bound = '1'; devNameEl.addEventListener('change', function () { const v = devNameEl.value.trim(); if (v) { const _old = (state._meta && state._meta.deviceName) || ''; state._meta = state._meta || {}; state._meta.deviceName = v; saveData(); pushSettingsDebounced(); if (_old && _old !== v) logOperation('修改设备名称为「' + v + '」（原「' + _old + '」）', 'info'); } }); }
     const saveBtn = document.getElementById('backupSaveBtn');
@@ -12807,6 +12883,8 @@ function openManualBackupModal() {
     const bgid = document.getElementById('backupGistId'); if (bgid) bgid.value = backupSettings.gistId;
     const bkeep = document.getElementById('backupKeepCount'); if (bkeep) bkeep.value = (state._meta && state._meta.backupKeepCount) || 20;
     const brid = document.getElementById('backupRemindDays'); if (brid) brid.value = (state._meta && state._meta.backupRemindDays) || 7;
+    const abOn = document.getElementById('autoBackupEnabled'); if (abOn) abOn.value = ((state._meta && state._meta.autoBackupEnabled) === false) ? '0' : '1';
+    const abH = document.getElementById('autoBackupIntervalHours'); if (abH) abH.value = String(parseInt((state._meta && state._meta.autoBackupIntervalHours), 10) || 24);
     const dnEl = document.getElementById('deviceNameInput'); if (dnEl) dnEl.value = (state._meta && state._meta.deviceName) || '';
     const m = document.getElementById('manualBackupModal'); if (m) m.classList.add('show');
     loadBackupOverview();
@@ -13470,6 +13548,9 @@ function getSyncPayload() {
             lastBackupAt: state._meta.lastBackupAt,
             backupKeepCount: (state._meta && state._meta.backupKeepCount) || 20,
             backupRemindDays: (state._meta && state._meta.backupRemindDays) || 7,
+            // 自动备份（桌面/安卓 + WebDAV）：开关默认开，间隔默认 24h，随设置跨设备同步
+            autoBackupEnabled: (state._meta && state._meta.autoBackupEnabled !== undefined) ? !!state._meta.autoBackupEnabled : true,
+            autoBackupIntervalHours: (state._meta && parseInt(state._meta.autoBackupIntervalHours, 10)) || 24,
             historyRetention: (state._meta && state._meta.historyRetention) || null,
             customerStatusFilter: (state._meta && Array.isArray(state._meta.customerStatusFilter)) ? state._meta.customerStatusFilter.slice() : [],
             customerStatusFilterAt: (state._meta && state._meta.customerStatusFilterAt) || 0,
@@ -13888,6 +13969,12 @@ function applyRemoteData(remoteData) {
         lastBackupAt: _maxTime(state._meta && state._meta.lastBackupAt, remoteData._meta && remoteData._meta.lastBackupAt),
         backupRemindDays: (remoteData._meta && remoteData._meta.backupRemindDays) || (state._meta && state._meta.backupRemindDays),
         backupKeepCount: (remoteData._meta && remoteData._meta.backupKeepCount) || (state._meta && state._meta.backupKeepCount),
+        // 自动备份设置：云端优先、本端兜底，缺省即开（true）
+        autoBackupEnabled: (remoteData._meta && remoteData._meta.autoBackupEnabled !== undefined)
+            ? !!remoteData._meta.autoBackupEnabled
+            : ((state._meta && state._meta.autoBackupEnabled !== undefined) ? !!state._meta.autoBackupEnabled : true),
+        autoBackupIntervalHours: (remoteData._meta && parseInt(remoteData._meta.autoBackupIntervalHours, 10))
+            || (state._meta && parseInt(state._meta.autoBackupIntervalHours, 10)) || 24,
         historyRetention: (remoteData._meta && remoteData._meta.historyRetention) || (state._meta && state._meta.historyRetention),
         deviceName: (state._meta && state._meta.deviceName) || (remoteData._meta && remoteData._meta.deviceName),
         // 汇报客户版本号取两端较大者：上方合并若保留了本端（rev 更高）版本，
@@ -16146,6 +16233,9 @@ function init() {
     navigateTo('dashboard');
     checkBackupReminder();
     checkStorageWarnings();
+    // 自动备份：延迟到首次自动同步（1.5s）之后，使快照包含刚合并进来的远端数据；
+    // 仅桌面/安卓 + WebDAV 生效，内部自行判断是否到达间隔，未到期或离线均静默跳过。
+    setTimeout(function () { try { maybeAutoBackup(); } catch (e) {} }, 4500);
 
     // 页面加载时自动同步
     if (syncReady()) {
