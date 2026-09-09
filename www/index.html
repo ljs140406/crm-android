@@ -809,9 +809,8 @@ textarea { resize: vertical; }
 }
 .followup-view-toggle {
     display: inline-flex;
-    background: var(--card-bg);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
+    background: var(--gray-100, #F3F4F6);
+    border-radius: 10px;
     padding: 3px;
     gap: 2px;
 }
@@ -821,12 +820,21 @@ textarea { resize: vertical; }
     color: var(--text-secondary);
     font-size: 13px;
     font-weight: 500;
-    padding: 6px 14px;
-    border-radius: calc(var(--radius) - 3px);
+    padding: 6px 16px;
+    border-radius: 8px;
     cursor: pointer;
 }
 .followup-view-btn.active { background: var(--primary); color: #fff; }
 .followup-view-btn:active { opacity: .85; }
+/* 方案A：跟进页顶栏两行布局——第一行 视图切换 + 添加按钮；第二行 筛选条件 */
+.fu-head-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; }
+.fu-add-btn {
+    border: none; background: var(--primary); color: #fff; font-size: 13px; font-weight: 500;
+    padding: 8px 16px; border-radius: 9px; cursor: pointer; white-space: nowrap;
+}
+.fu-add-btn:active { opacity: .85; }
+.fu-filter-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; width: 100%; }
+.fu-filter-label { font-size: 12px; color: var(--text-secondary); flex: 0 0 auto; }
 .followup-range-trigger {
     display: inline-flex; align-items: center; gap: 4px;
     padding: 6px 12px; font-size: 12px; font-weight: 500; color: var(--text);
@@ -1155,7 +1163,7 @@ tr.customer-row.starred:hover td { background-color: #fde68a; }
 .cust-stat {
     flex: 1; min-width: 120px;
     background: #F7F7F5; border: 1.5px solid transparent; border-radius: 10px;
-    padding: 9px 12px; text-align: left; cursor: pointer; font-family: inherit;
+    padding: 9px 12px; text-align: center; cursor: pointer; font-family: inherit;
     transition: border-color .15s, background-color .15s;
 }
 .cust-stat:hover { border-color: #d1d5db; }
@@ -1408,10 +1416,7 @@ td.col-followup-content { position: relative; }
     .history-back-btn { padding: 6px 10px; font-size: 12px; }
     .history-page-title { font-size: 16px; }
 
-    /* 跟进时间线 */
-    .followup-timeline { padding-left: 20px; }
-    .followup-item { margin-bottom: 12px; }
-    .followup-item::before { left: -17px; width: 10px; height: 10px; }
+    /* 跟进时间线（v1.1.35 改版后无左轨，仅调卡片内边距） */
     .followup-card { padding: 12px; }
     .followup-customer { font-size: 13px; }
 
@@ -1574,28 +1579,11 @@ td.col-followup-content { position: relative; }
     to { transform: rotate(360deg); }
 }
 
-/* ==================== Followup Timeline ==================== */
-.followup-timeline { position: relative; padding-left: 22px; }
-.followup-timeline::before {
-    content: '';
-    position: absolute;
-    left: 6px; top: 0; bottom: 0;
-    width: 2px;
-    background: linear-gradient(to bottom, var(--primary), var(--primary-light));
-    border-radius: 1px;
-}
-.followup-item { position: relative; margin-bottom: 16px; }
-.followup-item::before {
-    content: '';
-    position: absolute;
-    left: -19px; top: 4px;
-    width: 12px; height: 12px;
-    border-radius: 50%;
-    background: #fff;
-    border: 3px solid var(--primary);
-    z-index: 1;
-    box-shadow: 0 0 0 2px var(--bg);
-}
+/* ==================== Followup Timeline ====================
+   v1.1.35 改版：去掉左侧时间轴竖轨，卡片全宽；信息分层＝
+   顶部行(客户名 + ⋮菜单) → 元信息行(标签 + 时间) → 正文 */
+.followup-timeline { position: relative; }
+.followup-item { position: relative; margin-bottom: 12px; }
 .followup-card {
     background: var(--card-bg);
     border-radius: var(--radius);
@@ -1604,13 +1592,34 @@ td.col-followup-content { position: relative; }
     transition: box-shadow 0.2s;
 }
 .followup-card:active { box-shadow: var(--shadow-md); }
-.followup-card-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
-.followup-customer { font-weight: 600; font-size: 14px; cursor: pointer; color: var(--primary); }
+.followup-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; position: relative; }
+.followup-customer { font-weight: 600; font-size: 14px; cursor: pointer; color: var(--primary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.followup-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .followup-time { font-size: 12px; color: var(--text-secondary); flex-shrink: 0; }
 .followup-content { font-size: 14px; color: var(--text); line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
-.followup-actions { display: flex; gap: 8px; margin-top: 10px; }
-.followup-actions button { font-size: 12px; color: var(--text-secondary); padding: 5px 10px; border-radius: 6px; background: var(--gray-50); font-weight: 500; }
-.followup-actions button:active { background: var(--gray-200); }
+/* 卡片右上角 ⋮ 更多菜单（编辑/删除收纳） */
+.fu-more-btn {
+    flex: 0 0 auto; width: 28px; height: 28px; margin: -4px -6px 0 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: none; background: transparent; border-radius: 8px;
+    font-size: 16px; line-height: 1; color: var(--text-secondary); cursor: pointer;
+    user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.fu-more-btn:hover, .fu-more-btn.open { background: var(--gray-100, #F3F4F6); color: var(--text); }
+.fu-more-menu {
+    position: absolute; right: 0; top: 30px; z-index: 60; min-width: 108px;
+    background: var(--card-bg, #fff); border: 1px solid var(--border);
+    border-radius: 10px; box-shadow: 0 8px 26px rgba(0,0,0,.14);
+    padding: 4px; display: flex; flex-direction: column; gap: 2px;
+}
+.fu-more-menu.hidden { display: none; }
+.fu-more-menu button {
+    text-align: left; padding: 8px 12px; font-size: 13px; border: none; background: transparent;
+    border-radius: 7px; cursor: pointer; color: var(--text); white-space: nowrap;
+}
+.fu-more-menu button:hover { background: var(--gray-100, #F3F4F6); }
+.fu-more-menu button.danger { color: #DC2626; }
+/* v1.1.35 起操作统一收进卡片右上角 ⋮ 菜单，旧 .followup-actions 已废弃移除 */
 
 /* ==================== Work Plan ==================== */
 .plan-container { display: flex; flex-direction: column; gap: 16px; }
@@ -4178,36 +4187,42 @@ td.col-followup-content { position: relative; }
             <!-- 跟进记录 -->
             <div class="page hidden" id="page-followups" data-page-node-id="msLzXI9YVJzxSEdL4m5d48">
                 <div class="filter-bar" data-page-node-id="sWPpYH5V45wp5ogbZvGkaM">
-                    <div class="followup-filter-wrap" id="followupFilterWrap" data-page-node-id="GsiZHvJBshUmzlOi14CmPg">
-                        <button type="button" class="followup-filter-btn" id="followupFilterBtn" data-page-node-id="DeiNgInvL9jZVRToHhOET8">
-                            <span class="ff-label" id="followupFilterLabel" data-page-node-id="5QVNzwQhOy3u05TMlBUhfK">全部</span>
-                            <span class="ff-arrow" data-page-node-id="mpTNlgn4enkVfnAfbGJqSS">▾</span>
-                        </button>
-                        <div class="followup-filter-menu hidden" id="followupFilterMenu" data-page-node-id="73OhZ6eSQD0k5rUWqOdoyo">
-                            <button type="button" class="followup-filter-opt active" data-filter="all" data-page-node-id="uFB7z0U0DG4gQFda1zczFr">全部</button>
-                            <button type="button" class="followup-filter-opt" data-filter="week1" data-page-node-id="xZDN1kXFnIuF9S3qBpjZWd">近一周</button>
-                            <button type="button" class="followup-filter-opt" data-filter="week2" data-page-node-id="MYqTPHExKE6X1WxO9eRyG9">近两周</button>
-                            <button type="button" class="followup-filter-opt" data-filter="week3" data-page-node-id="WZIs4C6ZmYC5DvwcQZN3CY">近三周</button>
-                            <button type="button" class="followup-filter-opt" data-filter="month1" data-page-node-id="OYsLxfGq5WeV9wBHyiuRc3">近一个月</button>
-                            <button type="button" class="followup-filter-opt" data-filter="month_more" data-page-node-id="GdYltN1s0ZTlqfhypU2SeY">一个月以上</button>
-                            <button type="button" class="followup-filter-opt" data-filter="no_week1" data-page-node-id="SsrYJlTuqrbGm4CFitoXud">一周未跟进</button>
-                            <button type="button" class="followup-filter-opt" data-filter="no_week2" data-page-node-id="rFKIKpRUT1lio6DaLCgvUt">二周未跟进</button>
-                            <button type="button" class="followup-filter-opt" data-filter="no_week3" data-page-node-id="HZY50bGYj4X7mYfWvxSjHf">三周未跟进</button>
+                    <div class="fu-head-row">
+                        <div class="followup-view-toggle" id="followupViewToggle" data-page-node-id="arKzoJmS7IvQZ3JsAbogSC">
+                            <button type="button" class="followup-view-btn active" data-view="record" data-page-node-id="o4mXx9oskiDUVueY3HjEuK">按记录</button>
+                            <button type="button" class="followup-view-btn" data-view="customer" data-page-node-id="SHSqpjPr4RPsCvP6Shi1bD">按客户</button>
                         </div>
+                        <button type="button" class="fu-add-btn" onclick="window._crm.openFollowupModal()">＋ 添加跟进</button>
                     </div>
-                    <div class="followup-filter-wrap" id="followupTagFilterWrap">
-                        <button type="button" class="followup-filter-btn" id="followupTagFilterBtn">
-                            <span class="ff-label" id="followupTagFilterLabel">标签</span>
-                            <span class="ff-arrow">▾</span>
-                        </button>
-                        <div class="followup-filter-menu hidden" id="followupTagFilterMenu"></div>
+                    <div class="fu-filter-row">
+                        <span class="fu-filter-label">筛选</span>
+                        <div class="followup-filter-wrap" id="followupFilterWrap" data-page-node-id="GsiZHvJBshUmzlOi14CmPg">
+                            <button type="button" class="followup-filter-btn" id="followupFilterBtn" data-page-node-id="DeiNgInvL9jZVRToHhOET8">
+                                <span class="ff-label" id="followupFilterLabel" data-page-node-id="5QVNzwQhOy3u05TMlBUhfK">全部</span>
+                                <span class="ff-arrow" data-page-node-id="mpTNlgn4enkVfnAfbGJqSS">▾</span>
+                            </button>
+                            <div class="followup-filter-menu hidden" id="followupFilterMenu" data-page-node-id="73OhZ6eSQD0k5rUWqOdoyo">
+                                <button type="button" class="followup-filter-opt active" data-filter="all" data-page-node-id="uFB7z0U0DG4gQFda1zczFr">全部</button>
+                                <button type="button" class="followup-filter-opt" data-filter="week1" data-page-node-id="xZDN1kXFnIuF9S3qBpjZWd">近一周</button>
+                                <button type="button" class="followup-filter-opt" data-filter="week2" data-page-node-id="MYqTPHExKE6X1WxO9eRyG9">近两周</button>
+                                <button type="button" class="followup-filter-opt" data-filter="week3" data-page-node-id="WZIs4C6ZmYC5DvwcQZN3CY">近三周</button>
+                                <button type="button" class="followup-filter-opt" data-filter="month1" data-page-node-id="OYsLxfGq5WeV9wBHyiuRc3">近一个月</button>
+                                <button type="button" class="followup-filter-opt" data-filter="month_more" data-page-node-id="GdYltN1s0ZTlqfhypU2SeY">一个月以上</button>
+                                <button type="button" class="followup-filter-opt" data-filter="no_week1" data-page-node-id="SsrYJlTuqrbGm4CFitoXud">一周未跟进</button>
+                                <button type="button" class="followup-filter-opt" data-filter="no_week2" data-page-node-id="rFKIKpRUT1lio6DaLCgvUt">二周未跟进</button>
+                                <button type="button" class="followup-filter-opt" data-filter="no_week3" data-page-node-id="HZY50bGYj4X7mYfWvxSjHf">三周未跟进</button>
+                            </div>
+                        </div>
+                        <div class="followup-filter-wrap" id="followupTagFilterWrap">
+                            <button type="button" class="followup-filter-btn" id="followupTagFilterBtn">
+                                <span class="ff-label" id="followupTagFilterLabel">标签</span>
+                                <span class="ff-arrow">▾</span>
+                            </button>
+                            <div class="followup-filter-menu hidden" id="followupTagFilterMenu"></div>
+                        </div>
+                        <button type="button" class="followup-filter-btn hidden" id="fuCollapseAllBtn" onclick="window._crm.toggleFuCollapseAll()">全部折叠</button>
+                        <button type="button" class="followup-range-trigger" id="followupRangeTrigger" data-page-node-id="FapdM0DwLvAq1kFu07pgsx">自定义时段</button>
                     </div>
-                    <button type="button" class="followup-filter-btn hidden" id="fuCollapseAllBtn" onclick="window._crm.toggleFuCollapseAll()">全部折叠</button>
-                    <div class="followup-view-toggle" id="followupViewToggle" data-page-node-id="arKzoJmS7IvQZ3JsAbogSC">
-                        <button type="button" class="followup-view-btn active" data-view="record" data-page-node-id="o4mXx9oskiDUVueY3HjEuK">按记录</button>
-                        <button type="button" class="followup-view-btn" data-view="customer" data-page-node-id="SHSqpjPr4RPsCvP6Shi1bD">按客户</button>
-                    </div>
-                    <button type="button" class="followup-range-trigger" id="followupRangeTrigger" data-page-node-id="FapdM0DwLvAq1kFu07pgsx">自定义时段</button>
                 </div>
                 <div class="followup-range" id="followupRange" style="display:none" data-page-node-id="U4JHJaQxa4f2Z6tERESvTM">
                     <span class="followup-range-label" data-page-node-id="nJsOAKWB7PtHMSnHtR5JgA">自定义时段</span>
@@ -9305,26 +9320,39 @@ function renderFollowups() {
     }
 
     container.innerHTML = filtered.map(f => {
-        const customer = state.customers.find(c => c.name === f.customer);
-        const sc = customer ? getStatusConfig(customer.status) : getStatusConfig('');
         return `
             <div class="followup-item">
                 <div class="followup-card">
-                    <div class="followup-card-header">
+                    <div class="followup-card-top">
                         <span class="followup-customer" onclick="window._crm.openCustomerDetailByName('${escapeHtml(f.customer)}')">${escapeHtml(f.customer)}</span>
-                        ${fuTagBadgeHtml(f.tag)}
-                        <span class="followup-time">${formatDateTime(f.time)}</span>
+                        <button type="button" class="fu-more-btn" title="更多操作" onclick="event.stopPropagation();window._crm.toggleFuMenu(this)">⋮</button>
+                        <div class="fu-more-menu hidden" onclick="event.stopPropagation()">
+                            <button type="button" onclick="window._crm.editFollowup('${f.id}');window._crm._closeFuMenus()">编辑</button>
+                            <button type="button" class="danger" onclick="window._crm.deleteFollowup('${f.id}');window._crm._closeFuMenus()">删除</button>
+                        </div>
                     </div>
+                    <div class="followup-meta">${fuTagBadgeHtml(f.tag)}<span class="followup-time">${formatDateTime(f.time)}</span></div>
                     <div class="followup-content">${escapeHtml(f.content)}</div>
-                    <div class="followup-actions">
-                        <button onclick="window._crm.editFollowup('${f.id}')">编辑</button>
-                        <button onclick="window._crm.deleteFollowup('${f.id}')">删除</button>
-                    </div>
                 </div>
             </div>
         `;
     }).join('');
 }
+
+// 卡片右上角 ⋮ 更多菜单（编辑/删除收纳）：点 ⋮ 开、点别处关；同时只开一个
+function closeAllFuMenus() {
+    document.querySelectorAll('.fu-more-menu:not(.hidden)').forEach(function (m) { m.classList.add('hidden'); });
+    document.querySelectorAll('.fu-more-btn.open').forEach(function (b) { b.classList.remove('open'); });
+}
+function toggleFuMenu(btn) {
+    const card = btn.closest('.followup-card');
+    const menu = card ? card.querySelector('.fu-more-menu') : null;
+    if (!menu) return;
+    const willOpen = menu.classList.contains('hidden');
+    closeAllFuMenus();
+    if (willOpen) { menu.classList.remove('hidden'); btn.classList.add('open'); }
+}
+document.addEventListener('click', function () { closeAllFuMenus(); });
 
 // 统一刷新所有"会显示跟进记录"的视图，避免修改/删除后某处仍是旧数据（需手动刷新才更新）
 function refreshFollowupViews() {
@@ -9364,17 +9392,18 @@ function renderFollowupsByCustomer(container, followups) {
             return `
                 <div class="followup-item">
                     <div class="followup-card">
-                        <div class="followup-card-header">
-                            ${fuTagBadgeHtml(f.tag)}
-                            <span class="followup-time">${formatDateTime(f.time)}</span>
+                        <div class="followup-card-top">
+                            <span class="followup-meta" style="margin-bottom:0;">${fuTagBadgeHtml(f.tag)}</span>
+                            <button type="button" class="fu-more-btn" title="更多操作" onclick="event.stopPropagation();window._crm.toggleFuMenu(this)">⋮</button>
+                            <div class="fu-more-menu hidden" onclick="event.stopPropagation()">
+                                <button type="button" onclick="window._crm.editFollowup('${f.id}');window._crm._closeFuMenus()">编辑</button>
+                                <button type="button" class="danger" onclick="window._crm.deleteFollowup('${f.id}');window._crm._closeFuMenus()">删除</button>
+                            </div>
                         </div>
-                <div class="followup-content">${escapeHtml(f.content)}</div>
-                <div class="followup-actions">
-                    <button onclick="window._crm.editFollowup('${f.id}')">编辑</button>
-                    <button onclick="window._crm.deleteFollowup('${f.id}')">删除</button>
-                </div>
-            </div>
-        </div>`;
+                        <div class="followup-meta"><span class="followup-time">${formatDateTime(f.time)}</span></div>
+                        <div class="followup-content">${escapeHtml(f.content)}</div>
+                    </div>
+                </div>`;
         }).join('');
         const escaped = escapeHtml(name);
         const chev = collapsed ? '▸' : '▾';
@@ -9840,15 +9869,16 @@ function renderFollowupHistoryList() {
                 ${filtered.map(f => `
                     <div class="followup-item">
                         <div class="followup-card">
-                            <div class="followup-card-header">
-                                ${fuTagBadgeHtml(f.tag)}
-                                <span class="followup-time">${formatDateTime(f.time)}</span>
+                            <div class="followup-card-top">
+                                <span class="followup-meta" style="margin-bottom:0;">${fuTagBadgeHtml(f.tag)}</span>
+                                <button type="button" class="fu-more-btn" title="更多操作" onclick="event.stopPropagation();window._crm.toggleFuMenu(this)">⋮</button>
+                                <div class="fu-more-menu hidden" onclick="event.stopPropagation()">
+                                    <button type="button" onclick="window._crm.editFollowup('${f.id}');window._crm._closeFuMenus()">编辑</button>
+                                    <button type="button" class="danger" onclick="window._crm.deleteFollowup('${f.id}');window._crm._closeFuMenus()">删除</button>
+                                </div>
                             </div>
+                            <div class="followup-meta"><span class="followup-time">${formatDateTime(f.time)}</span></div>
                             <div class="followup-content">${escapeHtml(f.content)}</div>
-                            <div class="followup-actions">
-                                <button onclick="window._crm.editFollowup('${f.id}')">编辑</button>
-                                <button onclick="window._crm.deleteFollowup('${f.id}')">删除</button>
-                            </div>
                         </div>
                     </div>
                 `).join('')}
@@ -12975,6 +13005,9 @@ async function cleanBackupGist() {
 function restoreBackupEntry(backupTime) { restoreFromBackup(backupTime); }
 
 // ==================== 定期备份提醒 ====================
+// 会话级「已处理提醒」标志：点「稍后 / 立即导出 / 备份到 Gist」任一按钮后置位。
+// 否则每轮同步 applyRemoteData→checkBackupReminder 会把横幅反复重新弹出（关了又弹）。
+var _backupRemindDismissed = false;
 function checkBackupReminder() {
     if (!state._meta) state._meta = {};
     const banner = document.getElementById('backupRemindBanner');
@@ -12987,19 +13020,21 @@ function checkBackupReminder() {
     else { banner.style.display = 'none'; }
 }
 function showBackupReminder(text) {
+    if (_backupRemindDismissed) return;
     const banner = document.getElementById('backupRemindBanner');
     if (!banner) return;
     const t = document.getElementById('backupRemindText');
     if (t) t.textContent = text;
     banner.style.display = 'flex';
 }
-function quickBackupExport() { const b = document.getElementById('backupRemindBanner'); if (b) b.style.display = 'none'; exportData(); }
+function quickBackupExport() { _backupRemindDismissed = true; const b = document.getElementById('backupRemindBanner'); if (b) b.style.display = 'none'; exportData(); }
 function quickBackupGist() {
+    _backupRemindDismissed = true;
     const b = document.getElementById('backupRemindBanner'); if (b) b.style.display = 'none';
     loadBackupSettings();
     if (backupReady()) { createBackup(); } else { showToast(getBackupTarget() === 'webdav' ? '未配置 WebDAV，已打开手动备份' : '未配置备份 Gist，已打开手动备份'); openManualBackupModal(); }
 }
-function dismissBackupRemind() { const b = document.getElementById('backupRemindBanner'); if (b) b.style.display = 'none'; }
+function dismissBackupRemind() { _backupRemindDismissed = true; const b = document.getElementById('backupRemindBanner'); if (b) b.style.display = 'none'; }
 function bindBackupEvents() {
     const nowBtn = document.getElementById('backupNowBtn');
     if (nowBtn && !nowBtn.dataset.bound) { nowBtn.dataset.bound = '1'; nowBtn.addEventListener('click', function () { createBackup(); }); }
@@ -16930,7 +16965,11 @@ function init() {
         }
     } catch (e) {}
     navigateTo('dashboard');
-    checkBackupReminder();
+    // 备份提醒不随启动立即判定：启动瞬间本地 lastBackupAt 可能还是旧值（其他设备刚备份过、尚未同步到本机），
+    // 会先误报「N 天未做备份」、几秒后同步到新值又自动消失（闪现）。改为：
+    // 判定交给首轮 applyRemoteData 之后的 checkBackupReminder（此时备份时间已取各端较新值）；
+    // 此处仅留 20s 兜底——同步失败/离线时仍用本地值提醒（会话内只提醒一次，见 _backupRemindDismissed）。
+    setTimeout(function () { try { checkBackupReminder(); } catch (e) {} }, 20000);
     checkStorageWarnings();
     // 自动备份：延迟到首次自动同步（1.5s）之后，使快照包含刚合并进来的远端数据；
     // 仅桌面/安卓 + WebDAV 生效，内部自行判断是否到达间隔，未到期或离线均静默跳过。
@@ -17010,6 +17049,8 @@ window._crm = {
     fuTagRename,
     toggleFuCustomer,
     toggleFuCollapseAll,
+    toggleFuMenu,
+    _closeFuMenus: closeAllFuMenus,
     fuTagDelete,
     editFollowup,
     deleteFollowupFromModal,
