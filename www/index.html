@@ -12144,8 +12144,9 @@ function mergeReportCustomers(localArr, remoteArr, localDel, remoteDel, localOrd
     const bMap = (state._meta && state._meta.syncBasis && state._meta.syncBasis.report) || {};
     // 顺序：采用「时间戳较新一方」的顺序，另一方独有的项追加到末尾。
     // 旧实现固定「本地顺序优先、云端独有追加」，导致 A 端调整上下顺序后 B 端永远看不到（顺序不同步）。
-    // 两端都无时间戳（旧版本数据）时为 0 vs 0 → 回落到本地优先，保持向后兼容。
-    const _remoteOrderWins = (remoteOrderAt || 0) > (localOrderAt || 0);
+    // 两端时间戳相等（含都为 0 的历史旧数据）时改为「取远端顺序」，使双端在一次同步后收敛到一致（否则各保各的永不收敛）。
+    const _remoteOrderWins = (remoteOrderAt || 0) > (localOrderAt || 0)
+        || ((remoteOrderAt || 0) === (localOrderAt || 0) && (remoteArr && remoteArr.length));
     const _primaryOrder = _remoteOrderWins ? remoteArr : localArr;
     const _secondaryOrder = _remoteOrderWins ? localArr : remoteArr;
     const order = []; const seen = {};
@@ -14608,20 +14609,26 @@ function applyRemoteData(remoteData) {
         mergedDP = state.dailyPlans;
         mergedFI = state.focusItems;
     }
-    // 每周重点文本（focus）：本地有 pending 时保留本地，否则比较 _rev → updatedAt
+    // 每周重点文本（focus）：本地有 pending 时保留本地，否则按「内容更新时间」裁决。
+    // ⚠️ 旧实现用 workPlan._rev 比较，而 _rev 在每次合并都被 +1 自增 → 变成「合并次数计数器」，
+    // 导致「合并次数更多的设备」凭空获得更高 _rev，把对端较新的 focus 文本覆盖成旧值（“更新后旧数据回来”）。
+    // 这里改用内容更新时间 updatedAt 做 LWW（savePlan/归档等真实改动才会 bump），与下方不再自增 _rev 配套。
     let focusPlan;
     if (hasPendingPlan) {
         focusPlan = state.workPlan;
     } else {
-        const lr = (state.workPlan && state.workPlan._rev) || 0;
-        const rr = (remoteWorkPlan && remoteWorkPlan._rev) || 0;
-        focusPlan = (rr > lr || (rr === lr && new Date((remoteWorkPlan && remoteWorkPlan.updatedAt) || 0).getTime() >= new Date((state.workPlan && state.workPlan.updatedAt) || 0).getTime())) ? remoteWorkPlan : state.workPlan;
+        const lt = new Date((state.workPlan && state.workPlan.updatedAt) || 0).getTime() || 0;
+        const rt = new Date((remoteWorkPlan && remoteWorkPlan.updatedAt) || 0).getTime() || 0;
+        if (rt > lt) focusPlan = remoteWorkPlan;
+        else if (lt > rt) focusPlan = state.workPlan;
+        else focusPlan = (remoteWorkPlan ? remoteWorkPlan : state.workPlan); // 时间戳相同：取远端，使两端收敛
     }
     state.dailyPlans = mergedDP;
     state.focusItems = mergedFI;
     state.workPlan = _planEntitiesToWorkPlan(mergedDP, mergedFI, focusPlan);
-    state.workPlan.updatedAt = new Date().toISOString();
-    state.workPlan._rev = Math.max((state.workPlan._rev || 0), (remoteWorkPlan && remoteWorkPlan._rev) || 0) + 1;
+    // 关键：focus 文本版本号沿用「胜出方」的 updatedAt/_rev，禁止每次合并自增（否则旧数据反超）。
+    state.workPlan.updatedAt = (focusPlan && focusPlan.updatedAt) || (state.workPlan.updatedAt || '');
+    state.workPlan._rev = (focusPlan && focusPlan._rev) || 0;
     state.workPlan._deviceId = DEVICE_ID;
     // 状态列表：单份全局配置，push 为整体覆盖（最后写赢）。
     // 本地无未同步修改时，直接采纳云端最新全量——保证多端状态名一致；
@@ -14724,10 +14731,15 @@ function applyRemoteData(remoteData) {
     const _localOrderAt = _localOrderAtSnap;
     const _remoteOrder = Array.isArray(remoteData._meta && remoteData._meta.dashboardOrder) ? remoteData._meta.dashboardOrder.slice() : [];
     const _remoteOrderAt = (remoteData._meta && remoteData._meta.dashboardOrderAt) || 0;
-    // 状态筛选：两端选中的状态并集（去重，本地顺序优先）
-    const _filterUnion = (function () { const seen = {}; const out = []; _localFilter.concat(_remoteFilter).forEach(function (s) { if (s == null) return; if (!seen[s]) { seen[s] = 1; out.push(s); } }); return out; })();
-    state._meta.customerStatusFilter = _filterUnion;
-    state._meta.customerStatusFilterAt = Math.max(_localFilterAt, _remoteFilterAt) || Date.now();
+    // 状态筛选：按 customerStatusFilterAt 时间戳裁决（空格=全部，应清掉两端已选状态）。
+    // 旧实现并集合并：本地 []（全部）永远输给云端残留的 [某状态]，导致「点全部切不回去、跳回上一次选的单一状态」。
+    const _filterAt = Math.max(_localFilterAt, _remoteFilterAt) || Date.now();
+    let _winnerFilter;
+    if (_remoteFilterAt > _localFilterAt) _winnerFilter = _remoteFilter;
+    else if (_localFilterAt > _remoteFilterAt) _winnerFilter = _localFilter;
+    else _winnerFilter = (_remoteFilter && _remoteFilter.length) ? _remoteFilter : _localFilter; // 平局取远端（非空）使两端收敛
+    state._meta.customerStatusFilter = (_winnerFilter || []).slice();
+    state._meta.customerStatusFilterAt = _filterAt;
     // 看板卡片顺序：本地顺序优先、云端独有卡片追加在后
     const _localOrderSet = {}; _localOrder.forEach(function (x) { _localOrderSet[x] = 1; });
     const _orderUnion = _localOrder.slice();
