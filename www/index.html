@@ -10054,7 +10054,86 @@ function planItemsId(period, day) { return period + day.charAt(0).toUpperCase() 
 // 属性内文本转义（在 escapeHtml 基础上额外转义引号，避免 value="" 注入）
 function escapeAttr(s) { return escapeHtml(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
+// ===== 输入法组字（IME composition）保护 =====
+// 中文/日文等输入法组字期间，若重建输入框（innerHTML 重绘），组字态会被打断：
+// 拼音直接上屏成英文、候选框消失、光标跳动——即用户反馈的「输入不丝滑、莫名变英文」。
+// 约定：组字中 → 跳过本次重绘并登记 pending；compositionend 后统一补做并还原焦点/光标。
+// 数据不丢：onFocusInput 已把值写进内存数组，重绘只是延后。
+var _imeComposing = false, _imeTarget = null, _imePending = {}, _imeWatchdog = null;
+function imeSkipRedraw(key, container) {
+    if (_imeComposing && _imeTarget && container && container.contains(_imeTarget)) {
+        _imePending[key] = 1;
+        return true;
+    }
+    return false;
+}
+function flushImePendingRedraw() {
+    var keys = Object.keys(_imePending);
+    if (!keys.length) return;
+    _imePending = {};
+    keys.forEach(function (k) {
+        try {
+            if (k.indexOf('focus:') === 0) {
+                var p = k.slice(6);
+                renderFocusList(p, p === 'this' ? 'thisFocusList' : 'nextFocusList', state.workPlan[p === 'this' ? 'thisWeek' : 'nextWeek']);
+            } else if (k.indexOf('day:') === 0) {
+                var seg = k.slice(4).split(':'), p2 = seg[0], d = seg[1];
+                var wk = state.workPlan[p2 === 'this' ? 'thisWeek' : 'nextWeek'] || {};
+                renderPlanDay(p2, d, wk[d]);
+            } else if (k === 'report') {
+                renderReportCustomers();
+            }
+        } catch (e) { }
+    });
+}
+document.addEventListener('compositionstart', function (e) {
+    var t = e.target;
+    if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT')) {
+        _imeComposing = true; _imeTarget = t;
+        // 兜底：极少数输入法/浏览器不触发 compositionend，3s 后强制复位，避免重绘被永久跳过
+        if (_imeWatchdog) clearTimeout(_imeWatchdog);
+        _imeWatchdog = setTimeout(function () {
+            if (_imeComposing) { _imeComposing = false; _imeTarget = null; flushImePendingRedraw(); }
+        }, 3000);
+    }
+}, true);
+document.addEventListener('compositionend', function (e) {
+    _imeComposing = false; _imeTarget = null;
+    if (_imeWatchdog) { clearTimeout(_imeWatchdog); _imeWatchdog = null; }
+    flushImePendingRedraw();
+    // 组字期间被推迟的整页重绘（renderPlan 走的是 _deferPlanRedraw 分支，不会登记 pending）：
+    // 组字已结束，立即补做，不必干等满 1.5s
+    if (_planRedrawTimer) {
+        clearTimeout(_planRedrawTimer); _planRedrawTimer = null;
+        try { renderPlan(); } catch (err) { }
+    }
+    // 组字期间被推迟的落盘在此补做，保证「输入即落盘」的数据安全语义不变
+    var t = e.target;
+    if (t && t.classList && (t.classList.contains('focus-text') || t.classList.contains('plan-item-input'))) {
+        try { autoSavePlan(); } catch (err) { }
+    }
+}, true);
+
+// ===== 打字中推迟整页重绘（提升跟手度）=====
+// 同步回来会调 renderPlan() 整页重绘；若此时用户正在计划页输入框里打字，
+// 重建输入框会造成光标跳动/输入不跟手。这里推迟到停手 1.5s 后再补做。
+var _lastPlanInputAt = 0, _planRedrawTimer = null;
+function _markPlanTyping() { _lastPlanInputAt = Date.now(); }
+function _planPageTyping() {
+    if (typeof currentPage !== 'undefined' && currentPage !== 'plan') return false;
+    var a = document.activeElement;
+    return !!(a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT'));
+}
+function _deferPlanRedraw() {
+    if (_planRedrawTimer) clearTimeout(_planRedrawTimer);
+    _planRedrawTimer = setTimeout(function () {
+        _planRedrawTimer = null;
+        try { renderPlan(); } catch (e) { }
+    }, 1500);
+}
 function renderPlan() {
+    // 组字中 / 正在计划页打字：推迟本次整页重绘（1.5s 后自动补做），不打断输入
+    if (_imeComposing || (_planPageTyping() && (Date.now() - _lastPlanInputAt) < 1500)) { _deferPlanRedraw(); return; }
     const plan = state.workPlan;
     if (!plan.thisWeek) plan.thisWeek = { focusList: [] };
     if (!plan.nextWeek) plan.nextWeek = { focusList: [] };
@@ -10192,6 +10271,8 @@ function bindInlineActions(item, textareaSel) {
 function renderPlanDay(period, day, items) {
     const container = document.getElementById(planItemsId(period, day));
     if (!container) return;
+    // 组字中：跳过本次重建（延后到 compositionend 补做），避免打断中文输入
+    if (imeSkipRedraw('day:' + period + ':' + day, container)) return;
     const html = (items || []).map(function (it, idx) {
         const hasCust = !!(it.customer || it.customerId);
         const custName = it.customer || it.customerId || '';
@@ -10294,6 +10375,8 @@ function _mirrorPlanEntities() {
 function renderFocusList(period, containerId, week) {
     const container = document.getElementById(containerId);
     if (!container) return;
+    // 组字中：跳过本次重建（延后到 compositionend 补做），避免打断中文输入
+    if (imeSkipRedraw('focus:' + period, container)) return;
     // 重绘前：记录正在编辑的 textarea（同步轮询/移动/删除任何路径触发的重建 都不能打断输入、丢失焦点与光标）
     const _focusTa = document.activeElement;
     let _fPeriod = null, _fIdx = -1, _fStart = -1, _fEnd = -1;
@@ -10360,6 +10443,10 @@ function onFocusInput(e) {
     // 输入即写入内存，并防抖落盘（避免未点「保存」就切走/被同步重绘导致内容丢失）
     if (arr && arr[idx]) arr[idx].text = e.target.value;
     autoResizeTextarea(e.target);
+    _markPlanTyping();
+    // 组字期间不落盘：落盘会登记同步变更 → 同步回来触发整页重绘 → 打断组字态（拼音变英文）。
+    // compositionend 后统一补落盘，数据照样不丢（这一点区别于每日计划/汇报客户：那两者本就只写内存）。
+    if (_imeComposing) return;
     autoSavePlan();
 }
 function onFocusDel(e) {
@@ -10461,6 +10548,8 @@ function ensureReportList() {
 function renderReportCustomers() {
     const box = document.getElementById('reportList');
     if (!box) return;
+    // 组字中：跳过本次重建（延后到 compositionend 补做），避免打断中文输入
+    if (imeSkipRedraw('report', box)) return;
     const _repBadge = document.getElementById('reportCountBadge');
     if (_repBadge) _repBadge.textContent = (Array.isArray(state.reportCustomers) ? state.reportCustomers.length : 0) + ' 位';
     if (!Array.isArray(state.reportCustomers)) state.reportCustomers = [];
@@ -10743,6 +10832,7 @@ function onPlanItemInput(e) {
     const arr = week && week[day];
     // 方案C：输入只更新内存，不触发自动保存/同步/重渲染，避免停顿后被整页刷新打断光标
     if (arr && arr[idx]) { arr[idx].text = el.value; autoResizeTextarea(el); }
+    _markPlanTyping();  // 供「打字中推迟整页重绘」判定，避免同步回来打断输入
 }
 function onPlanItemGo(el) {
     // 直接用药丸上的 data-id / data-name 跳转客户详情（与小程序 goPlanCustomerFromItem 对齐，避免依赖数组下标查找）
