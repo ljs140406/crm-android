@@ -10220,7 +10220,10 @@ function _workPlanToPlanEntities(plan) {
         let fl = wk.focusList;
         if (typeof fl === 'string') fl = normalizeFocusListWeb(null, fl);
         (fl || []).forEach(function (it, idx) {
-            if (!it || !it.text) return;
+            if (!it) return;
+            // 保留空项：刚点「添加一项重点」时尚未输入文字，若在此过滤，同步层就看不到它；
+            // 而 applyRemoteData 用 focusItems 重建 workPlan，该新增项会凭空消失（用户「添加后找不到」）。
+            // 代价是未填写的空项会同步到其他设备——这与「确实新增了一项」的语义一致，可接受。
             fi.push({ id: _focusId(wkey, idx), week: wkey, text: (it.text || '').toString(), completed: !!(it.completed), starred: !!(it.starred), _rev: 1, updatedAt: '' });
         });
     });
@@ -10593,10 +10596,22 @@ function markReportDirty() {
 function readFocusList(containerId) {
     const c = document.getElementById(containerId);
     if (!c) return [];
-    return Array.prototype.slice.call(c.querySelectorAll('.focus-item')).map(function (el) {
+    const items = Array.prototype.slice.call(c.querySelectorAll('.focus-item')).map(function (el) {
         const ta = el.querySelector('.focus-text');
-        return { text: sanitizeInput(ta ? ta.value : ''), completed: el.classList.contains('focus-done'), starred: el.classList.contains('focus-starred') };
+        // data-idx 是该项在 focusList 中的原始下标（DOM 顺序是「未完成在前」的排序结果，不能直接当原顺序用）
+        const rawIdx = ta && ta.dataset ? parseInt(ta.dataset.idx, 10) : NaN;
+        return {
+            idx: Number.isFinite(rawIdx) ? rawIdx : 0,
+            text: sanitizeInput(ta ? ta.value : ''),
+            completed: el.classList.contains('focus-done'),
+            starred: el.classList.contains('focus-starred')
+        };
     });
+    // 按 data-idx 还原为 focusList 的原始顺序：
+    // 若照抄 DOM 顺序（排序后）回写，会打乱 focusList 原有顺序，使 data-idx 与数组下标错位，
+    // 导致用户在新项里继续输入时内容被写到另一项上（表现为「不能输入 / 找不到刚输的内容」）。
+    items.sort(function (a, b) { return a.idx - b.idx; });
+    return items.map(function (it) { return { text: it.text, completed: it.completed, starred: it.starred }; });
 }
 
 // textarea 根据内容自动撑高（带「手动调整大小记忆」：手动拖拽的高度作为下限，输入时不会缩回）
