@@ -10086,16 +10086,22 @@ function flushImePendingRedraw() {
         } catch (e) { }
     });
 }
+function _imeArmWatchdog() {
+    // 兜底：极少数输入法/浏览器不触发 compositionend（如组字中途失焦），超时后强制复位，
+    // 避免重绘被永久跳过。每次组字更新都会续期，长句输入不会在中途被硬超时解除保护。
+    if (_imeWatchdog) clearTimeout(_imeWatchdog);
+    _imeWatchdog = setTimeout(function () {
+        if (_imeComposing) { _imeComposing = false; _imeTarget = null; flushImePendingRedraw(); }
+    }, 3000);
+}
 document.addEventListener('compositionstart', function (e) {
     var t = e.target;
     if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT')) {
-        _imeComposing = true; _imeTarget = t;
-        // 兜底：极少数输入法/浏览器不触发 compositionend，3s 后强制复位，避免重绘被永久跳过
-        if (_imeWatchdog) clearTimeout(_imeWatchdog);
-        _imeWatchdog = setTimeout(function () {
-            if (_imeComposing) { _imeComposing = false; _imeTarget = null; flushImePendingRedraw(); }
-        }, 3000);
+        _imeComposing = true; _imeTarget = t; _imeArmWatchdog();
     }
+}, true);
+document.addEventListener('compositionupdate', function (e) {
+    if (_imeComposing) _imeArmWatchdog();   // 组字持续中：续期
 }, true);
 document.addEventListener('compositionend', function (e) {
     _imeComposing = false; _imeTarget = null;
@@ -10319,16 +10325,37 @@ function normalizeFocusListWeb(list, legacyFocus) {
 // 这样渲染层零改动，又达到「手机改周一、桌面改周二 两端都保留；同一天同位置双端都改才报冲突」的语义。
 function _planItemId(wkey, day, idx) { return 'dp_' + wkey + '_' + day + '_' + idx; }
 function _focusId(wkey, idx) { return 'fc_' + wkey + '_' + idx; }
-function _workPlanToPlanEntities(plan) {
+function _workPlanToPlanEntities(plan, prevDP, prevFI) {
     plan = plan || {};
     const dp = [], fi = [];
+    // ⚠️ 镜像实体的 _rev / updatedAt 必须「沿用上一次镜像的同 id 记录」，仅在内容变化时刷新。
+    // 若每次都重置成 _rev:1 / updatedAt:''（旧实现），unionMerge 比较时两端永远平局，
+    // 而平局规则是「本地优先」→ A 端的修改传到云端后，B 端拉取时却用自己的旧内容胜出，
+    // 表现就是「本周重点 / 每日计划改了不往其他设备同步」。
+    // prevDP/prevFI：调用方可显式传入「合并前快照」（applyRemoteData 场景）——
+    // 此时 state.* 已被第一轮合并替换为云端内容，若再用它当 prev，会把本地旧内容误判成
+    // 「新改动」而虚增 _rev，反超云端后又一次盖掉云端新内容（两次合并打架）。
+    const _prevDP = _indexBy(prevDP || state.dailyPlans || [], 'id');
+    const _prevFI = _indexBy(prevFI || state.focusItems || [], 'id');
+    const _nowIso = new Date().toISOString();
+    // 内容指纹：用于判断「本次镜像相对上次是否真的变了」
+    function _dpKey(o) { return (o.text || '') + '\u0001' + (o.customer || '') + '\u0001' + (o.customerId || ''); }
+    function _fiKey(o) { return (o.text || '') + '\u0001' + (o.completed ? '1' : '0') + '\u0001' + (o.starred ? '1' : '0'); }
+    function _stamp(id, prevMap, cur, keyFn) {
+        const p = prevMap[id];
+        if (!p) return { _rev: 1, updatedAt: _nowIso };
+        // 内容未变（含刚从云端合并过来的内容）→ 沿用原时间戳与 rev，避免被误判成「本端新改动」
+        if (keyFn(p) === keyFn(cur)) return { _rev: p._rev || 1, updatedAt: p.updatedAt || '' };
+        return { _rev: (p._rev || 0) + 1, updatedAt: _nowIso };
+    }
     ['thisWeek', 'nextWeek'].forEach(function (p) {
         const wk = plan[p]; if (!wk) return;
         const wkey = (p === 'thisWeek') ? 'this' : 'next';
         PLAN_DAYS.forEach(function (d) {
             planToItems(wk[d]).forEach(function (it, idx) {
                 if (!it.text && !it.customer && !it.customerId) return; // 跳过空项
-                dp.push({ id: _planItemId(wkey, d, idx), week: wkey, day: d, text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString(), _rev: 1, updatedAt: '' });
+                const _cur = { id: _planItemId(wkey, d, idx), week: wkey, day: d, text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString() };
+                dp.push(Object.assign(_cur, _stamp(_cur.id, _prevDP, _cur, _dpKey)));
             });
         });
         let fl = wk.focusList;
@@ -10338,7 +10365,8 @@ function _workPlanToPlanEntities(plan) {
             // 保留空项：刚点「添加一项重点」时尚未输入文字，若在此过滤，同步层就看不到它；
             // 而 applyRemoteData 用 focusItems 重建 workPlan，该新增项会凭空消失（用户「添加后找不到」）。
             // 代价是未填写的空项会同步到其他设备——这与「确实新增了一项」的语义一致，可接受。
-            fi.push({ id: _focusId(wkey, idx), week: wkey, text: (it.text || '').toString(), completed: !!(it.completed), starred: !!(it.starred), _rev: 1, updatedAt: '' });
+            const _f = { id: _focusId(wkey, idx), week: wkey, text: (it.text || '').toString(), completed: !!(it.completed), starred: !!(it.starred) };
+            fi.push(Object.assign(_f, _stamp(_f.id, _prevFI, _f, _fiKey)));
         });
     });
     return { dailyPlans: dp, focusItems: fi };
@@ -10618,7 +10646,7 @@ function moveReportCustomer(idx, dir) {
     reportFocusName = (list[target] && list[target].name) || null; // 移动后焦点回到被移动项
     renderReportCustomers();
     autoSavePlan();
-    markReportDirty();
+    markReportOrderDirty();   // 顺序变更：打 reportOrderAt 时间戳，供对端按 LWW 采纳新顺序
 }
 function addReportCustomer() {
     openCustomerPickerWith({
@@ -10632,7 +10660,7 @@ function addReportCustomer() {
             if (state.reportDeleted && state.reportDeleted[name]) { delete state.reportDeleted[name]; } // 重新添加：清除删除墓碑，避免被同步再次剔除
             renderReportCustomers();
             autoSavePlan();
-            markReportDirty();
+            markReportOrderDirty();  // 新增会改变列表顺序/长度
             const newIdx = list.length - 1;
             setTimeout(function () {
                 const inp = document.querySelector('#reportList .report-note-input[data-ridx="' + newIdx + '"]');
@@ -10659,7 +10687,7 @@ function removeReportCustomer(idx) {
         if (nm) state.reportDeleted[nm] = { ts: new Date().toISOString(), hash: delHash };
         renderReportCustomers();
         autoSavePlan();
-        markReportDirty();
+        markReportOrderDirty();  // 删除同样改变顺序
         saveData();
         logOperation('删除近期汇报客户「' + preview + '」', 'info');
     }, '删除汇报客户');
@@ -10713,6 +10741,13 @@ function markReportDirty() {
     state._meta = state._meta || {};
     state._meta.reportRev = (state._meta.reportRev || 0) + 1;
     scheduleAutoSync();
+}
+// 汇报客户「顺序」变更专用：顺序走独立的时间戳 LWW（reportOrderAt），
+// 与内容变更（reportRev / syncBasis 三向比对）分开，避免改个备注就把顺序推给其他设备。
+function markReportOrderDirty() {
+    state._meta = state._meta || {};
+    state._meta.reportOrderAt = Date.now();
+    markReportDirty();
 }
 
 function readFocusList(containerId) {
@@ -12102,14 +12137,20 @@ function mergeReportDeleted(localDel, remoteDel) {
 // 汇报客户逐条并集合并（name 为稳定键）：
 // 两端都有的同名项 → 取相对同步基准被修改的那一端（单方修改则采纳修改端，避免回退）；
 // 仅一端有 → 采纳该端（并集）；被任一侧墓碑删除 → 剔除；顺序本地优先、云端独有追加末尾
-function mergeReportCustomers(localArr, remoteArr, localDel, remoteDel) {
+function mergeReportCustomers(localArr, remoteArr, localDel, remoteDel, localOrderAt, remoteOrderAt) {
     const del = mergeReportDeleted(localDel, remoteDel);
     const _li = _reportIndex(localArr), _ri = _reportIndex(remoteArr);
     const lMap = _li.map, rMap = _ri.map;
     const bMap = (state._meta && state._meta.syncBasis && state._meta.syncBasis.report) || {};
+    // 顺序：采用「时间戳较新一方」的顺序，另一方独有的项追加到末尾。
+    // 旧实现固定「本地顺序优先、云端独有追加」，导致 A 端调整上下顺序后 B 端永远看不到（顺序不同步）。
+    // 两端都无时间戳（旧版本数据）时为 0 vs 0 → 回落到本地优先，保持向后兼容。
+    const _remoteOrderWins = (remoteOrderAt || 0) > (localOrderAt || 0);
+    const _primaryOrder = _remoteOrderWins ? remoteArr : localArr;
+    const _secondaryOrder = _remoteOrderWins ? localArr : remoteArr;
     const order = []; const seen = {};
-    (localArr || []).forEach(rc => { const k = _reportKey(rc); if (k && !seen[k]) { seen[k] = true; order.push(k); } });
-    (remoteArr || []).forEach(rr => { const k = _reportKey(rr); if (k && !seen[k]) { seen[k] = true; order.push(k); } });
+    (_primaryOrder || []).forEach(rc => { const k = _reportKey(rc); if (k && !seen[k]) { seen[k] = true; order.push(k); } });
+    (_secondaryOrder || []).forEach(rr => { const k = _reportKey(rr); if (k && !seen[k]) { seen[k] = true; order.push(k); } });
     const out = [];
     order.forEach(nm => {
         if (del[nm]) return;
@@ -14229,6 +14270,8 @@ function getSyncPayload() {
             // 缺失时 applyRemoteData 读到的 remoteReportRev 恒为 0，导致两台都改过汇报客户的设备
             // 「远端更高/两端相等」两分支都不成立 → 汇报客户永久无法跨端同步（静默失效）。
             reportRev: (state._meta && state._meta.reportRev) || 0,
+            // 汇报客户「顺序」时间戳：缺失时对端无法判断谁的顺序更新，顺序变更将永不跨端生效
+            reportOrderAt: (state._meta && state._meta.reportOrderAt) || 0,
             exportTime: new Date().toISOString(),
             version: '1.3'
         },
@@ -14536,6 +14579,9 @@ function applyRemoteData(remoteData) {
     state.followups = unionMerge(state.followups, remoteFollowups, 'followup', tsMapF);
     state.todos = unionMerge(state.todos, remoteTodos, 'todo', tsMapT);
     state.history = unionMerge(state.history, remoteHistory, 'history', tsMapH);
+    // 快照合并前的镜像（用于判断是否存在「未落盘的内存修改」）
+    const _dpBefore = state.dailyPlans || [];
+    const _fiBefore = state.focusItems || [];
     // 每日计划 / 重点客户：独立列表实体，逐条并集合并（按 id；墓碑过滤；无 pending 时按 _rev → updatedAt 决胜）
     state.dailyPlans = unionMerge(state.dailyPlans || [], remoteDailyPlans, 'dailyPlan', tsMapDP);
     state.focusItems = unionMerge(state.focusItems || [], remoteFocusItems, 'focus', tsMapFI);
@@ -14543,17 +14589,24 @@ function applyRemoteData(remoteData) {
     backfillCustomerIds();
 
     // 工作计划：通过「派生镜像」实现按天/按条逐条合并（不再整表 LWW 覆盖）。
-    // 本地 workPlan 派生为 dailyPlans / focusItems（按 周+天+下标 为稳定 id），与远端逐条并集合并；
-    // 本地有未同步修改（pending plan）时整体保留本地，避免被云端覆盖。合并结果写回 workPlan 供渲染层消费。
+    // ⚠️ 无本地改动时必须直接采用上方已完成的一次性 unionMerge 结果。
+    // 旧实现在这里又从「合并前的旧 workPlan」重新派生镜像、再与远端合并一次——两次合并输入不一致会
+    // 互相打架：第二次把第一次已采纳的云端新内容，用本地旧值（镜像 _rev 被 stamp 抬高后）反超回去，
+    // 表现就是「A 端改了重点/每日计划，B 端拉取后看到的仍是旧内容」（改了不同步）。
+    // 仅两种情况保留本地派生结果：① 本地有未同步的 plan 改动（pending，推送很快会把本地传上去）；
+    // ② workPlan 与合并前镜像不一致（用户刚输入、还未 savePlan 落盘的内存修改），避免被云端覆盖丢失。
     const hasPendingPlan = pendingLocal.some(c => c.entity === 'plan');
-    const localPE = _workPlanToPlanEntities(state.workPlan);
+    // 派生镜像的 prev 必须用「合并前快照」：state.* 此刻已被第一轮合并替换为云端内容
+    const localPE = _workPlanToPlanEntities(state.workPlan, _dpBefore, _fiBefore);
+    const _hasUnsavedPlan = JSON.stringify(localPE.dailyPlans) !== JSON.stringify(_dpBefore)
+        || JSON.stringify(localPE.focusItems) !== JSON.stringify(_fiBefore);
     let mergedDP, mergedFI;
-    if (hasPendingPlan) {
+    if (hasPendingPlan || _hasUnsavedPlan) {
         mergedDP = localPE.dailyPlans;
         mergedFI = localPE.focusItems;
     } else {
-        mergedDP = unionMerge(localPE.dailyPlans, remoteDailyPlans, 'dailyPlan', tsMapDP);
-        mergedFI = unionMerge(localPE.focusItems, remoteFocusItems, 'focus', tsMapFI);
+        mergedDP = state.dailyPlans;
+        mergedFI = state.focusItems;
     }
     // 每周重点文本（focus）：本地有 pending 时保留本地，否则比较 _rev → updatedAt
     let focusPlan;
@@ -14585,7 +14638,9 @@ function applyRemoteData(remoteData) {
         state.reportCustomers || [],
         remoteData.reportCustomers || [],
         state.reportDeleted || {},
-        remoteData.reportDeleted || {}
+        remoteData.reportDeleted || {},
+        (state._meta && state._meta.reportOrderAt) || 0,
+        (remoteData._meta && remoteData._meta.reportOrderAt) || 0
     );
     state.reportDeleted = mergeReportDeleted(state.reportDeleted || {}, remoteData.reportDeleted || {});
     // 版本号取两端较大者（保留向后兼容字段，不影响新逻辑）
@@ -14660,6 +14715,7 @@ function applyRemoteData(remoteData) {
         // 此处不能把 _meta.reportRev 降级成云端值，否则下次推送携带的版本号偏低，
         // 本端的新数据将无法传播到其他设备。
         reportRev: Math.max(localReportRev, remoteReportRev),
+        reportOrderAt: Math.max((state._meta && state._meta.reportOrderAt) || 0, (remoteData._meta && remoteData._meta.reportOrderAt) || 0),
         lastSyncedAt: new Date().toISOString()
     });
     // 客户总表状态筛选 & 看板卡片顺序：改为「按元素并集合并」（不再整表 LWW 覆盖），
@@ -15179,6 +15235,12 @@ async function doSync(force) {
             showToast('数据已是最新');
         }
         return;
+    } catch (syncErr) {
+        // 同步失败不再静默：旧实现只有 try/finally，异常被吞，用户点「拉取/同步」没反应也查不到原因
+        const _em = (syncErr && (syncErr.stack || syncErr.message)) || String(syncErr);
+        console.error('[sync] doSync 异常:', _em);
+        logSyncGlobal(syncTag() + '同步异常：' + ((syncErr && syncErr.message) || syncErr), 'error');
+        throw syncErr;
     } finally {
         _syncInFlight = false;
         setSyncButtonSyncing(false);
