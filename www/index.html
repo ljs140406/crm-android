@@ -24,8 +24,9 @@ input, textarea, select, [contenteditable] {
     -webkit-user-select: text;
     user-select: text;
 }
-/* 按钮 / 链接关闭文本选择（点击更干净） */
-button, .nav-item, .bottom-nav-item, .filter-chip, .todo-item, .customer-row, .key-customer-item, .followup-item, .history-card, .stat-card, .icon-btn {
+/* 内容卡片（跟进/客户/历史/待办/统计）保留文本可选中，便于全平台（桌面+移动）复制 */
+/* 仅按钮 / 导航 / 标签 / 图标关闭文本选择（点击更干净） */
+button, .nav-item, .bottom-nav-item, .filter-chip, .icon-btn {
     -webkit-user-select: none;
     user-select: none;
     -webkit-touch-callout: none;
@@ -4230,7 +4231,7 @@ td.col-followup-content { position: relative; }
                 </div>
                     <div class="plan-sections" data-page-node-id="fs8IlogHRJWt8A9AHmSXhO">
                     <div class="plan-section this-week" id="planSectionThis" data-page-node-id="K0cDcQH5AvdTv1sHG0JrQp">
-                        <div class="acc-block" data-acc id="reportAccBlock"><div class="acc-head" onclick="window._crm.toggleAcc(this)"><div class="acc-left"><span class="acc-icon" style="background:#ECFDF5;color:#059669;">📊</span><span class="acc-title">近期汇报客户</span><span class="acc-meta" id="reportCountBadge"></span></div><span class="acc-chev">›</span></div><div class="acc-body"><div class="plan-cell plan-focus"><div class="focus-list" id="reportList" data-page-node-id="4qLnYNE6Nc8IXBitTQfgws"></div></div></div></div>
+                        <div class="acc-block" data-acc id="reportAccBlock"><div class="acc-head" onclick="window._crm.toggleAcc(this)"><div class="acc-left"><span class="acc-icon" style="background:#ECFDF5;color:#059669;">📊</span><span class="acc-title">近期汇报客户</span><span class="acc-meta" id="reportCountBadge"></span></div><button type="button" class="report-add-btn" onclick="event.stopPropagation();window._crm.addReportCustomer()">＋ 添加客户</button><span class="acc-chev">›</span></div><div class="acc-body"><div class="plan-cell plan-focus"><div class="focus-list" id="reportList" data-page-node-id="4qLnYNE6Nc8IXBitTQfgws"></div></div></div></div>
                         <div class="acc-block" data-acc data-page-node-id="rhr99CrwlCrtla7a9a91cW">
                             <div class="acc-head" onclick="window._crm.toggleAcc(this)" data-page-node-id="uekNCjnuMdDpqa3dR90hts">
                                 <div class="acc-left" data-page-node-id="LzX6qicd8lyZIEXGOAvEfI"><span class="acc-icon" data-page-node-id="ClCtEHFJRuJIVG2JEESEka">🎯</span><span class="acc-title" data-page-node-id="0Wl14itN2n5AmClLcPWEM2">本周计划</span><span class="week-label" id="thisWeekLabel" data-page-node-id="8lpmCEyvyl3wDtPYSXmwVQ"></span></div>
@@ -9322,6 +9323,17 @@ function renderFollowups() {
     }).join('');
 }
 
+// 统一刷新所有"会显示跟进记录"的视图，避免修改/删除后某处仍是旧数据（需手动刷新才更新）
+function refreshFollowupViews() {
+    renderFollowups();                                  // 独立跟进页 + 按客户视图
+    renderDashboard();                                  // 仪表盘「近期跟进」卡（无条件重绘）
+    const _custModal = document.getElementById('customerModal');
+    if (_custModal && _custModal.classList.contains('show') && currentDetailCustomerId) {
+        openCustomerDetail(currentDetailCustomerId);    // 打开中的客户详情：重绘其「跟进历史」
+    }
+    if (currentPage === 'customers') renderCustomers();
+}
+
 // 按客户聚合：把跟进记录按客户分组，组头可点进客户详情
 // 按客户聚合视图：支持全局「全部折叠」（每客户只显示最新一条，随 _meta.followupCollapse 多端同步）
 // 与单客户展开/收起（仅本会话生效）。组头点击=折叠切换；组头右侧「N 条 ›」=客户详情。
@@ -9550,10 +9562,9 @@ function saveFollowup() {
     if (savedTag) logOperation('跟进打标：' + customer + '「' + savedTag + '」' + (_wasEdit ? '（编辑）' : ''), 'info');
 
     saveData();
+    // 先刷新所有跟进视图（即使下方关弹窗/返回详情抛错，列表也已是最新，避免"需刷新才更新"）
+    refreshFollowupViews();
     closeFollowupModal();
-    renderFollowups();
-    if (currentPage === 'dashboard') renderDashboard();
-    if (currentPage === 'customers') renderCustomers();
     showToast(_wasEdit ? '跟进记录已更新' : '跟进记录已添加');
 }
 
@@ -9588,8 +9599,7 @@ function deleteFollowup(id, onDone) {
         }
 
         saveData();
-        renderFollowups();
-        if (currentPage === 'dashboard') renderDashboard();
+        refreshFollowupViews();
         showToast('跟进记录已删除');
         if (typeof onDone === 'function') onDone();
     }, '删除跟进记录');
@@ -10248,6 +10258,14 @@ function _mirrorPlanEntities() {
 function renderFocusList(period, containerId, week) {
     const container = document.getElementById(containerId);
     if (!container) return;
+    // 重绘前：记录正在编辑的 textarea（同步轮询/移动/删除任何路径触发的重建 都不能打断输入、丢失焦点与光标）
+    const _focusTa = document.activeElement;
+    let _fPeriod = null, _fIdx = -1, _fStart = -1, _fEnd = -1;
+    if (_focusTa && _focusTa.classList && _focusTa.classList.contains('focus-text') && container.contains(_focusTa)) {
+        _fPeriod = _focusTa.dataset.period;
+        _fIdx = parseInt(_focusTa.dataset.idx, 10);
+        if (Number.isFinite(_fIdx)) { try { _fStart = _focusTa.selectionStart; _fEnd = _focusTa.selectionEnd; } catch (e) {} }
+    }
     const list = (week.focusList || []).map(function (it) {
         return { text: (it && it.text || '').toString(), completed: !!(it && it.completed), starred: !!(it && it.starred) };
     });
@@ -10282,6 +10300,17 @@ function renderFocusList(period, containerId, week) {
     container.querySelectorAll('.focus-index').forEach(function (el) { el.addEventListener('click', function () { focusToggleStar(el.dataset.period, parseInt(el.dataset.idx, 10)); }); });
     const cellAdd = container.closest('.plan-cell') && container.closest('.plan-cell').querySelector('.focus-add-btn');
     if (cellAdd && !cellAdd._focusAddBound) { cellAdd.addEventListener('click', onFocusAdd); cellAdd._focusAddBound = true; }
+    // 重绘后：还原正在编辑的 textarea 焦点与光标位置（避免同步/自动保存触发的重建让输入框"自己关闭"）
+    if (_fPeriod !== null && _fIdx >= 0) {
+        const ta = container.querySelector('.focus-text[data-period="' + _fPeriod + '"][data-idx="' + _fIdx + '"]');
+        if (ta) {
+            ta.focus();
+            if (_fStart >= 0 && _fEnd >= 0 && typeof ta.setSelectionRange === 'function') {
+                try { ta.setSelectionRange(_fStart, _fEnd); } catch (e) {}
+            }
+            autoResizeTextarea(ta);
+        }
+    }
 }
 function ensureFocusList(period) {
     const key = (period === 'this' || period === 'next') ? period + 'Week' : period;
@@ -10292,9 +10321,10 @@ function ensureFocusList(period) {
 function onFocusInput(e) {
     const period = e.target.dataset.period, idx = parseInt(e.target.dataset.idx);
     const arr = ensureFocusList(period);
-    // 方案C：输入只更新内存，不触发自动保存/同步/重渲染
+    // 输入即写入内存，并防抖落盘（避免未点「保存」就切走/被同步重绘导致内容丢失）
     if (arr && arr[idx]) arr[idx].text = e.target.value;
     autoResizeTextarea(e.target);
+    autoSavePlan();
 }
 function onFocusDel(e) {
     focusRemove(e.currentTarget.dataset.period, parseInt(e.currentTarget.dataset.idx, 10));
@@ -10622,21 +10652,16 @@ function initKeyboardScrollCompensation() {
         var el = document.activeElement;
         if (!el) return;
         if (el.tagName !== 'TEXTAREA' && el.tagName !== 'INPUT') return;
-        // 滚到视口中部偏上：元素下方紧邻的操作按钮（保存/完成/删除）也能露出，不被底部键盘盖住
-        try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
+        // 仅当元素被键盘遮挡时才用 nearest 微调，避免把正在输入的元素"顶飞"导致失焦/输入法收起
+        try { el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
     }
-    // 键盘弹起/收起会改变视觉视口高度，借机把正在编辑的字段滚入可见区
+    // 仅响应视觉视口变化（软键盘弹起/收起会改变其高度），借机把正在编辑的字段滚入可见区
     if (window.visualViewport && window.visualViewport.addEventListener) {
         window.visualViewport.addEventListener('resize', function () { setTimeout(scrollActiveIntoView, 50); });
         window.visualViewport.addEventListener('scroll', function () { setTimeout(scrollActiveIntoView, 50); });
     }
-    // 兜底：部分 WebView（尤其旧版）不触发 visualViewport.resize，focus 后延迟滚动一次
-    document.addEventListener('focusin', function (e) {
-        var el = e.target;
-        if (el && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT')) {
-            setTimeout(scrollActiveIntoView, 300);
-        }
-    });
+    // 不再在 focusin 时滚动：否则输入首字触发键盘弹起后会被强行平滑滚动，部分 WebView 会因此收起输入法/失焦，
+    // 表现为"输一个字输入框就自己关闭"。视觉视口 resize 已足够覆盖键盘遮挡场景。
 }
 
 // —— 关联客户：复用与「待办」完全相同的客户选择弹层（customerPickerModal） ——
