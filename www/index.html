@@ -1869,11 +1869,14 @@ td.col-followup-content { position: relative; }
 .focus-add-row { display: none; }
 .report-add-btn {
     margin-left: auto;
+    margin-right: 12px; /* 与右侧展开箭头 › 留出间距，避免拥挤/遮挡 */
     font-size: 13px; color: var(--primary); background: #fff;
     border: 1px solid var(--primary); cursor: pointer;
     padding: 5px 12px; border-radius: 999px; font-weight: 500;
-    display: inline-flex; align-items: center; gap: 4px;
+    align-items: center; gap: 4px;
+    display: none; /* 折叠时隐藏，仅展开后才显示（避免挤压/遮挡展开箭头） */
 }
+.acc-block.open .report-add-btn { display: inline-flex; }
 .report-add-btn:hover { background: var(--primary-bg); }
 .report-item {
     display: flex; flex-direction: column; gap: 8px;
@@ -12057,26 +12060,55 @@ function _applyReportConflictChoice(localArr, remoteArr, localDel, remoteDel) {
     return out;
 }
 
+/**
+ * 构造同步基准（纯函数）。
+ * 不变式：state._meta.syncBasis 必须始终等于「云端当前实际内容」的哈希——
+ * 否则 detectTrueConflicts 会把单端修改误判成 bh≠lh 且 bh≠rh 的两端冲突。
+ * 调用时机：
+ *  - recordSyncBasis()：拉取合并后（本地==云端）或恢复/导入后；
+ *  - 推送成功：基准=实际上传的 payload（_basisFromEntities，在 await 前同步计算）；
+ *  - 推送失败：基准回滚=刚拉取的远端内容（此时云端==remoteData）。
+ */
+function buildSyncBasis(src) {
+    return {
+        _format: SYNC_BASIS_FORMAT,
+        customer: _hashMap(src.customers, 'customer', CONFLICT_FIELDS),
+        followup: _hashMap(src.followups, 'followup', CONFLICT_FIELDS),
+        todo: _hashMap(src.todos, 'todo', CONFLICT_FIELDS),
+        history: _hashMap(src.history, 'history', CONFLICT_FIELDS),
+        // 每日计划 / 重点客户：独立列表实体，逐条哈希（id 为稳定键），支持单条粒度冲突，避免整表互相覆盖
+        dailyPlan: _hashMap(src.dailyPlans || [], 'dailyPlan', CONFLICT_FIELDS),
+        focus: _hashMap(src.focusItems || [], 'focus', CONFLICT_FIELDS),
+        // 近期汇报客户：逐条哈希（name 为稳定键），支持单条粒度冲突；reportDeleted 单独记录墓碑基准
+        report: _hashMapByName(src.reportCustomers || [], ['note', 'starred']),
+        reportDeleted: _stableHashVal(src.reportDeleted || {}),
+        dashboardOrder: _stableHashVal(src.dashboardOrder || []),
+        customerStatusFilter: _stableHashVal(src.customerStatusFilter || [])
+    };
+}
+/** 从同步 payload / 远端数据对象构造基准（两者字段结构一致） */
+function _basisFromEntities(src) {
+    try {
+        return buildSyncBasis({
+            customers: src.customers, followups: src.followups, todos: src.todos, history: src.history,
+            dailyPlans: src.dailyPlans || [], focusItems: src.focusItems || [],
+            reportCustomers: src.reportCustomers || [], reportDeleted: src.reportDeleted || {},
+            dashboardOrder: (src._meta && src._meta.dashboardOrder) || [],
+            customerStatusFilter: (src._meta && src._meta.customerStatusFilter) || []
+        });
+    } catch (e) { return null; }
+}
 function recordSyncBasis() {
     try {
         _mirrorPlanEntities(); // 确保基准基于最新 workPlan 派生镜像
-        const basis = {
-            _format: SYNC_BASIS_FORMAT,
-            customer: _hashMap(state.customers, 'customer', CONFLICT_FIELDS),
-            followup: _hashMap(state.followups, 'followup', CONFLICT_FIELDS),
-            todo: _hashMap(state.todos, 'todo', CONFLICT_FIELDS),
-            history: _hashMap(state.history, 'history', CONFLICT_FIELDS),
-            // 每日计划 / 重点客户：独立列表实体，逐条哈希（id 为稳定键），支持单条粒度冲突，避免整表互相覆盖
-            dailyPlan: _hashMap(state.dailyPlans || [], 'dailyPlan', CONFLICT_FIELDS),
-            focus: _hashMap(state.focusItems || [], 'focus', CONFLICT_FIELDS),
-            // 近期汇报客户：逐条哈希（name 为稳定键），支持单条粒度冲突；reportDeleted 单独记录墓碑基准
-            report: _hashMapByName(state.reportCustomers || [], ['note', 'starred']),
-            reportDeleted: _stableHashVal(state.reportDeleted || {}),
-            dashboardOrder: _stableHashVal((state._meta && state._meta.dashboardOrder) || []),
-            customerStatusFilter: _stableHashVal((state._meta && state._meta.customerStatusFilter) || [])
-        };
         state._meta = state._meta || {};
-        state._meta.syncBasis = basis;
+        state._meta.syncBasis = buildSyncBasis({
+            customers: state.customers, followups: state.followups, todos: state.todos, history: state.history,
+            dailyPlans: state.dailyPlans, focusItems: state.focusItems,
+            reportCustomers: state.reportCustomers, reportDeleted: state.reportDeleted,
+            dashboardOrder: (state._meta && state._meta.dashboardOrder) || [],
+            customerStatusFilter: (state._meta && state._meta.customerStatusFilter) || []
+        });
         updateDropdownSyncInfo();
     } catch (e) { /* 忽略 */ }
 }
@@ -14694,7 +14726,16 @@ async function doAutoSync() {
 
         if (hadPending || changes.length > 0 || statusFilterChanged) {
             logSyncMergeResult(syncTag() + '自动同步：', changes, syncStart);
-            await pushToGistSilent();
+            try {
+                await pushToGistSilent();
+            } catch (pushErr) {
+                // 推送失败：云端仍等于刚拉取的 remoteData，基准必须回滚为远端内容，
+                // 维持「基准==云端」不变式；否则基准停留在 applyRemoteData 写入的
+                // 「含未上传本地改动」的值，本地继续编辑会误报「两端冲突」。
+                const rb = _basisFromEntities(remoteData);
+                if (rb) state._meta.syncBasis = rb;
+                throw pushErr;
+            }
             refreshCurrentPage();
         } else {
             // 真正无任何变更
@@ -14723,12 +14764,17 @@ async function pushToGistSilent() {
     const payload = getSyncPayload();
     payload._meta.lastModified = new Date().toISOString();
     payload._meta.lastSyncedAt = new Date().toISOString();
+    // 基准必须等于「实际上云的内容」：在编码前同步计算快照。
+    // 不能推送完成后再读内存 state——await 期间的本地编辑会把基准推到云端内容之前（bh≠rh），
+    // 下一轮编辑即触发 bh≠lh 且 bh≠rh 的假冲突（2026-09-09 编辑本周重点误报冲突根因之一）。
+    const pushedBasis = _basisFromEntities(payload);
     try {
         await pushToAllBackends(gistEncode(payload));
         state._meta.lastModified = payload._meta.lastModified;
         state._meta.lastSyncedAt = payload._meta.lastSyncedAt;
         markChangesSynced(syncStartTime);
-        recordSyncBasis();
+        if (pushedBasis) state._meta.syncBasis = pushedBasis; // 基准=实际上传内容
+        updateDropdownSyncInfo();
         saveData(true);
         setConnState(true, '最近一次自动同步上传成功');
         if (pending.length > 0) {
@@ -14947,7 +14993,13 @@ async function doSync(force) {
             // 强制上传：先合并远端，再上传合并结果（防止覆盖远端数据）
             logOperation('强制上传到云端', 'info');
             applyRemoteData(remoteData);
-            await pushToGist();
+            try {
+                await pushToGist();
+            } catch (pushErr) {
+                const rb = _basisFromEntities(remoteData); // 推送失败：基准回滚为远端内容（基准==云端）
+                if (rb) state._meta.syncBasis = rb;
+                throw pushErr;
+            }
             refreshCurrentPage();
             return;
         }
@@ -14986,7 +15038,13 @@ async function doSync(force) {
         if (hadPending || changes.length > 0) {
             // 本地有 pending 变更 或 远端有变更 → 上传合并结果
             logSyncMergeResult(syncTag() + '手动同步：', changes, syncStart);
-            await pushToGist();
+            try {
+                await pushToGist();
+            } catch (pushErr) {
+                const rb = _basisFromEntities(remoteData); // 推送失败：基准回滚为远端内容（基准==云端）
+                if (rb) state._meta.syncBasis = rb;
+                throw pushErr;
+            }
             refreshCurrentPage();
         } else {
             // 真正无任何变更
@@ -15008,13 +15066,16 @@ async function pushToGist() {
     const payload = getSyncPayload();
     payload._meta.lastModified = new Date().toISOString();
     payload._meta.lastSyncedAt = new Date().toISOString();
+    // 基准=实际上传内容（await 前同步快照，防止推送期间本地编辑污染基准），与 pushToGistSilent 一致
+    const pushedBasis = _basisFromEntities(payload);
     try {
         await pushToAllBackends(gistEncode(payload));
         state._meta.lastModified = payload._meta.lastModified;
         state._meta.lastSyncedAt = payload._meta.lastSyncedAt;
         // 标记本次推送的变更已同步
         markChangesSynced(syncStartTime);
-        recordSyncBasis();
+        if (pushedBasis) state._meta.syncBasis = pushedBasis;
+        updateDropdownSyncInfo();
         saveData(true);
         // 详细日志：列出本次同步的所有变更
         if (pending.length > 0) {
@@ -15431,7 +15492,13 @@ async function resolveMerge() {
         // 使基准与最终值完全一致，避免下次同步又误报同一条冲突
         recordSyncBasis();
         saveData(true);
-        await pushToGist();
+        try {
+            await pushToGist();
+        } catch (pushErr) {
+            const rb = _basisFromEntities(remote); // 推送失败：基准回滚为远端内容（基准==云端），避免下次同步再误报
+            if (rb) state._meta.syncBasis = rb;
+            throw pushErr;
+        }
         refreshCurrentPage();
         logSyncGlobal('已按字段级选择合并并上传', 'success');
         logOperation('冲突已按字段级选择合并并上传云端', 'success');
