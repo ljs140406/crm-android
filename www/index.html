@@ -1845,6 +1845,8 @@ td.col-followup-content { position: relative; }
 .focus-index:active { transform: scale(0.92); }
 /* 序号与圆标强制同行（需求②） */
 .focus-row { display: flex; align-items: flex-start; gap: 12px; }
+/* 本周重点里由「近期汇报客户」自动派生的条目：小徽标提示来源 */
+.report-badge { flex: 0 0 auto; align-self: center; font-size: 11px; font-weight: 600; line-height: 1; color: #185FA5; background: #E6F1FB; border: 1px solid #B5D4F4; border-radius: 999px; padding: 3px 8px; }
 /* 已完成项：序号恢复灰色、不显示 ★（即使已关注也不体现关注效果） */
 .focus-item.focus-done .focus-index { background: var(--gray-300); color: #fff; box-shadow: none; }
 .focus-item .focus-text {
@@ -5723,6 +5725,8 @@ function migrateData() {
     }
     // 首次迁移/加载后，由 workPlan 派生 dailyPlans / focusItems 镜像（同步层消费）
     _mirrorPlanEntities();
+    // 汇报客户 → 本周重点 派生联动：首次加载时把已有汇报客户名字自动带到本周重点（幂等，仅新建不覆盖）
+    syncReportFocusLinks();
     // 客户 _rev 初始化
     (state.customers || []).forEach(c => {
         if (c._rev === undefined) c._rev = 1;
@@ -10365,7 +10369,7 @@ function _workPlanToPlanEntities(plan, prevDP, prevFI) {
             // 保留空项：刚点「添加一项重点」时尚未输入文字，若在此过滤，同步层就看不到它；
             // 而 applyRemoteData 用 focusItems 重建 workPlan，该新增项会凭空消失（用户「添加后找不到」）。
             // 代价是未填写的空项会同步到其他设备——这与「确实新增了一项」的语义一致，可接受。
-            const _f = { id: _focusId(wkey, idx), week: wkey, text: (it.text || '').toString(), completed: !!(it.completed), starred: !!(it.starred) };
+            const _f = { id: (it.id || _focusId(wkey, idx)), week: wkey, text: (it.text || '').toString(), completed: !!(it.completed), starred: !!(it.starred), src: (it.src || 'manual'), customerId: (it.customerId || '').toString() };
             fi.push(Object.assign(_f, _stamp(_f.id, _prevFI, _f, _fiKey)));
         });
     });
@@ -10388,7 +10392,7 @@ function _planEntitiesToWorkPlan(dp, fi, focusPlan) {
     });
     (fi || []).forEach(function (it) {
         const p = (it.week === 'next') ? 'nextWeek' : 'thisWeek';
-        wp[p].focusList.push({ text: (it.text || '').toString(), completed: !!(it.completed), starred: !!(it.starred) });
+        wp[p].focusList.push({ id: (it.id || ''), text: (it.text || '').toString(), completed: !!(it.completed), starred: !!(it.starred), src: (it.src || 'manual'), customerId: (it.customerId || '').toString() });
     });
     return wp;
 }
@@ -10414,7 +10418,7 @@ function renderFocusList(period, containerId, week) {
         if (Number.isFinite(_fIdx)) { try { _fStart = _focusTa.selectionStart; _fEnd = _focusTa.selectionEnd; } catch (e) {} }
     }
     const list = (week.focusList || []).map(function (it) {
-        return { text: (it && it.text || '').toString(), completed: !!(it && it.completed), starred: !!(it && it.starred) };
+        return { id: (it && it.id) || '', text: (it && it.text || '').toString(), completed: !!(it && it.completed), starred: !!(it && it.starred), src: (it && it.src) || 'manual', customerId: (it && it.customerId) || '' };
     });
     // 未完成在前、已完成在后，同时保留用户原始顺序；渲染序号用排序后下标，data-idx 用原始下标
     const sorted = list.map(function (it, i) { return { it: it, originalIdx: i }; })
@@ -10423,9 +10427,11 @@ function renderFocusList(period, containerId, week) {
         const it = wrap.it, originalIdx = wrap.originalIdx;
         const doneLabel = it.completed ? '↩ 标记未完成' : '✓ 标记已完成';
         const idxLabel = (it.starred && !it.completed) ? ('★' + (idx + 1)) : (idx + 1);
-        return '<div class="focus-item' + (it.completed ? ' focus-done' : '') + (it.starred ? ' focus-starred' : '') + '">' +
+        const _isRep = it.src === 'report';
+        return '<div class="focus-item' + (it.completed ? ' focus-done' : '') + (it.starred ? ' focus-starred' : '') + '" data-fid="' + escapeAttr(it.id) + '" data-src="' + escapeAttr(it.src) + '" data-cid="' + escapeAttr(it.customerId) + '">' +
             '<div class="focus-row">' +
                 '<div class="focus-index' + (it.starred ? ' starred' : '') + '" data-period="' + period + '" data-idx="' + originalIdx + '" title="点击标记/取消关注">' + idxLabel + '</div>' +
+                (_isRep ? '<span class="report-badge" title="来自近期汇报客户">汇报</span>' : '') +
                 '<textarea class="focus-text" rows="1" data-period="' + period + '" data-idx="' + originalIdx + '" placeholder="重点事项…">' + escapeHtml(it.text) + '</textarea>' +
             '</div>' +
             '<div class="action-row">' +
@@ -10486,7 +10492,7 @@ function onFocusDone(e) {
 function onFocusAdd(e) {
     const period = e.currentTarget.dataset.period;
     const arr = ensureFocusList(period);
-    arr.push({ text: '', completed: false });
+    arr.push({ id: '', text: '', completed: false, src: 'manual' });
     renderFocusList(period, period === 'this' ? 'thisFocusList' : 'nextFocusList', state.workPlan[period === 'this' ? 'thisWeek' : 'nextWeek']);
     autoSavePlan();
     const container = document.getElementById(period === 'this' ? 'thisFocusList' : 'nextFocusList');
@@ -10508,11 +10514,15 @@ function focusSetDone(period, idx) {
 function focusRemove(period, idx) {
     const arr = ensureFocusList(period);
     const it = arr[idx];
+    const isReportItem = !!(it && it.src === 'report');
+    const cid = it ? (it.customerId || '') : '';
     const preview = ((it && it.text) || '').trim().substring(0, 20) || '这条重点';
     showConfirm('确定删除「' + preview + '」吗？删除后无法恢复。', function () {
         arr.splice(idx, 1);
         renderFocusList(period, period === 'this' ? 'thisFocusList' : 'nextFocusList', state.workPlan[period === 'this' ? 'thisWeek' : 'nextWeek']);
         autoSavePlan();
+        // 单一真值：在「本周重点」删除派生（汇报）项，同时从「近期汇报客户」移除该客户，双端级联
+        if (isReportItem && cid) removeReportCustomerByKey(cid);
     }, '删除重点');
 }
 // 本周重点：标记/取消「关注」（starred 存于 focusList 项，经 DOM 类 focus-starred 在 savePlan 重建时保留）
@@ -10573,6 +10583,45 @@ function ensureReportList() {
     if (!state.reportDeleted || typeof state.reportDeleted !== 'object') state.reportDeleted = {};
     return state.reportCustomers;
 }
+// 汇报客户 → 本周重点 派生联动：保证本周重点(thisWeek)顶部按汇报顺序出现「派生项」（id=reportfocus:<key>，src='report'），
+// 缺失时才新建（用客户名填文本），绝不覆盖用户已编辑的派生项文本；汇报名单移除的客户，其派生项一并移除。
+// 调用时机：本地增/删/排序汇报客户后；applyRemoteData 合并完 reportCustomers 后；首次加载迁移后。双端各自运行 → 收敛。
+function syncReportFocusLinks() {
+    if (!state.workPlan || !state.workPlan.thisWeek) return;
+    const fl = ensureFocusList('this');
+    const report = (state.reportCustomers || []).filter(function (r) { return r && (r.name || '').trim(); });
+    const keyOf = function (r) { return (r.id || r.name || '').toString(); };
+    const reportKeys = {};
+    report.forEach(function (r) { reportKeys[keyOf(r)] = r; });
+    const derived = [], manual = [];
+    fl.forEach(function (it) {
+        if (it && it.src === 'report') {
+            const k = (it.customerId || '').toString();
+            if (reportKeys[k]) derived.push(it); // 仍在汇报名单 → 保留（含已编辑文本/完成态）
+        } else {
+            manual.push(it);
+        }
+    });
+    const byCust = {};
+    derived.forEach(function (it) { byCust[(it.customerId || '').toString()] = it; });
+    const newDerived = [];
+    report.forEach(function (r) {
+        const k = keyOf(r);
+        let item = byCust[k];
+        if (!item) {
+            item = { id: 'reportfocus:' + k, src: 'report', customerId: k, text: (r.name || ''), completed: false, starred: false };
+        } else {
+            // 保留已存在项（含用户编辑文本/完成态/原 id），仅确保 src/customerId 正确
+            item.src = 'report'; item.customerId = k;
+        }
+        newDerived.push(item);
+    });
+    // 重组：派生项置顶（按汇报顺序），手动项保持相对顺序在后
+    fl.length = 0;
+    newDerived.forEach(function (it) { fl.push(it); });
+    manual.forEach(function (it) { fl.push(it); });
+    _mirrorPlanEntities();
+}
 function renderReportCustomers() {
     const box = document.getElementById('reportList');
     if (!box) return;
@@ -10598,12 +10647,11 @@ function renderReportCustomers() {
     box.innerHTML = list.map(function (rc, idx) {
         const upDisabled = idx === 0 ? 'disabled' : '';
         const downDisabled = idx === list.length - 1 ? 'disabled' : '';
-        return '<div class="report-item' + (rc.starred ? ' starred' : '') + '">' +
+        return '<div class="report-item">' +
             '<div class="report-item-head">' +
-                '<span class="report-seq' + (rc.starred ? ' starred' : '') + '" data-ridx="' + idx + '" title="点击标记/取消关注">' + (rc.starred ? ('★' + (idx + 1)) : (idx + 1)) + '</span>' +
+                '<span class="report-seq" data-ridx="' + idx + '">' + (idx + 1) + '</span>' +
                 '<div class="report-name" data-name="' + escapeAttr(rc.name) + '" onclick="window._crm.openCustomerDetailByName(\'' + escapeAttr(rc.name) + '\')">' + escapeHtml(rc.name) + '</div>' +
             '</div>' +
-            '<textarea class="report-note-input" data-ridx="' + idx + '" rows="1" placeholder="备注（如：本周已汇报 / 待回访）" oninput="window._crm.onReportNote(' + idx + ', this.value); window._crm.autoResizeTextarea(this);">' + escapeHtml(rc.note || '') + '</textarea>' +
             '<div class="action-row">' +
                 '<button type="button" class="act-btn report-up" data-ridx="' + idx + '" ' + upDisabled + ' title="上移">↑ 上移</button>' +
                 '<button type="button" class="act-btn report-down" data-ridx="' + idx + '" ' + downDisabled + ' title="下移">↓ 下移</button>' +
@@ -10612,29 +10660,10 @@ function renderReportCustomers() {
             '</div>' +
         '</div>';
     }).join('');
-    box.querySelectorAll('.report-note-input').forEach(function (el) { autoResizeTextarea(el); });
-    box.querySelectorAll('.report-item').forEach(function (item) { bindInlineActions(item, '.report-note-input'); });
     box.querySelectorAll('.report-up').forEach(function (el) { el.addEventListener('click', function () { moveReportCustomer(parseInt(el.dataset.ridx, 10), -1); }); });
     box.querySelectorAll('.report-down').forEach(function (el) { el.addEventListener('click', function () { moveReportCustomer(parseInt(el.dataset.ridx, 10), 1); }); });
     box.querySelectorAll('.report-del').forEach(function (el) { el.addEventListener('click', function () { removeReportCustomer(parseInt(el.dataset.ridx, 10)); }); });
-    box.querySelectorAll('.report-seq').forEach(function (el) { el.addEventListener('click', function () { reportToggleStar(parseInt(el.dataset.ridx, 10)); }); });
     box.querySelectorAll('.report-save').forEach(function (el) { el.addEventListener('click', onReportSaveItem); });
-    // 渲染后：还原同一 textarea 的焦点与 caret 位置
-    if (reportFocusName) {
-        const ni = list.findIndex(function (r) { return r.name === reportFocusName; });
-        if (ni >= 0) focusIdx = ni;
-        reportFocusName = null;
-    }
-    if (focusIdx >= 0) {
-        const ta = box.querySelector('.report-note-input[data-ridx="' + focusIdx + '"]');
-        if (ta) {
-            ta.focus();
-            if (selStart >= 0 && selEnd >= 0 && typeof ta.setSelectionRange === 'function') {
-                try { ta.setSelectionRange(selStart, selEnd); } catch (e) {}
-            }
-            autoResizeTextarea(ta);
-        }
-    }
 }
 function moveReportCustomer(idx, dir) {
     const list = ensureReportList();
@@ -10647,6 +10676,8 @@ function moveReportCustomer(idx, dir) {
     renderReportCustomers();
     autoSavePlan();
     markReportOrderDirty();   // 顺序变更：打 reportOrderAt 时间戳，供对端按 LWW 采纳新顺序
+    syncReportFocusLinks(); // 顺序变更 → 本周重点派生项跟随重排
+    renderFocusList('this', 'thisFocusList', state.workPlan.thisWeek);
 }
 function addReportCustomer() {
     openCustomerPickerWith({
@@ -10659,13 +10690,10 @@ function addReportCustomer() {
             list.push({ id: (c ? c.id : ''), name: name, note: '' });
             if (state.reportDeleted && state.reportDeleted[name]) { delete state.reportDeleted[name]; } // 重新添加：清除删除墓碑，避免被同步再次剔除
             renderReportCustomers();
+            syncReportFocusLinks(); // 新增汇报客户 → 本周重点自动出现派生项
+            renderFocusList('this', 'thisFocusList', state.workPlan.thisWeek);
             autoSavePlan();
             markReportOrderDirty();  // 新增会改变列表顺序/长度
-            const newIdx = list.length - 1;
-            setTimeout(function () {
-                const inp = document.querySelector('#reportList .report-note-input[data-ridx="' + newIdx + '"]');
-                if (inp) { inp.focus(); }
-            }, 0);
         }
     });
 }
@@ -10675,21 +10703,32 @@ function onReportNote(idx, val) {
     if (list[idx]) list[idx].note = val;
     markReportDirty(); // 标记本地有改动，确保同步链路能上传 / 不被云端覆盖（不打断光标）
 }
+function removeReportCustomerByKey(key) {
+    const list = ensureReportList();
+    const idx = list.findIndex(function (r) { return (r.id || r.name) === key; });
+    if (idx < 0) return;
+    const rc = list[idx];
+    const preview = ((rc && rc.name) || '').trim() || '这位客户';
+    const nm = (rc && (rc.name || '')).trim();
+    const delHash = rc ? _hashItem('reportItem', rc, { reportItem: ['note', 'starred'] }) : '';
+    list.splice(idx, 1);
+    state.reportDeleted = state.reportDeleted || {};
+    if (nm) state.reportDeleted[nm] = { ts: new Date().toISOString(), hash: delHash };
+    renderReportCustomers();
+    syncReportFocusLinks(); // 级联移除本周重点里的派生项（仅移除，不覆盖已编辑文本）
+    renderFocusList('this', 'thisFocusList', state.workPlan.thisWeek);
+    autoSavePlan();
+    markReportOrderDirty();  // 删除同样改变顺序
+    saveData();
+    logOperation('删除近期汇报客户「' + preview + '」', 'info');
+}
 function removeReportCustomer(idx) {
     const list = ensureReportList();
     const rc = list[idx];
+    if (!rc) return;
     const preview = ((rc && rc.name) || '').trim() || '这位客户';
     showConfirm('确定删除「' + preview + '」吗？删除后其他设备也会同步删除。', function () {
-        const nm = (rc && (rc.name || '')).trim();
-        const delHash = rc ? _hashItem('reportItem', rc, { reportItem: ['note', 'starred'] }) : '';
-        list.splice(idx, 1);
-        state.reportDeleted = state.reportDeleted || {};
-        if (nm) state.reportDeleted[nm] = { ts: new Date().toISOString(), hash: delHash };
-        renderReportCustomers();
-        autoSavePlan();
-        markReportOrderDirty();  // 删除同样改变顺序
-        saveData();
-        logOperation('删除近期汇报客户「' + preview + '」', 'info');
+        removeReportCustomerByKey(rc.id || rc.name);
     }, '删除汇报客户');
 }
 // 近期汇报客户：标记/取消「关注」（starred 存于 reportCustomers 项；随 reportRev 同步）
@@ -10761,14 +10800,17 @@ function readFocusList(containerId) {
             idx: Number.isFinite(rawIdx) ? rawIdx : 0,
             text: sanitizeInput(ta ? ta.value : ''),
             completed: el.classList.contains('focus-done'),
-            starred: el.classList.contains('focus-starred')
+            starred: el.classList.contains('focus-starred'),
+            id: (el.dataset && el.dataset.fid) || '',
+            src: (el.dataset && el.dataset.src) || 'manual',
+            customerId: (el.dataset && el.dataset.cid) || ''
         };
     });
     // 按 data-idx 还原为 focusList 的原始顺序：
     // 若照抄 DOM 顺序（排序后）回写，会打乱 focusList 原有顺序，使 data-idx 与数组下标错位，
     // 导致用户在新项里继续输入时内容被写到另一项上（表现为「不能输入 / 找不到刚输的内容」）。
     items.sort(function (a, b) { return a.idx - b.idx; });
-    return items.map(function (it) { return { text: it.text, completed: it.completed, starred: it.starred }; });
+    return items.map(function (it) { return { id: it.id, text: it.text, completed: it.completed, starred: it.starred, src: it.src, customerId: it.customerId }; });
 }
 
 // textarea 根据内容自动撑高（带「手动调整大小记忆」：手动拖拽的高度作为下限，输入时不会缩回）
@@ -14816,6 +14858,9 @@ function applyRemoteData(remoteData) {
             }
         }
     }
+    // 汇报客户 → 本周重点 派生联动：合并完 reportCustomers 后，按最新汇报名单重建本周重点里的派生项（仅新建/移除，不覆盖已编辑文本），再纳入同步基准与落盘
+    syncReportFocusLinks();
+    renderFocusList('this', 'thisFocusList', state.workPlan.thisWeek);
     recordSyncBasis();
     saveData(true);
     return changes;
@@ -17311,6 +17356,9 @@ window._crm = {
     // 调试 / 测试辅助：用于驱动冲突合并流程与查看内部状态
     showConflictModal,
     detectTrueConflicts,
+    // 测试辅助：派生联动重算 + 触发一次完整 push/pull 同步（仅测试/调试用）
+    syncReportFocusLinks,
+    syncNow: function () { return doSync(); },
     getState: function () { return state; },
     getCurrentFilter: function () { return currentFilter; }
 };
