@@ -1847,6 +1847,15 @@ td.col-followup-content { position: relative; }
 .focus-row { display: flex; align-items: flex-start; gap: 12px; }
 /* 本周重点里由「近期汇报客户」自动派生的条目：小徽标提示来源 */
 .report-badge { flex: 0 0 auto; align-self: center; font-size: 11px; font-weight: 600; line-height: 1; color: #185FA5; background: #E6F1FB; border: 1px solid #B5D4F4; border-radius: 999px; padding: 3px 8px; }
+/* 派生项里的「客户名」小胶囊：只读展示来源客户（点击看客户详情），编辑框专用于填写自己的内容 */
+.focus-item .report-pill {
+    flex: 0 0 auto; align-self: center; max-width: 48%;
+    font-size: 12px; font-weight: 600; line-height: 1;
+    color: var(--primary); background: var(--primary-bg); border: 1px solid var(--primary);
+    border-radius: 999px; padding: 6px 10px; margin-right: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;
+}
+.focus-item .report-pill:hover { background: #fff; }
 /* 已完成项：序号恢复灰色、不显示 ★（即使已关注也不体现关注效果） */
 .focus-item.focus-done .focus-index { background: var(--gray-300); color: #fff; box-shadow: none; }
 .focus-item .focus-text {
@@ -3728,6 +3737,10 @@ td.col-followup-content { position: relative; }
 .focus-item.active .action-row,
 .plan-item.active .action-row,
 .report-item.active .action-row { display: flex; }
+/* 近期汇报客户没有可聚焦的输入框，永远不会有 .active → 操作行常显，否则 上移/下移/删除/保存 永远看不到 */
+.report-item > .action-row { display: flex; }
+/* 本周重点「汇报派生项」：同样需要行内删除入口（用户要求），故其操作行常显，不依赖 textarea 聚焦产生的 .active */
+.focus-item[data-src="report"] > .action-row { display: flex; }
 .act-btn {
     flex: 1 1 auto; min-width: 56px; padding: 7px 10px; font-size: 12px; font-weight: 600;
     border-radius: 8px; cursor: pointer; border: 1px solid var(--border); background: #fff;
@@ -10428,11 +10441,15 @@ function renderFocusList(period, containerId, week) {
         const doneLabel = it.completed ? '↩ 标记未完成' : '✓ 标记已完成';
         const idxLabel = (it.starred && !it.completed) ? ('★' + (idx + 1)) : (idx + 1);
         const _isRep = it.src === 'report';
+        const _repName = _isRep ? _reportNameByCid(it.customerId) : '';
         return '<div class="focus-item' + (it.completed ? ' focus-done' : '') + (it.starred ? ' focus-starred' : '') + '" data-fid="' + escapeAttr(it.id) + '" data-src="' + escapeAttr(it.src) + '" data-cid="' + escapeAttr(it.customerId) + '">' +
             '<div class="focus-row">' +
                 '<div class="focus-index' + (it.starred ? ' starred' : '') + '" data-period="' + period + '" data-idx="' + originalIdx + '" title="点击标记/取消关注">' + idxLabel + '</div>' +
-                (_isRep ? '<span class="report-badge" title="来自近期汇报客户">汇报</span>' : '') +
-                '<textarea class="focus-text" rows="1" data-period="' + period + '" data-idx="' + originalIdx + '" placeholder="重点事项…">' + escapeHtml(it.text) + '</textarea>' +
+                (_isRep
+                    ? '<span class="report-badge" title="来自近期汇报客户">汇报</span>'
+                        + (_repName ? '<span class="report-pill" title="查看客户详情">' + escapeHtml(_repName) + '</span>' : '')
+                    : '') +
+                '<textarea class="focus-text" rows="1" data-period="' + period + '" data-idx="' + originalIdx + '" placeholder="' + (_isRep ? '填写内容…' : '重点事项…') + '">' + escapeHtml(it.text) + '</textarea>' +
             '</div>' +
             '<div class="action-row">' +
                 '<button type="button" class="act-btn danger focus-del" data-period="' + period + '" data-idx="' + originalIdx + '" title="删除">删除</button>' +
@@ -10453,6 +10470,14 @@ function renderFocusList(period, containerId, week) {
     container.querySelectorAll('.focus-index').forEach(function (el) { el.addEventListener('click', function () { focusToggleStar(el.dataset.period, parseInt(el.dataset.idx, 10)); }); });
     const cellAdd = container.closest('.plan-cell') && container.closest('.plan-cell').querySelector('.focus-add-btn');
     if (cellAdd && !cellAdd._focusAddBound) { cellAdd.addEventListener('click', onFocusAdd); cellAdd._focusAddBound = true; }
+    // 派生项的客户名胶囊：点击查看该客户详情（名字取自汇报项，非编辑框内容）
+    container.querySelectorAll('.focus-item[data-src="report"] .report-pill').forEach(function (el) {
+        el.addEventListener('click', function () {
+            const _it = el.closest('.focus-item');
+            const _nm = _reportNameByCid(((_it && _it.dataset.cid) || '').toString());
+            if (_nm && typeof openCustomerDetailByName === 'function') openCustomerDetailByName(_nm);
+        });
+    });
     // 重绘后：还原正在编辑的 textarea 焦点与光标位置（避免同步/自动保存触发的重建让输入框"自己关闭"）
     if (_fPeriod !== null && _fIdx >= 0) {
         const ta = container.querySelector('.focus-text[data-period="' + _fPeriod + '"][data-idx="' + _fIdx + '"]');
@@ -10586,6 +10611,13 @@ function ensureReportList() {
 // 汇报客户 → 本周重点 派生联动：保证本周重点(thisWeek)顶部按汇报顺序出现「派生项」（id=reportfocus:<key>，src='report'），
 // 缺失时才新建（用客户名填文本），绝不覆盖用户已编辑的派生项文本；汇报名单移除的客户，其派生项一并移除。
 // 调用时机：本地增/删/排序汇报客户后；applyRemoteData 合并完 reportCustomers 后；首次加载迁移后。双端各自运行 → 收敛。
+// 按派生项的 customerId（= 汇报客户的 id||name）取客户名，供本周重点里的小胶囊展示
+function _reportNameByCid(cid) {
+    const key = (cid || '').toString();
+    if (!key) return '';
+    const hit = (state.reportCustomers || []).find(function (r) { return r && ((r.id || r.name || '').toString() === key); });
+    return hit ? (hit.name || '') : '';
+}
 function syncReportFocusLinks() {
     if (!state.workPlan || !state.workPlan.thisWeek) return;
     const fl = ensureFocusList('this');
@@ -10602,18 +10634,34 @@ function syncReportFocusLinks() {
             manual.push(it);
         }
     });
+    // 自愈：历史上「归档丢失 src → 派生项被当手动项 → 又新建一份」会留下同一客户的重复派生项。
+    // 这里按 customerId 合并为一条：优先保留存有用户编辑文本的那条，并继承完成/关注态（避免误删用户编辑内容）。
     const byCust = {};
-    derived.forEach(function (it) { byCust[(it.customerId || '').toString()] = it; });
+    derived.forEach(function (it) {
+        const k = (it.customerId || '').toString();
+        const prev = byCust[k];
+        if (!prev) { byCust[k] = it; return; }
+        const prevHasText = !!(prev.text || '').trim();
+        const curHasText = !!(it.text || '').trim();
+        let keep = prev, drop = it;
+        if (!prevHasText && curHasText) { keep = it; drop = prev; }
+        keep.completed = !!(keep.completed || drop.completed);
+        keep.starred = !!(keep.starred || drop.starred);
+        byCust[k] = keep;
+    });
     const newDerived = [];
     report.forEach(function (r) {
         const k = keyOf(r);
         let item = byCust[k];
         if (!item) {
-            item = { id: 'reportfocus:' + k, src: 'report', customerId: k, text: (r.name || ''), completed: false, starred: false };
+            // 客户名单独用「小胶囊」展示，编辑框只承载「用户自己填写的内容」，故新建时 text 留空
+            item = { id: 'reportfocus:' + k, src: 'report', customerId: k, text: '', completed: false, starred: false };
         } else {
             // 保留已存在项（含用户编辑文本/完成态/原 id），仅确保 src/customerId 正确
             item.src = 'report'; item.customerId = k;
         }
+        // 兼容旧数据：过去派生项文本被自动填成客户名（于是「客户名小胶囊 + 编辑框」里名字重复出现两遍），这里清空
+        if ((item.text || '') === (r.name || '')) item.text = '';
         newDerived.push(item);
     });
     // 重组：派生项置顶（按汇报顺序），手动项保持相对顺序在后
@@ -10687,8 +10735,10 @@ function addReportCustomer() {
             const c = (state.customers || []).find(function (x) { return x.name === name; });
             const list = ensureReportList();
             if (list.some(function (r) { return r.name === name; })) { showToast('该客户已在近期汇报列表中'); return; }
-            list.push({ id: (c ? c.id : ''), name: name, note: '' });
-            if (state.reportDeleted && state.reportDeleted[name]) { delete state.reportDeleted[name]; } // 重新添加：清除删除墓碑，避免被同步再次剔除
+            // addedAt：用于「删除后又重新添加」的裁决——重加时间晚于旧墓碑时，合并阶段丢弃该旧墓碑
+            // （否则云端/对端仍留着墓碑，mergeReportCustomers 会按名把刚新增的客户又剔除 → 「新增后被同步删除」）
+            list.push({ id: (c ? c.id : ''), name: name, note: '', addedAt: new Date().toISOString() });
+            if (state.reportDeleted && state.reportDeleted[name]) { delete state.reportDeleted[name]; } // 重新添加：清除本端删除墓碑
             renderReportCustomers();
             syncReportFocusLinks(); // 新增汇报客户 → 本周重点自动出现派生项
             renderFocusList('this', 'thisFocusList', state.workPlan.thisWeek);
@@ -11183,8 +11233,15 @@ function savePlan(silent) {
     const wp = state.workPlan;
     if (!wp.thisWeek) wp.thisWeek = { focus: '' };
     if (!wp.nextWeek) wp.nextWeek = { focus: '' };
-    wp.thisWeek.focusList = readFocusList('thisFocusList');
-    wp.nextWeek.focusList = readFocusList('nextFocusList');
+    // ⚠️ 仅当 DOM 与内存一致时才从 DOM 回读 focusList。
+    // 若整页重绘正处于「推迟」状态（计划页打字 / 输入法组字），此刻 DOM 是已知过期快照，
+    // 回读会把刚合并进来的条目（如新增汇报客户产生的派生项）覆盖丢失 —— 内存里的 focusList 才是权威，
+    // 且用户在输入框里的改动已由 onFocusInput 实时写入内存，故跳过回读不会丢用户输入。
+    const _focusDomStale = !!_planRedrawTimer || Object.keys(_imePending).length > 0;
+    if (!_focusDomStale) {
+        wp.thisWeek.focusList = readFocusList('thisFocusList');
+        wp.nextWeek.focusList = readFocusList('nextFocusList');
+    }
     // 数组化：不再在保存时丢弃空项，避免自动保存把刚添加的空白项删掉导致焦点丢失
     ['thisWeek', 'nextWeek'].forEach(function (p) {
         PLAN_DAYS.forEach(function (d) {
@@ -11221,11 +11278,18 @@ function archivePlan() {
         const tw = state.workPlan.thisWeek || {};
         const nw = state.workPlan.nextWeek || {};
 
-        // 解析本周 focusList：拆分为已完成 / 未完成
-        const thisFocusAll = (tw.focusList || []).map(function (it) { return { text: (it && it.text || '').toString(), completed: !!(it && it.completed) }; }).filter(function (it) { return it.text; });
-        const thisFocusOpen = thisFocusAll.filter(function (it) { return !it.completed; });
+        // 解析本周 focusList：拆分为已完成 / 未完成。
+        // ⚠️ 必须保留 id/src/customerId：派生（汇报）项一旦丢掉 src，就会被当成普通手动项，
+        // 下次同步 syncReportFocusLinks 又按汇报名单新建一份 → 同名两份、且每归档一次累加（「越归档越多」根因）。
+        const _focusNorm = function (it) {
+            return { id: (it && it.id || '').toString(), text: (it && it.text || '').toString(), completed: !!(it && it.completed), src: (it && it.src) || 'manual', customerId: (it && it.customerId || '').toString() };
+        };
+        // 保留条件：有文本，或本身是派生（汇报）项（派生项内容可为空，但身份必须保留）
+        const _focusKeep = function (it) { return !!(it.text || it.src === 'report'); };
+        const thisFocusAll = (tw.focusList || []).map(_focusNorm).filter(_focusKeep);
+        const thisFocusOpen = thisFocusAll.filter(function (it) { return !it.completed || it.src === 'report'; });
         // 解析下周 focusList（全部视为未完成，跟随到新本周末尾）
-        const nextFocusAll = (nw.focusList || []).map(function (it) { return { text: (it && it.text || '').toString(), completed: !!(it && it.completed) }; }).filter(function (it) { return it.text; });
+        const nextFocusAll = (nw.focusList || []).map(_focusNorm).filter(_focusKeep);
 
         // 历史记录：本周 focus 全部入历史（已完成+未完成，便于回看）
         const historyEntry = {
@@ -11243,9 +11307,10 @@ function archivePlan() {
 
         // 合并到新本周 focusList：本周未完成 + 下周全部，全部重置 completed=false
         // （本周已完成项被丢弃——已完成的不再追踪，腾出本周重点位给未完成+下周任务）
+        const _focusCarry = function (it) { return { id: it.id, text: it.text, completed: false, src: it.src, customerId: it.customerId }; };
         const mergedFocus = [].concat(
-            thisFocusOpen.map(function (it) { return { text: it.text, completed: false }; }),
-            nextFocusAll.map(function (it) { return { text: it.text, completed: false }; })
+            thisFocusOpen.map(_focusCarry),
+            nextFocusAll.map(_focusCarry)
         );
 
         // 每日 planItems：下周搬移到本周（与原行为一致），下周清空
@@ -11261,6 +11326,9 @@ function archivePlan() {
         state.workPlan._deviceId = DEVICE_ID;
         recordChange('update', 'plan', 'current', '工作计划', null);
 
+        // 派生项已随 mergedFocus 保留身份，这里只做「置顶重排 + 镜像同步」，
+        // 不会再新建重复派生项；同时补上镜像（旧实现漏调，导致 focusItems 与 workPlan 不一致）
+        syncReportFocusLinks();
         saveData();
         renderPlan();
         renderPlanRelated();
@@ -12176,11 +12244,30 @@ function mergeReportDeleted(localDel, remoteDel) {
     });
     return out;
 }
+// 「删除后又重新添加」的复活裁决：若某名字的客户当前存在，且其 addedAt 晚于墓碑时间戳，
+// 说明这是「删完又加回来」——丢弃该墓碑，让新增生效（否则云端/对端残留墓碑会把它再删一次）。
+// 只对带 addedAt 的新增记录生效；旧数据（无 addedAt）不复活，保持既有删除语义。
+function _resurrectReportDeleted(delMap, arr1, arr2) {
+    if (!delMap) return delMap;
+    function scan(arr) {
+        (arr || []).forEach(function (rc) {
+            const nm = (rc && (rc.name || '')).trim();
+            if (!nm || !delMap[nm]) return;
+            const at = Date.parse(rc.addedAt || 0) || 0;
+            const dt = Date.parse((delMap[nm] && delMap[nm].ts) || 0) || 0;
+            if (at > dt) delete delMap[nm];
+        });
+    }
+    scan(arr1); scan(arr2);
+    return delMap;
+}
 // 汇报客户逐条并集合并（name 为稳定键）：
 // 两端都有的同名项 → 取相对同步基准被修改的那一端（单方修改则采纳修改端，避免回退）；
 // 仅一端有 → 采纳该端（并集）；被任一侧墓碑删除 → 剔除；顺序本地优先、云端独有追加末尾
 function mergeReportCustomers(localArr, remoteArr, localDel, remoteDel, localOrderAt, remoteOrderAt) {
     const del = mergeReportDeleted(localDel, remoteDel);
+    // 先做复活裁决：删完又加回来的，不被旧墓碑剔掉
+    _resurrectReportDeleted(del, localArr, remoteArr);
     const _li = _reportIndex(localArr), _ri = _reportIndex(remoteArr);
     const lMap = _li.map, rMap = _ri.map;
     const bMap = (state._meta && state._meta.syncBasis && state._meta.syncBasis.report) || {};
@@ -14691,7 +14778,13 @@ function applyRemoteData(remoteData) {
         (state._meta && state._meta.reportOrderAt) || 0,
         (remoteData._meta && remoteData._meta.reportOrderAt) || 0
     );
-    state.reportDeleted = mergeReportDeleted(state.reportDeleted || {}, remoteData.reportDeleted || {});
+    // 反墓碑：mergeReportCustomers 内部已按 addedAt 复活「删完又加回来」的客户，但那只作用于它自己算出的 del；
+    // 若这里仍用原始墓碑覆盖 state.reportDeleted，本端会残留墓碑并在下一次 push 时把它重新推上云端 →
+    // 对端/本端后续合并又按名把该客户删掉（「新增后被同步删除」根因）。故此处对合并结果同样做复活裁决。
+    state.reportDeleted = _resurrectReportDeleted(
+        mergeReportDeleted(state.reportDeleted || {}, remoteData.reportDeleted || {}),
+        state.reportCustomers, remoteData.reportCustomers
+    );
     // 版本号取两端较大者（保留向后兼容字段，不影响新逻辑）
     const localReportRev = (state._meta && state._meta.reportRev) || 0;
     const remoteReportRev = (remoteData._meta && remoteData._meta.reportRev) || 0;
@@ -14860,7 +14953,13 @@ function applyRemoteData(remoteData) {
     }
     // 汇报客户 → 本周重点 派生联动：合并完 reportCustomers 后，按最新汇报名单重建本周重点里的派生项（仅新建/移除，不覆盖已编辑文本），再纳入同步基准与落盘
     syncReportFocusLinks();
-    renderFocusList('this', 'thisFocusList', state.workPlan.thisWeek);
+    // 重绘策略与 renderPlan 对齐：若此刻用户正在计划页输入（或组字中），推迟重绘而非同步重建，
+    // 避免同步回来打断输入造成卡顿/光标跳动；其余情况直接重绘（保持 DOM 与 state 一致，savePlan 会从 DOM 回读）。
+    if (_imeComposing || (_planPageTyping() && (Date.now() - _lastPlanInputAt) < 1500)) {
+        _deferPlanRedraw();
+    } else {
+        renderFocusList('this', 'thisFocusList', state.workPlan.thisWeek);
+    }
     recordSyncBasis();
     saveData(true);
     return changes;
@@ -17335,7 +17434,9 @@ window._crm = {
     addReportCustomer,
     onReportNote,
     removeReportCustomer,
+    removeReportCustomerByKey,
     moveReportCustomer,
+    syncReportFocusLinks,
     autoResizeTextarea,
     // 备份提醒快捷操作
     quickBackupExport,
@@ -17358,7 +17459,7 @@ window._crm = {
     detectTrueConflicts,
     // 测试辅助：派生联动重算 + 触发一次完整 push/pull 同步（仅测试/调试用）
     syncReportFocusLinks,
-    syncNow: function () { return doSync(); },
+    syncNow: function (force) { return doSync(force); },
     getState: function () { return state; },
     getCurrentFilter: function () { return currentFilter; }
 };
