@@ -1904,12 +1904,16 @@ td.col-followup-content { position: relative; }
     padding: 10px 12px;
 }
 .report-item.starred { background: #fffdf5; border-color: #fcd34d; box-shadow: inset 3px 0 0 #f59e0b; }
-.report-item-head { display: flex; align-items: center; gap: 10px; width: 100%; }
+/* 整行可点（展开/收起操作行）。注意：不加 user-select:none —— 客户名属于内容文本，须保持可选中/复制（v1.1.29 全平台复制放开） */
+.report-item-head { display: flex; align-items: center; gap: 10px; width: 100%; cursor: pointer; }
 .report-name {
     flex: 1 1 auto; min-width: 0; font-size: 14px; font-weight: 600; color: var(--primary);
     cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.report-name:hover { text-decoration: underline; }
+.report-item-head:hover .report-name { text-decoration: underline; }
+/* 行尾小箭头：提示「点击整行可展开操作行」；展开后翻转 */
+.report-caret { flex: 0 0 auto; font-size: 10px; line-height: 1; color: var(--gray-400); transition: transform .18s ease; }
+.report-item.active .report-caret { transform: rotate(180deg); }
 .report-note-input {
     width: 100%; flex: 0 0 auto; box-sizing: border-box; font-size: 14px; font-weight: 500; line-height: 1.4;
     border: 1px solid var(--border); border-radius: 8px; background: #fff;
@@ -3737,10 +3741,6 @@ td.col-followup-content { position: relative; }
 .focus-item.active .action-row,
 .plan-item.active .action-row,
 .report-item.active .action-row { display: flex; }
-/* 近期汇报客户没有可聚焦的输入框，永远不会有 .active → 操作行常显，否则 上移/下移/删除/保存 永远看不到 */
-.report-item > .action-row { display: flex; }
-/* 本周重点「汇报派生项」：同样需要行内删除入口（用户要求），故其操作行常显，不依赖 textarea 聚焦产生的 .active */
-.focus-item[data-src="report"] > .action-row { display: flex; }
 .act-btn {
     flex: 1 1 auto; min-width: 56px; padding: 7px 10px; font-size: 12px; font-weight: 600;
     border-radius: 8px; cursor: pointer; border: 1px solid var(--border); background: #fff;
@@ -10603,6 +10603,37 @@ document.addEventListener('click', closeAllMoreMenus);
 
 // —— 近期汇报客户（手动维护清单，不参与「归档本周」） ——
 let reportFocusName = null; // 移动/删除后按客户名还原焦点（而非旧序号）
+// 汇报客户行的展开态：null=全部收起；否则记录当前展开项的 key（id||name）。
+// 用变量记住而非只加 class —— 重绘（上移/下移/同步）后仍能保持同一行展开，便于连续调整顺序。
+let reportActiveKey = null;
+// 点击整行（客户名/序号/空白）展开或收起该行的操作行；同时只允许展开一行
+function toggleReportItem(item) {
+    const box = document.getElementById('reportList');
+    const k = (item && item.dataset && item.dataset.key) || '';
+    if (!box || !k) return;
+    if (reportActiveKey === k) {
+        reportActiveKey = null;
+        item.classList.remove('active');
+    } else {
+        reportActiveKey = k;
+        box.querySelectorAll('.report-item').forEach(function (x) { x.classList.remove('active'); });
+        item.classList.add('active');
+    }
+}
+function collapseReportItems() {
+    if (reportActiveKey === null) return;
+    reportActiveKey = null;
+    const box = document.getElementById('reportList');
+    if (box) box.querySelectorAll('.report-item.active').forEach(function (x) { x.classList.remove('active'); });
+}
+// 点击汇报列表之外的区域：收起已展开的操作行（与「更多」下拉一致）
+document.addEventListener('click', function (e) {
+    const t = e && e.target;
+    // 目标已被点击处理函数重绘移除（如点「上移/下移」会重建列表）→ 这次点击属于列表内部操作，不做收起判定
+    if (t && t.isConnected === false) return;
+    if (t && t.closest && t.closest('#reportList .report-item')) return;
+    collapseReportItems();
+});
 function ensureReportList() {
     if (!Array.isArray(state.reportCustomers)) state.reportCustomers = [];
     if (!state.reportDeleted || typeof state.reportDeleted !== 'object') state.reportDeleted = {};
@@ -10695,12 +10726,17 @@ function renderReportCustomers() {
     box.innerHTML = list.map(function (rc, idx) {
         const upDisabled = idx === 0 ? 'disabled' : '';
         const downDisabled = idx === list.length - 1 ? 'disabled' : '';
-        return '<div class="report-item">' +
-            '<div class="report-item-head">' +
+        const key = ((rc.id || rc.name) || '').toString();
+        // 操作行默认隐藏，点整行才展开；展开态存于 reportActiveKey，重绘后保持（便于连续上移/下移）
+        const isOpen = !!key && key === reportActiveKey;
+        return '<div class="report-item' + (isOpen ? ' active' : '') + '" data-ridx="' + idx + '" data-key="' + escapeAttr(key) + '">' +
+            '<div class="report-item-head" title="点击展开操作">' +
                 '<span class="report-seq" data-ridx="' + idx + '">' + (idx + 1) + '</span>' +
-                '<div class="report-name" data-name="' + escapeAttr(rc.name) + '" onclick="window._crm.openCustomerDetailByName(\'' + escapeAttr(rc.name) + '\')">' + escapeHtml(rc.name) + '</div>' +
+                '<div class="report-name" data-name="' + escapeAttr(rc.name) + '">' + escapeHtml(rc.name) + '</div>' +
+                '<span class="report-caret" aria-hidden="true">&#9660;</span>' +
             '</div>' +
             '<div class="action-row">' +
+                '<button type="button" class="act-btn report-detail" data-ridx="' + idx + '" title="查看客户详情">详情</button>' +
                 '<button type="button" class="act-btn report-up" data-ridx="' + idx + '" ' + upDisabled + ' title="上移">↑ 上移</button>' +
                 '<button type="button" class="act-btn report-down" data-ridx="' + idx + '" ' + downDisabled + ' title="下移">↓ 下移</button>' +
                 '<button type="button" class="act-btn danger report-del" data-ridx="' + idx + '" title="删除">删除</button>' +
@@ -10708,6 +10744,17 @@ function renderReportCustomers() {
             '</div>' +
         '</div>';
     }).join('');
+    // 点击整行（客户名/序号/空白）→ 展开/收起操作行（客户名不再直接跳详情，避免与展开手势冲突）
+    box.querySelectorAll('.report-item').forEach(function (item) {
+        const head = item.querySelector('.report-item-head');
+        if (head) head.addEventListener('click', function () { toggleReportItem(item); });
+    });
+    box.querySelectorAll('.report-detail').forEach(function (el) {
+        el.addEventListener('click', function () {
+            const rc = ensureReportList()[parseInt(el.dataset.ridx, 10)];
+            if (rc && rc.name && typeof openCustomerDetailByName === 'function') openCustomerDetailByName(rc.name);
+        });
+    });
     box.querySelectorAll('.report-up').forEach(function (el) { el.addEventListener('click', function () { moveReportCustomer(parseInt(el.dataset.ridx, 10), -1); }); });
     box.querySelectorAll('.report-down').forEach(function (el) { el.addEventListener('click', function () { moveReportCustomer(parseInt(el.dataset.ridx, 10), 1); }); });
     box.querySelectorAll('.report-del').forEach(function (el) { el.addEventListener('click', function () { removeReportCustomer(parseInt(el.dataset.ridx, 10)); }); });
@@ -10721,6 +10768,7 @@ function moveReportCustomer(idx, dir) {
     list[idx] = list[target];
     list[target] = tmp;
     reportFocusName = (list[target] && list[target].name) || null; // 移动后焦点回到被移动项
+    reportActiveKey = (list[target] && (list[target].id || list[target].name)) || null; // 移动后保持该行展开，便于连续上移/下移
     renderReportCustomers();
     autoSavePlan();
     markReportOrderDirty();   // 顺序变更：打 reportOrderAt 时间戳，供对端按 LWW 采纳新顺序
@@ -10764,6 +10812,7 @@ function removeReportCustomerByKey(key) {
     list.splice(idx, 1);
     state.reportDeleted = state.reportDeleted || {};
     if (nm) state.reportDeleted[nm] = { ts: new Date().toISOString(), hash: delHash };
+    reportActiveKey = null; // 被删行已不存在，收起展开态
     renderReportCustomers();
     syncReportFocusLinks(); // 级联移除本周重点里的派生项（仅移除，不覆盖已编辑文本）
     renderFocusList('this', 'thisFocusList', state.workPlan.thisWeek);
@@ -10817,11 +10866,12 @@ function onReportSaveItem(e) {
     autoSavePlan();
     markReportDirty();
     showToast('已保存');
-    // 保存后收起下方第二行（action-row）：主动 blur 当前项输入框，移除 .active
+    // 保存后收起下方第二行（action-row）
     var btn = e && e.currentTarget;
     var item = btn && btn.closest && btn.closest('.report-item');
     var ta = item && item.querySelector('textarea');
     if (ta) ta.blur();
+    collapseReportItems();
 }
 
 // 标记「近期汇报客户」本地有改动：递增版本号并触发防抖自动同步。
