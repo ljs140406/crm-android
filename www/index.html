@@ -387,6 +387,17 @@ textarea { resize: vertical; }
 .dedup-row input { flex: 0 0 auto; }
 .dedup-row .dedup-meta { color: var(--text-secondary); font-size: 11px; }
 
+/* 本周重点「重复项」清理 */
+.cleanup-opt { display: block; margin: 8px 0; font-size: 13px; }
+.cleanup-opt input { margin-right: 6px; }
+.cleanup-hint { color: var(--text-secondary); font-size: 12px; line-height: 1.6; margin: 8px 0; }
+.cleanup-list { max-height: 240px; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; margin-top: 8px; }
+.cleanup-row { display: flex; align-items: baseline; gap: 6px; padding: 5px 0; font-size: 13px; border-bottom: 1px dashed var(--border); }
+.cleanup-row:last-child { border-bottom: none; }
+.cleanup-tag { flex: 0 0 auto; font-size: 11px; padding: 1px 6px; border-radius: 6px; background: #fee2e2; color: #b91c1c; }
+.cleanup-wk { flex: 0 0 auto; font-size: 11px; color: var(--text-secondary); }
+.cleanup-text { flex: 1 1 auto; word-break: break-all; }
+
 /* ==================== Search Overlay ==================== */
 .search-overlay {
     position: fixed;
@@ -3950,6 +3961,11 @@ td.col-followup-content { position: relative; }
                             <div class="settings-card-title" data-page-node-id="psEHF0wgOAI68ymIIMvEnr">客户去重合并</div>
                             <div class="settings-card-desc" data-page-node-id="BClmtgrm8MwkOB2OwzszQb">合并重复客户</div>
                         </div>
+                        <div class="settings-card" onclick="window._crm.closeSettingsCenter();window._crm.openFocusCleanup()">
+                            <div class="settings-card-icon" style="background:#FEE2E2;color:#B91C1C;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg></div>
+                            <div class="settings-card-title">清理重复重点项</div>
+                            <div class="settings-card-desc">本周重点去重 · 同步生效</div>
+                        </div>
                         <div class="settings-card settings-card-danger" onclick="window._crm.closeSettingsCenter();window._crm.resetData()" data-page-node-id="W9ZQyoU3AUOqdOQzVEATqQ">
                             <div class="settings-card-icon" style="background:#FEE2E2;color:#DC2626;" data-page-node-id="b6lDM1PBmHHhRq3IZKSoYx"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="kFilyhGmWzYXN3VmACojEX"><path d="M3 12a9 9 0 1 0 9-9" data-page-node-id="glXGX5SR77voYjrMWBciRm"/><polyline points="3 3 3 12 12 12" data-page-node-id="hxZWe3n4qxL1QhkwLbEqdG"/></svg></div>
                             <div class="settings-card-title" data-page-node-id="stzj1fwHGMEuM2F8joaXr1">重置演示数据</div>
@@ -5788,6 +5804,9 @@ function loadData() {
                 data = decodeStoredState(saved);
             }
             if (data) {
+            // 汇报客户删除墓碑：saveData 会写入、此前 loadData 未读取 → 每次启动墓碑被清空，
+            // 被删过的汇报客户可能在下次合并时复活、冲突判定口径也随之漂移。此处补齐读写对称。
+            state.reportDeleted = (data.reportDeleted && typeof data.reportDeleted === 'object') ? data.reportDeleted : {};
             state.customers = data.customers || [];
             state.followups = data.followups || [];
             state.todos = Array.isArray(data.todos) ? data.todos : [];
@@ -5817,7 +5836,8 @@ function loadData() {
             if (backup) {
                 try {
                     const data = decodeStoredState(backup);
-                    state.customers = data.customers || [];
+                state.reportDeleted = (data.reportDeleted && typeof data.reportDeleted === 'object') ? data.reportDeleted : {};
+                state.customers = data.customers || [];
                     state.followups = data.followups || [];
                     state.todos = Array.isArray(data.todos) ? data.todos : [];
                     state.workPlan = data.workPlan || { thisWeek: {}, nextWeek: {} };
@@ -5852,6 +5872,7 @@ function loadData() {
         if (backup) {
             try {
                 const data = decodeStoredState(backup);
+            state.reportDeleted = (data.reportDeleted && typeof data.reportDeleted === 'object') ? data.reportDeleted : {};
             state.customers = data.customers || [];
             state.followups = data.followups || [];
             state.todos = Array.isArray(data.todos) ? data.todos : [];
@@ -10517,7 +10538,11 @@ function onFocusDone(e) {
 function onFocusAdd(e) {
     const period = e.currentTarget.dataset.period;
     const arr = ensureFocusList(period);
-    arr.push({ id: '', text: '', completed: false, src: 'manual' });
+    // ⚠️ 必须给「稳定唯一 id」！旧实现传 id:'' → 镜像时按下标生成 fc_this_<idx>，
+    // 而汇报客户派生项会被 syncReportFocusLinks 固定插到列表顶部 → 手动项下标整体位移 → id 被重新编号；
+    // 对端仍持旧 id → 并集合并把新旧两代都留下 → 同一内容越同步越多（2026-09-13 实测 50 条里 24 条冗余重复）。
+    const _fcWeek = (period === 'next') ? 'next' : 'this';
+    arr.push({ id: _entId('fc_' + _fcWeek), text: '', completed: false, src: 'manual' });
     renderFocusList(period, period === 'this' ? 'thisFocusList' : 'nextFocusList', state.workPlan[period === 'this' ? 'thisWeek' : 'nextWeek']);
     autoSavePlan();
     const container = document.getElementById(period === 'this' ? 'thisFocusList' : 'nextFocusList');
@@ -10543,7 +10568,16 @@ function focusRemove(period, idx) {
     const cid = it ? (it.customerId || '') : '';
     const preview = ((it && it.text) || '').trim().substring(0, 20) || '这条重点';
     showConfirm('确定删除「' + preview + '」吗？删除后无法恢复。', function () {
+        const delId = String((it && it.id) || '');
         arr.splice(idx, 1);
+        // ⚠️ 墓碑：手动重点项删除必须留墓碑，否则对端 unionMerge 会按「仅本地有 → 保留」把它并回来
+        // （表现：删掉的重点项过一会儿自己又出现）。派生项（src==='report'）不在此打墓碑——它们的生命周期
+        // 由 syncReportFocusLinks 按汇报名单管理，打墓碑会导致客户「删了又加回来」时派生项无法重建。
+        if (delId && !isReportItem) {
+            state._tombstones = state._tombstones || {};
+            if (!state._tombstones.focusItems) state._tombstones.focusItems = {};
+            state._tombstones.focusItems[delId] = new Date().toISOString();
+        }
         renderFocusList(period, period === 'this' ? 'thisFocusList' : 'nextFocusList', state.workPlan[period === 'this' ? 'thisWeek' : 'nextWeek']);
         autoSavePlan();
         // 单一真值：在「本周重点」删除派生（汇报）项，同时从「近期汇报客户」移除该客户，双端级联
@@ -12220,6 +12254,136 @@ function openDedupModal() {
     });
 }
 
+// ==================== 本周重点「重复项」清理 ====================
+// 背景（2026-09-13 用真实数据定位）：手动重点项过去没有稳定 id —— 新增时 id 为空，镜像时按下标生成
+// fc_this_<idx>；而汇报客户派生项会被 syncReportFocusLinks 固定插到列表顶部 → 手动项下标整体位移 →
+// id 被重新编号；对端仍持旧 id → 并集合并把新旧两代都留下 → 同一内容越同步越多
+// （实测：50 条本周重点里 24 条是冗余重复，其中 18 条是「客户名副本」）。
+// 本工具做「内容驱动、确定性」的一次性清理：双端对同一份数据算出完全相同的删除集合，因此能收敛。
+// 被删项统一写 focusItems 墓碑，防止对端下一次同步又把它并回来（否则「删了又长出来」）。
+// 只处理手动项（src !== 'report'）：派生项的生命周期由 syncReportFocusLinks 按汇报名单管理，不在此清理。
+// 空白文本项一律保留（可能是用户刚点「添加一项重点」还没来得及输入）。
+function collectFocusDuplicates() {
+    const res = { remove: [], nameCopies: 0, sameText: 0, total: 0 };
+    const repNames = {};
+    (state.reportCustomers || []).forEach(function (r) { const nm = (r && (r.name || '')).trim(); if (nm) repNames[nm] = true; });
+    ['thisWeek', 'nextWeek'].forEach(function (wk) {
+        const list = (state.workPlan && state.workPlan[wk] && Array.isArray(state.workPlan[wk].focusList)) ? state.workPlan[wk].focusList : [];
+        // 已存在派生项的客户 key 集合（派生项 id 形如 reportfocus:<客户id||客户名>）
+        const derivedKeys = {};
+        list.forEach(function (it) {
+            if (it && it.src === 'report') {
+                const k = (it.customerId || '').toString();
+                if (k) derivedKeys[k] = true;
+                const fromId = String(it.id || '').replace(/^reportfocus:/, '');
+                if (fromId) derivedKeys[fromId] = true;
+            }
+        });
+        const seen = {};
+        list.forEach(function (it) {
+            if (!it || it.src === 'report') return;
+            const txt = (it.text || '').trim();
+            if (!txt) return; // 空白项保留
+            const id = String(it.id || '');
+            // ① 客户名副本：文本恰好是某汇报客户的名字，且该客户已有派生项（名字已由「汇报」胶囊展示）
+            if (repNames[txt]) {
+                const rc = (state.reportCustomers || []).find(function (r) { return r && (r.name || '').trim() === txt; });
+                const key = rc ? String(rc.id || rc.name) : '';
+                if (derivedKeys[txt] || (key && derivedKeys[key])) {
+                    res.remove.push({ week: wk, id: id, text: txt, reason: 'name' });
+                    res.nameCopies++;
+                    return;
+                }
+            }
+            // ② 完全同文重复：文本 + 完成态 + 关注态 全同 → 只保留第一条
+            const fp = (it.completed ? '1' : '0') + '|' + (it.starred ? '1' : '0') + '|' + txt;
+            if (seen[fp]) { res.remove.push({ week: wk, id: id, text: txt, reason: 'dup' }); res.sameText++; return; }
+            seen[fp] = true;
+        });
+    });
+    res.total = res.remove.length;
+    return res;
+}
+function openFocusCleanup() {
+    const plan = collectFocusDuplicates();
+    const wkLabel = { thisWeek: '本周重点', nextWeek: '下周重点' };
+    if (!plan.total) {
+        openDynModal({
+            title: '清理重复的重点项',
+            bodyHtml: '<p class="cleanup-hint">没有发现重复的重点项，本周重点很干净。</p>',
+            footerHtml: '<button class="btn btn-secondary" id="fcCleanupCancel">关闭</button>',
+            onMount: function (root) { root.querySelector('#fcCleanupCancel').onclick = () => closeDynModal(); }
+        });
+        return;
+    }
+    const body =
+        '<p>共发现 <b>' + plan.total + '</b> 条冗余：客户名副本 ' + plan.nameCopies + ' 条、完全同文重复 ' + plan.sameText + ' 条。</p>' +
+        '<label class="cleanup-opt"><input type="checkbox" id="fcCleanName" checked> 清理「客户名副本」（' + plan.nameCopies + ' 条）</label>' +
+        '<label class="cleanup-opt"><input type="checkbox" id="fcCleanDup" checked> 清理「完全同文重复」（' + plan.sameText + ' 条）</label>' +
+        '<div class="cleanup-hint">客户名已由派生项旁的「汇报」胶囊展示，不必再单独占一行。清理会写入删除标记并同步到云端和其他设备，无法撤销。</div>' +
+        '<div class="cleanup-list">' + plan.remove.map(function (r) {
+            return '<div class="cleanup-row"><span class="cleanup-tag">' + (r.reason === 'name' ? '名字副本' : '重复') + '</span>' +
+                '<span class="cleanup-wk">' + wkLabel[r.week] + '</span>' +
+                '<span class="cleanup-text">' + escapeHtml(r.text) + '</span></div>';
+        }).join('') + '</div>';
+    openDynModal({
+        title: '清理重复的重点项',
+        bodyHtml: body,
+        footerHtml: '<button class="btn btn-secondary" id="fcCleanupCancel">取消</button><button class="btn btn-danger" id="fcCleanupOk">清理并同步</button>',
+        onMount: function (root) {
+            root.querySelector('#fcCleanupCancel').onclick = () => closeDynModal();
+            root.querySelector('#fcCleanupOk').onclick = () => applyFocusCleanup();
+        }
+    });
+}
+function applyFocusCleanup() {
+    const plan = collectFocusDuplicates();
+    const elName = document.getElementById('fcCleanName');
+    const elDup = document.getElementById('fcCleanDup');
+    const wantName = elName ? !!elName.checked : true;
+    const wantDup = elDup ? !!elDup.checked : true;
+    const kills = plan.remove.filter(function (r) {
+        return (r.reason === 'name' && wantName) || (r.reason === 'dup' && wantDup);
+    });
+    if (!kills.length) { showToast('没有勾选任何要清理的内容'); return; }
+    const nowIso = new Date().toISOString();
+    const killSet = {};
+    let skipped = 0;
+    state._tombstones = state._tombstones || {};
+    if (!state._tombstones.focusItems) state._tombstones.focusItems = {};
+    kills.forEach(function (r) {
+        if (!r.id) { skipped++; return; } // 无 id 的历史项无法写墓碑，跳过（不会误删对端副本）
+        killSet[r.week + '::' + r.id] = true;
+        state._tombstones.focusItems[r.id] = nowIso;
+    });
+    let removed = 0;
+    ['thisWeek', 'nextWeek'].forEach(function (wk) {
+        const wko = state.workPlan && state.workPlan[wk];
+        if (!wko || !Array.isArray(wko.focusList)) return;
+        const before = wko.focusList.length;
+        wko.focusList = wko.focusList.filter(function (it) {
+            const id = String((it && it.id) || '');
+            if (!id) return true;
+            return !killSet[wk + '::' + id];
+        });
+        removed += (before - wko.focusList.length);
+    });
+    // 镜像到同步实体 → 记录变更（recordChange 会触发自动同步，把清理结果推上云）→ 落盘
+    _mirrorPlanEntities();
+    state.workPlan.updatedAt = nowIso;
+    state.workPlan._rev = (state.workPlan._rev || 0) + 1;
+    state.workPlan._deviceId = DEVICE_ID;
+    recordChange('update', 'plan', 'current', '工作计划', null);
+    saveData();
+    // 重绘（容器不存在时 renderFocusList 自行跳过，不会误伤内存数据）
+    renderFocusList('this', 'thisFocusList', state.workPlan.thisWeek);
+    renderFocusList('next', 'nextFocusList', state.workPlan.nextWeek);
+    if (typeof renderReportCustomers === 'function') renderReportCustomers();
+    closeDynModal();
+    logOperation('清理本周重点重复项 ' + removed + ' 条（客户名副本 / 同文重复）', 'info');
+    showToast('已清理 ' + removed + ' 条重复项，正在同步到其他设备' + (skipped ? '（' + skipped + ' 条无 id 已跳过）' : ''));
+}
+
 // ==================== 通用动态弹窗 ====================
 function openDynModal(opts) {
     const root = document.getElementById('dynModal');
@@ -12476,7 +12640,12 @@ function detectTrueConflicts(remote) {
             if (l && r) {
                 const bh = bMap[id];
                 const lh = _hashItem(name, l, CONFLICT_FIELDS), rh = _hashItem(name, r, CONFLICT_FIELDS);
-                if (bh && bh !== lh && bh !== rh) res.push(name + ':' + id);
+                // ⚠️ 必须再加「本地 ≠ 云端」（lh !== rh）：只判「两端都 ≠ 基准」是不够的——
+                // 一旦基准过期（升级后本地做了内容规范化、或对端先跑同一规范化并把结果推上云），
+                // 两端其实已经完全一致的记录会同时满足 bh!==lh 与 bh!==rh，被误报成冲突
+                // （2026-09-13 实测：v1.1.37 迁移把派生项文本清空后，一次同步误报 8 处冲突）。
+                // report 循环早有该守卫，其余 6 类此前遗漏。两端一致时无冲突可言，故该守卫只减误报、不漏真冲突。
+                if (bh && bh !== lh && bh !== rh && lh !== rh) res.push(name + ':' + id);
             }
         });
     });
@@ -12486,8 +12655,13 @@ function detectTrueConflicts(remote) {
     const bReport = basis.report || {};
     const lReport = _hashMapByName(state.reportCustomers || [], ['note', 'starred']);
     const rReport = _hashMapByName((remote.reportCustomers) || [], ['note', 'starred']);
-    const lDel = state.reportDeleted || {};
-    const rDel = remote.reportDeleted || {};
+    // ⚠️ 与合并层口径一致：先做「删完又加回来」的复活裁决。本端/对端残留的旧墓碑若已被「addedAt 更晚的重加记录」
+    // 击破，就不该再参与冲突判定；否则「删掉过、后来又加回来的同一个客户」会在另一端被判成冲突并弹窗。
+    // 这里传副本，避免污染 state.reportDeleted（只在 detect 阶段生效，真正的墓碑消除由 applyRemoteData 做）。
+    const lDel = Object.assign({}, state.reportDeleted || {});
+    const rDel = Object.assign({}, remote.reportDeleted || {});
+    _resurrectReportDeleted(lDel, state.reportCustomers, remote.reportCustomers);
+    _resurrectReportDeleted(rDel, state.reportCustomers, remote.reportCustomers);
     const _repNames = new Set([].concat(Object.keys(lReport), Object.keys(rReport), Object.keys(bReport)));
     _repNames.forEach(nm => {
         const lHas = lReport[nm] !== undefined;
@@ -15002,7 +15176,15 @@ function applyRemoteData(remoteData) {
         }
     }
     // 汇报客户 → 本周重点 派生联动：合并完 reportCustomers 后，按最新汇报名单重建本周重点里的派生项（仅新建/移除，不覆盖已编辑文本），再纳入同步基准与落盘
+    const _fiBeforeSync = JSON.stringify((state.focusItems || []).map(function (x) { return [x.id, x.text, x.completed, x.starred, x.src, x.customerId]; }).sort());
     syncReportFocusLinks();
+    // 派生联动本身也可能改动重点项（新建/移除派生项，或把旧数据里「文本 = 客户名」规范化清空）。
+    // 这类改动必须计入 changes，否则本次同步判为「数据一致，无需同步」→ 规范化结果留在本机、两端长期不一致。
+    // 比较用「按 id 排序后的内容指纹」而非整体 JSON：派生项置顶会改变数组顺序，但顺序变化不构成需要上传的改动。
+    const _fiAfterSync = JSON.stringify((state.focusItems || []).map(function (x) { return [x.id, x.text, x.completed, x.starred, x.src, x.customerId]; }).sort());
+    if (_fiBeforeSync !== _fiAfterSync && !changes.some(function (c) { return c.entity === 'focus'; })) {
+        changes.push({ id: 'focusItems', entity: 'focus', type: 'update', name: '重点客户', data: state.focusItems, prev: null });
+    }
     // 重绘策略与 renderPlan 对齐：若此刻用户正在计划页输入（或组字中），推迟重绘而非同步重建，
     // 避免同步回来打断输入造成卡顿/光标跳动；其余情况直接重绘（保持 DOM 与 state 一致，savePlan 会从 DOM 回读）。
     if (_imeComposing || (_planPageTyping() && (Date.now() - _lastPlanInputAt) < 1500)) {
@@ -17434,6 +17616,10 @@ window._crm = {
     openImportExportModal,
     closeImportExportModal,
     openDedupModal,
+    // 本周重点「重复项」清理（设置 → 清理重复重点项）
+    openFocusCleanup,
+    applyFocusCleanup,
+    collectFocusDuplicates,
     resetData,
     exportData,
     importData,
