@@ -5934,6 +5934,8 @@ function saveData(skipTimestamp) {
             showToast('保存失败：存储空间不足，请清理浏览器数据或导出备份');
         }
     }
+    // 本次已把 state（含 _operationLog）整体写好，撤销 logOperation 的延迟补写，避免重复压缩写盘
+    _clearOpLogDirty();
     // 存储占用预警（本地）
     try { checkStorageWarnings(); } catch(e) { /* 忽略预警异常 */ }
     if (!skipTimestamp) scheduleAutoSync();
@@ -6073,6 +6075,21 @@ function markChangesSynced(syncStartTime) {
     // 清理已同步超过 1 天的记录
     const cleanCutoff = Date.now() - 24 * 3600 * 1000;
     state._changeLog = state._changeLog.filter(c => !c.synced || new Date(c.timestamp).getTime() > cleanCutoff);
+    _slimChangeLogEntries();
+}
+// 变更日志瘦身：整表快照（数组 / 超大对象）对同步与展示都无用，一律替换为 null。
+// 背景：applyRemoteData 曾把整个 focusItems 数组当 data+prev 记进 _changeLog，每次同步追加一条 ≈19KB，
+// 累计后占满整个 state 的 70%（2026-09-14 实测 532KB / 70 条），把每次全量压缩的代价放大 3 倍。
+// 这里按「单条体积」兜底，同时把历史存量一次性瘦下来（loadData → cleanupChangeLog 时自动生效）。
+function _slimChangeLogEntries() {
+    if (!state._changeLog) return;
+    state._changeLog.forEach(function (c) {
+        if (!c) return;
+        try {
+            if (c.data != null && (Array.isArray(c.data) || JSON.stringify(c.data).length > 1024)) c.data = null;
+            if (c.prev != null && (Array.isArray(c.prev) || JSON.stringify(c.prev).length > 1024)) c.prev = null;
+        } catch (e) { c.data = null; c.prev = null; }
+    });
 }
 
 // 同步前清理已同步的过期记录
@@ -6080,6 +6097,7 @@ function cleanupChangeLog() {
     if (!state._changeLog) return;
     const cutoff = Date.now() - 24 * 3600 * 1000;
     state._changeLog = state._changeLog.filter(c => !c.synced || new Date(c.timestamp).getTime() > cutoff);
+    _slimChangeLogEntries();
 }
 
 function getStatusConfig(statusName) {
@@ -10168,6 +10186,21 @@ function _planPageTyping() {
     var a = document.activeElement;
     return !!(a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT'));
 }
+// 兜底落盘：降频落盘期间一旦「离开输入框 / 页面被隐藏 / 切后台」，立即把待保存内容写盘，
+// 保证降频不会造成内容丢失（配合 autoSavePlan 的 2.5s 节流）。
+document.addEventListener('focusout', function (e) {
+    var t = e.target;
+    if (t && t.classList && (t.classList.contains('focus-text') || t.classList.contains('plan-item-input'))) {
+        if (_imeComposing) return;      // 组字中不落盘（会打断输入法），由 compositionend 补做
+        try { flushPlanSave(); } catch (err) { }
+    }
+}, true);
+document.addEventListener('visibilitychange', function () {
+    if (document.hidden && !_imeComposing) { try { flushPlanSave(); } catch (err) { } }
+});
+window.addEventListener('pagehide', function () {
+    if (!_imeComposing) { try { flushPlanSave(); } catch (err) { } }
+});
 function _deferPlanRedraw() {
     if (_planRedrawTimer) clearTimeout(_planRedrawTimer);
     _planRedrawTimer = setTimeout(function () {
@@ -11309,9 +11342,28 @@ function renderLastWeekRelated() {
 }
 
 let _autoSaveTimer = null;
+let _lastPlanSaveAt = 0;
 function autoSavePlan() {
     if (_autoSaveTimer) clearTimeout(_autoSaveTimer);
-    _autoSaveTimer = setTimeout(function () { savePlan(true); }, 600);
+    // 打字中降频落盘：一次落盘 = 一次全量 gzip（实测单次 16~34ms，手机 3~5 倍），
+    // 旧实现停手 600ms 就落一次，连续输入时约每秒一次 → 主线程被反复阻塞（实测 10s 会话阻塞 8.7s）。
+    // 现改为：停手 900ms 后落盘；若仍在连续输入（计划页焦点在输入框）最多每 2.5s 落一次。
+    // 数据安全不变：onFocusInput 已把内容实时写进内存；且 blur / 页面隐藏 / 组字结束都会 flushPlanSave() 兜底，
+    // 最坏情况只丢「正在输入的最后一两个字符」，不会出现「内容不保存」。
+    _autoSaveTimer = setTimeout(function () {
+        _autoSaveTimer = null;
+        if (_planPageTyping() && (Date.now() - _lastPlanSaveAt) < 2500) {
+            autoSavePlan(); // 仍在连续输入 → 继续等待，避免高频全量压缩
+            return;
+        }
+        savePlan(true);
+    }, 900);
+}
+// 立即落盘（有未保存改动时才做，避免无谓的全量压缩）：blur / 页面隐藏 / 组字结束时调用
+function flushPlanSave() {
+    if (!_autoSaveTimer) return;   // 没有待落盘的改动
+    clearTimeout(_autoSaveTimer); _autoSaveTimer = null;
+    savePlan(true);
 }
 function savePlan(silent) {
     const wp = state.workPlan;
@@ -11338,6 +11390,7 @@ function savePlan(silent) {
     _mirrorPlanEntities(); // 保持 dailyPlans / focusItems 镜像与 workPlan 同步，供同步层逐条合并
     recordChange('update', 'plan', 'current', '工作计划', null);
     saveData();
+    _lastPlanSaveAt = Date.now();
     if (!silent) showToast('工作计划已保存');
 }
 
@@ -12871,13 +12924,33 @@ function logOperation(action, type, detail) {
     });
     // 保留最近 7 天
     trimOperationLog();
-    // 持久化（静默保存，不触发同步）
-    try {
-        CRMStore.setItem(STORAGE_KEY, gistEncode(state));
-    } catch(e) { /* 忽略存储错误 */ }
+    // 持久化：⚠️ 这里绝不能直接 gistEncode(state) 自己写盘！
+    // 旧实现 `CRMStore.setItem(STORAGE_KEY, gistEncode(state))` 只是记一条日志，
+    // 却把整个 state（实测 673KB）压缩一次再写盘；而 recordChange 每次都调本函数，
+    // 紧随其后的 savePlan → saveData() 又会压缩写盘一次 → 这一步 100% 是白干的。
+    // 实测：一轮「自动保存+同步」里 4 次全量压缩，本函数占 1 次（2026-09-14）。
+    // 现改为标脏 + 延迟合并写：若期间有正常的 saveData()（绝大多数调用路径都是），
+    // 由它顺带落盘（saveData 里会清掉脏标记并取消本定时器），否则 1.5s 后补一次静默保存。
+    _markOpLogDirty();
     // 如果同步弹窗打开，实时刷新
     const logEl = document.getElementById('operationLog');
     if (logEl) renderOperationLog();
+}
+// 操作日志的「延迟合并落盘」：避免每条日志都触发一次全量压缩写盘
+var _opLogPersistTimer = null, _opLogDirty = false;
+function _markOpLogDirty() {
+    _opLogDirty = true;
+    if (_opLogPersistTimer) clearTimeout(_opLogPersistTimer);
+    _opLogPersistTimer = setTimeout(function () {
+        _opLogPersistTimer = null;
+        if (!_opLogDirty) return;
+        _opLogDirty = false;
+        try { saveData(true); } catch (e) { /* 忽略存储错误 */ }
+    }, 1500);
+}
+function _clearOpLogDirty() {
+    _opLogDirty = false;
+    if (_opLogPersistTimer) { clearTimeout(_opLogPersistTimer); _opLogPersistTimer = null; }
 }
 
 function renderOperationLog() {
@@ -14843,23 +14916,29 @@ function applyRemoteData(remoteData) {
         });
     });
     // 状态 / 计划 / 历史等差异
+    // ⚠️ 整表条目（statuses / workPlan / reportCustomers / dailyPlans / focusItems）**不要**把整份数组
+    // 塞进 data/prev！这些条目随后会被 `changes.forEach` 追加进 state._changeLog，而 _changeLog 会
+    // 随 state 一起压缩上传；focus 条目一份 data(≈9.7KB) + prev(≈9.6KB) ≈ 19KB，且**每次同步都追加一条**，
+    // 累计后 _changeLog 占满整个 state 的 70%（2026-09-14 实测 532KB/70 条），把每次压缩的代价凭空放大 3 倍。
+    // 这些条目只用于「是否有变化 → 触发重绘」与日志文案（formatChangeDetail 仅用 type/entity/name，
+    // data/prev 为 null 时自动降级为「修改计划「XX」」，无功能损失），故只保留条目标识即可。
     if (JSON.stringify(remoteStatuses || []) !== JSON.stringify(state.statuses || [])) {
-        changes.push({ id: 'statuses', entity: 'status', type: 'update', name: '状态列表', data: remoteStatuses, prev: state.statuses });
+        changes.push({ id: 'statuses', entity: 'status', type: 'update', name: '状态列表', data: null, prev: null });
     }
     if (JSON.stringify(remoteWorkPlan) !== JSON.stringify(state.workPlan)) {
-        changes.push({ id: 'workPlan', entity: 'plan', type: 'update', name: '工作计划', data: remoteWorkPlan, prev: state.workPlan });
+        changes.push({ id: 'workPlan', entity: 'plan', type: 'update', name: '工作计划', data: null, prev: null });
     }
     // 近期汇报客户：差异也要计入 changes，否则 doAutoSync 不会 refreshCurrentPage，
     // 导致手机端打标关注后电脑端拉到数据却不重绘、星标不显示（看起来像没同步）
     if (JSON.stringify(remoteData.reportCustomers || []) !== JSON.stringify(state.reportCustomers || [])) {
-        changes.push({ id: 'reportCustomers', entity: 'report', type: 'update', name: '近期汇报客户', data: remoteData.reportCustomers, prev: state.reportCustomers });
+        changes.push({ id: 'reportCustomers', entity: 'report', type: 'update', name: '近期汇报客户', data: null, prev: null });
     }
     // 每日计划 / 重点客户：差异计入 changes（同汇报客户，确保拉取后计划页重绘）
     if (JSON.stringify(remoteData.dailyPlans || []) !== JSON.stringify(state.dailyPlans || [])) {
-        changes.push({ id: 'dailyPlans', entity: 'dailyPlan', type: 'update', name: '每日计划', data: remoteData.dailyPlans, prev: state.dailyPlans });
+        changes.push({ id: 'dailyPlans', entity: 'dailyPlan', type: 'update', name: '每日计划', data: null, prev: null });
     }
     if (JSON.stringify(remoteData.focusItems || []) !== JSON.stringify(state.focusItems || [])) {
-        changes.push({ id: 'focusItems', entity: 'focus', type: 'update', name: '重点客户', data: remoteData.focusItems, prev: state.focusItems });
+        changes.push({ id: 'focusItems', entity: 'focus', type: 'update', name: '重点客户', data: null, prev: null });
     }
 
     // 写回本地 —— Union Merge（并集合并），防止任何一端的数据丢失
@@ -15183,7 +15262,7 @@ function applyRemoteData(remoteData) {
     // 比较用「按 id 排序后的内容指纹」而非整体 JSON：派生项置顶会改变数组顺序，但顺序变化不构成需要上传的改动。
     const _fiAfterSync = JSON.stringify((state.focusItems || []).map(function (x) { return [x.id, x.text, x.completed, x.starred, x.src, x.customerId]; }).sort());
     if (_fiBeforeSync !== _fiAfterSync && !changes.some(function (c) { return c.entity === 'focus'; })) {
-        changes.push({ id: 'focusItems', entity: 'focus', type: 'update', name: '重点客户', data: state.focusItems, prev: null });
+        changes.push({ id: 'focusItems', entity: 'focus', type: 'update', name: '重点客户', data: null, prev: null });
     }
     // 重绘策略与 renderPlan 对齐：若此刻用户正在计划页输入（或组字中），推迟重绘而非同步重建，
     // 避免同步回来打断输入造成卡顿/光标跳动；其余情况直接重绘（保持 DOM 与 state 一致，savePlan 会从 DOM 回读）。
@@ -15252,6 +15331,10 @@ async function doAutoSync() {
     if (_syncInFlight) return; // 手动同步进行中，自动同步让路
     if (!syncReady()) return;
     if (pendingConflict) return; // 冲突弹窗开着：暂停自动同步，避免重复弹窗/清空用户已选
+    // 计划页正在输入：推迟本轮自动同步。同步会走 fetch → applyRemoteData → 整页重绘，
+    // 且上传/落盘各要一次全量压缩（实测 4 次/轮，单次 16~34ms），是打字卡顿的主要来源。
+    // 只在「1.5s 内确实敲过键」时推迟，停手后 5s 轮询会自然补做，不会永久饿死同步。
+    if (_planPageTyping() && (Date.now() - _lastPlanInputAt) < 1500) return;
 
     isAutoSyncing = true;
     _syncInFlight = true;
