@@ -10179,7 +10179,7 @@ document.addEventListener('compositionend', function (e) {
 // ===== 打字中推迟整页重绘（提升跟手度）=====
 // 同步回来会调 renderPlan() 整页重绘；若此时用户正在计划页输入框里打字，
 // 重建输入框会造成光标跳动/输入不跟手。这里推迟到停手 1.5s 后再补做。
-var _lastPlanInputAt = 0, _planRedrawTimer = null;
+var _lastPlanInputAt = 0, _planRedrawTimer = null, _autoSyncRetryTimer = null;
 function _markPlanTyping() { _lastPlanInputAt = Date.now(); }
 function _planPageTyping() {
     if (typeof currentPage !== 'undefined' && currentPage !== 'plan') return false;
@@ -10588,11 +10588,39 @@ function onFocusAdd(e) {
 }
 
 // —— 「更多」下拉菜单（重点 / 汇报客户共用）：保存 + 更多(完成/删除 或 排序/删除) ——
+// 结束行内输入态：把正在编辑的输入框失焦（移动端会一并收起软键盘）。
+// 用于「标记已完成」这类"一次点击 = 整步完成"的动作：点完即退出编辑态，不再让用户额外点一下空白处收键盘。
+function _blurEditingField() {
+    const el = document.activeElement;
+    if (!el) return;
+    if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') { try { el.blur(); } catch (e) {} }
+}
+// 重排（已完成沉底）期间的滚动位置保护：避免浏览器 scroll anchoring 把视口带到换了位置的那一条上
+function _captureScrollY() {
+    if (window.pageYOffset != null) return window.pageYOffset;
+    return document.documentElement.scrollTop || document.body.scrollTop || 0;
+}
+function _restoreScrollY(y) {
+    if (y == null) return;
+    try {
+        window.scrollTo(window.pageXOffset || 0, y);
+        if (window.requestAnimationFrame) window.requestAnimationFrame(function () { try { window.scrollTo(window.pageXOffset || 0, y); } catch (e) {} });
+    } catch (e) {}
+}
 function focusSetDone(period, idx) {
     const arr = ensureFocusList(period);
-    if (arr && arr[idx]) arr[idx].completed = !arr[idx].completed;
+    if (!arr || !arr[idx]) return;
+    // 用户诉求（2026-09-14）：点「标记已完成」= 整步完成，不要让我再手动点一下、页面也不要跳。
+    // 旧行为：① 操作按钮的 mousedown 被 preventDefault → 输入框不失焦、软键盘不收，仍停在编辑态；
+    //        ② 紧接着 renderFocusList 检测到活动元素还是该 textarea → 重绘后 ta.focus() 还原焦点，
+    //           而此项已按"已完成沉底"换了位置，浏览器随即把视口滚到它身上（表现为页面跳到已完成的地方）。
+    // 现在：先主动失焦退出编辑态，再切换完成状态（排序规则不变，仍沉底），最后把滚动位置复原。
+    _blurEditingField();
+    const _sy = _captureScrollY();
+    arr[idx].completed = !arr[idx].completed;
     renderFocusList(period, period === 'this' ? 'thisFocusList' : 'nextFocusList', state.workPlan[period === 'this' ? 'thisWeek' : 'nextWeek']);
     autoSavePlan();
+    _restoreScrollY(_sy);
 }
 function focusRemove(period, idx) {
     const arr = ensureFocusList(period);
@@ -15333,8 +15361,17 @@ async function doAutoSync() {
     if (pendingConflict) return; // 冲突弹窗开着：暂停自动同步，避免重复弹窗/清空用户已选
     // 计划页正在输入：推迟本轮自动同步。同步会走 fetch → applyRemoteData → 整页重绘，
     // 且上传/落盘各要一次全量压缩（实测 4 次/轮，单次 16~34ms），是打字卡顿的主要来源。
-    // 只在「1.5s 内确实敲过键」时推迟，停手后 5s 轮询会自然补做，不会永久饿死同步。
-    if (_planPageTyping() && (Date.now() - _lastPlanInputAt) < 1500) return;
+    // ⚠️ 只「推迟」不「丢弃」：必须排一个停手后即补的重试。早期实现直接 return 只靠 5s 轮询补做，
+    //    连续输入时每轮轮询前 1.5s 内都有键击 → 自动同步会被无限期饿死（实测：一次编辑后 6.5s 的
+    //    自动同步被丢弃，直到 10s 轮询才补上，期间对端拉取扑空）。
+    if (_planPageTyping() && (Date.now() - _lastPlanInputAt) < 1500) {
+        if (_autoSyncRetryTimer) clearTimeout(_autoSyncRetryTimer);
+        _autoSyncRetryTimer = setTimeout(function () {
+            _autoSyncRetryTimer = null;
+            doAutoSync();
+        }, 1600);
+        return;
+    }
 
     isAutoSyncing = true;
     _syncInFlight = true;
