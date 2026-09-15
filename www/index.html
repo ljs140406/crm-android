@@ -1831,9 +1831,9 @@ td.col-followup-content { position: relative; }
 .focus-list { display: flex; flex-direction: column; gap: 12px; }
 .focus-item {
     display: flex; flex-direction: column; gap: 10px;
-    background: var(--gray-50); border: 1px solid var(--border); border-radius: 12px;
-    padding: 10px 12px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    background: #fff; border: 1px solid #E8E8E8; border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.03);
 }
 .focus-item.focus-done { opacity: 0.7; background: var(--gray-100); }
 .focus-item.focus-starred { background: #fffdf5; border-color: #fcd34d; box-shadow: inset 3px 0 0 #f59e0b, 0 1px 4px rgba(0,0,0,0.04); }
@@ -1846,38 +1846,38 @@ td.col-followup-content { position: relative; }
 }
 .focus-index {
     flex: 0 0 auto;
-    min-width: 32px; height: 32px; line-height: 32px; border-radius: 50%;
-    text-align: center; font-size: 14px; font-weight: 700;
+    min-width: 28px; height: 28px; line-height: 28px; border-radius: 999px;
+    text-align: center; font-size: 13px; font-weight: 700;
     background: var(--primary); color: #fff;
     cursor: pointer; user-select: none; -webkit-user-select: none;
-    border: none; padding: 0 4px; box-sizing: border-box;
+    border: none; padding: 0 8px; box-sizing: border-box;
 }
 .focus-index.starred { background: #f59e0b; color: #fff; box-shadow: 0 0 0 2px #fcd34d; }
 .focus-index:active { transform: scale(0.92); }
 /* 序号与圆标同行；窄屏（手机）宽度不够时自动换行——标签行在上、编辑框独占下一行并铺满，
    避免「序号 + 汇报徽标 + 客户名」把编辑框挤成一条只能竖排的窄缝（2026-09-15 安卓端反馈） */
-.focus-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 12px; }
+.focus-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 /* 本周重点里由「近期汇报客户」自动派生的条目：小徽标提示来源 */
-.report-badge { flex: 0 0 auto; align-self: center; font-size: 11px; font-weight: 600; line-height: 1; color: #185FA5; background: #E6F1FB; border: 1px solid #B5D4F4; border-radius: 999px; padding: 3px 8px; }
+.report-badge { flex: 0 0 auto; display: inline-flex; align-items: center; height: 28px; font-size: 12px; font-weight: 600; line-height: 1; color: #185FA5; background: #E6F1FB; border: none; border-radius: 999px; padding: 0 11px; }
 /* 派生项里的「客户名」小胶囊：只读展示来源客户（点击看客户详情），编辑框专用于填写自己的内容 */
 .focus-item .report-pill {
-    flex: 0 0 auto; align-self: center; max-width: 48%;
+    flex: 0 0 auto; display: inline-flex; align-items: center; height: 28px; max-width: 48%;
     font-size: 12px; font-weight: 600; line-height: 1;
-    color: var(--primary); background: var(--primary-bg); border: 1px solid var(--primary);
-    border-radius: 999px; padding: 6px 10px; margin-right: 2px;
+    color: var(--primary); background: var(--primary-bg); border: none;
+    border-radius: 999px; padding: 0 11px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;
 }
 .focus-item .report-pill:hover { background: #fff; }
 /* 已完成项：序号恢复灰色、不显示 ★（即使已关注也不体现关注效果） */
 .focus-item.focus-done .focus-index { background: var(--gray-300); color: #fff; box-shadow: none; }
 .focus-item .focus-text {
-    /* flex-basis 200px：窄屏带徽标/客户名时放不下 → 自动换到下一行并铺满整行，文字正常横排 */
     flex: 1 1 200px; min-width: 0; min-height: 32px; resize: vertical;
-    border: 1px solid transparent; border-radius: 8px; background: transparent;
-    padding: 6px 8px; font-size: 14px; line-height: 1.6; color: var(--text);
+    border: 1px solid #EEE; border-radius: 8px; background: #FAFAFA;
+    padding: 9px 11px; font-size: 14px; line-height: 1.6; color: var(--text);
 }
-.focus-item .focus-text:hover { background: var(--gray-50); }
+.focus-item .focus-text:hover { background: #F5F5F5; }
 .focus-item .focus-text:focus { background: #fff; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-bg); }
+.focus-item .focus-text:placeholder-shown { border-style: dashed; border-color: #CCC; }
 .focus-toolbar {
     flex: 0 0 auto; display: flex; flex-direction: row; align-items: center; gap: 4px;
 }
