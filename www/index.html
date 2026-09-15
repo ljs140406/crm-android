@@ -1831,9 +1831,16 @@ td.col-followup-content { position: relative; }
 .focus-list { display: flex; flex-direction: column; gap: 12px; }
 .focus-item {
     display: flex; flex-direction: column; gap: 10px;
-    background: #fff; border: 1px solid #E8E8E8; border-radius: 12px;
-    padding: 12px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+    background: var(--gray-50); border: 1px solid var(--border); border-radius: 12px;
+    padding: 10px 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+/* 窄屏（手机/小窗口）：白底卡片 + 内容区独立底色，视觉更精致 */
+@media (max-width: 768px) {
+    .focus-item {
+        background: #fff; border: 1px solid #E8E8E8; padding: 12px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+    }
 }
 .focus-item.focus-done { opacity: 0.7; background: var(--gray-100); }
 .focus-item.focus-starred { background: #fffdf5; border-color: #fcd34d; box-shadow: inset 3px 0 0 #f59e0b, 0 1px 4px rgba(0,0,0,0.04); }
@@ -1872,12 +1879,20 @@ td.col-followup-content { position: relative; }
 .focus-item.focus-done .focus-index { background: var(--gray-300); color: #fff; box-shadow: none; }
 .focus-item .focus-text {
     flex: 1 1 200px; min-width: 0; min-height: 32px; resize: vertical;
-    border: 1px solid #EEE; border-radius: 8px; background: #FAFAFA;
-    padding: 9px 11px; font-size: 14px; line-height: 1.6; color: var(--text);
+    border: 1px solid transparent; border-radius: 8px; background: transparent;
+    padding: 6px 8px; font-size: 14px; line-height: 1.6; color: var(--text);
 }
-.focus-item .focus-text:hover { background: #F5F5F5; }
+.focus-item .focus-text:hover { background: var(--gray-50); }
 .focus-item .focus-text:focus { background: #fff; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-bg); }
-.focus-item .focus-text:placeholder-shown { border-style: dashed; border-color: #CCC; }
+/* 窄屏（手机/小窗口）：内容区独立底色+边框，与卡片背景区分 */
+@media (max-width: 768px) {
+    .focus-item .focus-text {
+        border: 1px solid #EEE; border-radius: 8px; background: #FAFAFA;
+        padding: 9px 11px;
+    }
+    .focus-item .focus-text:hover { background: #F5F5F5; }
+    .focus-item .focus-text:placeholder-shown { border-style: dashed; border-color: #CCC; }
+}
 .focus-toolbar {
     flex: 0 0 auto; display: flex; flex-direction: row; align-items: center; gap: 4px;
 }
