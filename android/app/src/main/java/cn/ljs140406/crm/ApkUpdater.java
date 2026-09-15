@@ -99,6 +99,9 @@ public class ApkUpdater extends Plugin {
                 req.setDestinationInExternalFilesDir(getContext(), Environment.DIRECTORY_DOWNLOADS, fileName);
             }
 
+            // 下载新版本前，清掉此前所有 crm-android-*.apk，避免「下载」目录每次更新都堆积旧安装包
+            purgeOldApks();
+
             downloadId = dm().enqueue(req);
 
             registerCompleteReceiver();
@@ -355,6 +358,36 @@ public class ApkUpdater extends Plugin {
         if (completeReceiver != null) {
             try { getContext().unregisterReceiver(completeReceiver); } catch (Exception ignored) {}
             completeReceiver = null;
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // 下载前清理：删掉 DownloadManager 里本应用此前下载的所有 crm-android-*.apk
+    //  · 通过 DownloadManager.remove() 删除——它对公共 Downloads（Android 10+ 作用域存储）
+    //    与应用私有目录都能正确清理，且无需任何存储权限或用户确认。
+    //  · 这样「下载」目录就不会每次更新都堆积一个安装包；旧 APK 由本机记录管理，
+    //    不会误删用户手动下载的、标题不匹配的其它文件。
+    // ------------------------------------------------------------------
+    private void purgeOldApks() {
+        Cursor c = null;
+        try {
+            DownloadManager dm = dm();
+            c = dm.query(new DownloadManager.Query());
+            if (c == null) return;
+            int idIdx = c.getColumnIndexOrThrow(DownloadManager.COLUMN_ID);
+            int titleIdx = c.getColumnIndexOrThrow(DownloadManager.COLUMN_TITLE);
+            while (c.moveToNext()) {
+                String title = c.getString(titleIdx);
+                if (title != null && title.startsWith("crm-android-") && title.endsWith(".apk")) {
+                    dm.remove(c.getLong(idIdx));
+                }
+            }
+        } catch (Exception ignored) {
+            // 清理失败不影响本次下载
+        } finally {
+            if (c != null) {
+                try { c.close(); } catch (Exception ignored) {}
+            }
         }
     }
 }
