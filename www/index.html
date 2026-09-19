@@ -10367,6 +10367,15 @@ function renderPlanDay(period, day, items) {
     if (!container) return;
     // 组字中：跳过本次重建（延后到 compositionend 补做），避免打断中文输入
     if (imeSkipRedraw('day:' + period + ':' + day, container)) return;
+    // 重绘前：记录正在编辑的 textarea（同步轮询/自动保存触发的重建不能打断输入、丢失焦点与光标）
+    const _focusTa = document.activeElement;
+    let _fPeriod = null, _fDay = null, _fIdx = -1, _fStart = -1, _fEnd = -1;
+    if (_focusTa && _focusTa.classList && _focusTa.classList.contains('plan-item-input') && container.contains(_focusTa)) {
+        _fPeriod = _focusTa.dataset.period;
+        _fDay = _focusTa.dataset.day;
+        _fIdx = parseInt(_focusTa.dataset.idx, 10);
+        if (Number.isFinite(_fIdx)) { try { _fStart = _focusTa.selectionStart; _fEnd = _focusTa.selectionEnd; } catch (e) {} }
+    }
     const html = (items || []).map(function (it, idx) {
         const hasCust = !!(it.customer || it.customerId);
         const custName = it.customer || it.customerId || '';
@@ -10397,6 +10406,17 @@ function renderPlanDay(period, day, items) {
     container.querySelectorAll('.plan-item-del').forEach(function (el) { el.addEventListener('click', onPlanDel); });
     container.querySelectorAll('.plan-item-cust').forEach(function (el) { el.addEventListener('click', function () { openPlanCustomerPicker(el); }); });
     container.querySelectorAll('.plan-item-save').forEach(function (el) { el.addEventListener('click', onPlanItemSave); });
+    // 重绘后：还原正在编辑的 textarea 焦点与光标位置（避免同步/自动保存触发的重建让输入框"自己关闭"）
+    if (_fPeriod !== null && _fDay !== null && _fIdx >= 0) {
+        const ta = container.querySelector('.plan-item-input[data-period="' + _fPeriod + '"][data-day="' + _fDay + '"][data-idx="' + _fIdx + '"]');
+        if (ta) {
+            ta.focus();
+            if (_fStart >= 0 && _fEnd >= 0 && typeof ta.setSelectionRange === 'function') {
+                try { ta.setSelectionRange(_fStart, _fEnd); } catch (e) {}
+            }
+            autoResizeTextarea(ta);
+        }
+    }
 }
 
 // 把重点字段规范为 [{text, completed}] 数组：兼容旧版单字符串 focus
@@ -13149,7 +13169,10 @@ async function createBackup(_label, _preArr) {
             deviceName: getDeviceLabel(),
             snapshot: snapshot
         });
-        const keep = parseInt((document.getElementById('backupKeepCount') && document.getElementById('backupKeepCount').value) || '20', 10) || 20;
+        // 从已持久化的 state._meta.backupKeepCount 读取保留份数：自动备份在启动 4.5s 后触发，
+        // 设置页输入框此刻通常不在 DOM 中，读 DOM 会回退默认 20，导致「设为 10 却不删旧备份」。
+        // state 始终可用且与设置页输入同源（改输入框即写 state._meta.backupKeepCount）。
+        const keep = parseInt((state._meta && state._meta.backupKeepCount) || '20', 10) || 20;
         if (arr.length > keep) arr = arr.slice(0, keep);
         await updateBackupGist(gistEncode(arr));
         state._meta = state._meta || {};
