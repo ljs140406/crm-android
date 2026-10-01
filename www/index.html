@@ -3721,6 +3721,11 @@ td.col-followup-content { position: relative; }
 .fu-pref-del { flex: 0 0 auto; background: none; border: none; color: #EF4444; font-size: 13px; cursor: pointer; padding: 4px 6px; }
 .fu-pref-add { display: flex; gap: 8px; margin-top: 8px; }
 .fu-pref-add input { flex: 1 1 auto; min-width: 0; }
+/* 超期预警参与状态（多选） */
+.fu-pref-status-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0 10px; }
+.fu-pref-status-opt { display: flex; align-items: center; gap: 6px; padding: 5px 0; font-size: 13px; cursor: pointer; }
+.fu-pref-status-opt input { flex: 0 0 auto; }
+.fu-pref-status-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
 .followup-filter-btn {
     display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
     padding: 6px 12px; font-size: 12px; font-weight: 500; color: var(--text);
@@ -4622,6 +4627,11 @@ td.col-followup-content { position: relative; }
                         <input type="number" id="fuRemindRed" min="2" max="365" style="width:80px;"> 天
                     </div>
                     <div style="color:var(--text-secondary);font-size:12px;margin-top:4px;">默认黄 ≥7 天、红 &gt;14 天；「从未跟进」恒为红色。</div>
+                </div>
+                <div class="form-group">
+                    <label>参与「超期未跟进预警」的客户状态</label>
+                    <div id="fuPrefOverdueStatusList"></div>
+                    <div style="color:var(--text-secondary);font-size:12px;margin-top:4px;">建议排除 Y-赢单、Z-在用友商 等终态客户；未勾选任何状态时按「全部客户参与」处理。</div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -6570,7 +6580,9 @@ function renderDashboard() {
             const days = daysSince(last);
             return { ...c, _overdueDays: days, _lastFollowup: last };
         })
-            .filter(c => c._overdueDays >= bucket.min && (bucket.max === Infinity || c._overdueDays < bucket.max));
+            .filter(c => isStatusInOverdueScope(c.status)
+                && c._overdueDays >= bucket.min
+                && (bucket.max === Infinity || c._overdueDays < bucket.max));
     document.getElementById('statOverdue').textContent = overdueCustomers.length;
 
     // 客户增长：按创建时间统计本周/本月新增（无 createdAt 的客户不计入）
@@ -6656,8 +6668,9 @@ function renderOverdueList(overdueCustomers) {
     }
 
     container.innerHTML = sorted.map(c => {
-        const sc = getStatusConfig(c.status);
-        const daysText = (c.days == null) ? '从未跟进' : `已 ${c.days} 天未跟进`;
+        // 防御：状态配置为空时 getStatusConfig 会返回 undefined，避免 bgColor 崩溃
+        const sc = getStatusConfig(c.status) || { bgColor: '#f3f4f6', color: '#6b7280', name: '未分类' };
+        const daysText = (c.days == null || !isFinite(c.days)) ? '从未跟进' : `已 ${c.days} 天未跟进`;
         return `
             <div class="overdue-item" onclick="window._crm.openCustomerDetail('${c.id}')">
                 <div class="info">
@@ -6822,6 +6835,25 @@ function getOverdueBucket() {
     var opt = OVERDUE_BUCKET_OPTIONS.filter(function (o) { return o.id === id; })[0];
     if (!opt) { opt = OVERDUE_BUCKET_OPTIONS[0]; state._meta.overdueBucket = 'all'; }
     return opt;
+}
+// 参与「超期未跟进预警」的客户状态（可配置）
+// state._meta.overdueStatuses = ['A','B',...] 状态 code 数组；未配置或空数组 = 全部状态参与（兼容既有行为）
+function getOverdueStatuses() {
+    if (!state._meta) state._meta = {};
+    var arr = state._meta.overdueStatuses;
+    if (!Array.isArray(arr) || arr.length === 0) return null; // null = 不限制
+    return arr.slice();
+}
+// 客户状态值可能是名称(如 "A-近期重点")或 code(如 "A")，统一取首字母为 code
+function isStatusInOverdueScope(statusVal) {
+    var allow = getOverdueStatuses();
+    if (!allow) return true;
+    return allow.indexOf(String(statusVal || '').charAt(0)) >= 0;
+}
+function setOverdueStatuses(arr) {
+    if (!state._meta) state._meta = {};
+    state._meta.overdueStatuses = (Array.isArray(arr) && arr.length) ? arr.slice() : [];
+    saveData(); pushSettingsDebounced();
 }
 function renderOverdueThresholdFilter() {
     var trigger = document.getElementById('overdueThresholdTrigger');
@@ -9966,6 +9998,7 @@ function filterHistFu(tag) {
 // ==================== 跟进偏好（标签管理 + 未跟进提醒阈值） ====================
 function openFollowupPrefs() {
     renderFuPrefTagList();
+    renderFuPrefOverdueStatusList();
     const th = getFollowupRemind();
     const yEl = document.getElementById('fuRemindYellow');
     const rEl = document.getElementById('fuRemindRed');
@@ -9992,6 +10025,33 @@ function renderFuPrefTagList() {
             '<button type="button" class="fu-pref-del" onclick="window._crm.fuTagDelete(\'' + escapeHtml(t) + '\')">删除</button>' +
             '</div>';
     }).join('');
+}
+function renderFuPrefOverdueStatusList() {
+    var box = document.getElementById('fuPrefOverdueStatusList');
+    if (!box) return;
+    var configs = state.statuses || STATUS_CONFIG || [];
+    var allow = getOverdueStatuses();
+    box.innerHTML = configs.map(function (s) {
+        var on = !allow || allow.indexOf(s.code) >= 0;
+        return '<label class="fu-pref-status-opt">' +
+            '<input type="checkbox" data-code="' + escapeHtml(s.code) + '"' + (on ? ' checked' : '') + '>' +
+            '<span class="fu-pref-status-dot" style="background:' + s.color + '"></span>' +
+            '<span>' + escapeHtml(s.name) + '</span>' +
+            '</label>';
+    }).join('');
+    box.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+        cb.addEventListener('change', function () {
+            var next = [];
+            box.querySelectorAll('input[type="checkbox"]').forEach(function (x) {
+                if (x.checked) next.push(x.dataset.code);
+            });
+            setOverdueStatuses(next);
+            if (!next.length) showToast('未选择任何状态，已恢复为「全部客户参与预警」');
+            logOperation('调整超期预警参与状态：' + (next.length ? next.join('、') : '全部（未限定）'), 'info');
+            renderDashboard();
+            renderFuPrefOverdueStatusList();
+        });
+    });
 }
 function _bumpFollowupTagsAt() {
     state._meta = state._meta || {};
@@ -17745,6 +17805,12 @@ window._crm = {
     filterHistFu,
     openFollowupPrefs,
     closeFollowupPrefs,
+    // 超期预警参与状态（可配置）
+    getOverdueStatuses,
+    isStatusInOverdueScope,
+    setOverdueStatuses,
+    renderFuPrefOverdueStatusList,
+    renderDashboard,
     fuTagAdd,
     fuTagRename,
     toggleFuCustomer,
