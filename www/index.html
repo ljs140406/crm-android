@@ -1289,6 +1289,15 @@ td.col-followup-content { position: relative; }
 .plan-period-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 .plan-period-btn:not(.active):hover { border-color: var(--primary); color: var(--primary); background: var(--primary-bg); }
 .plan-section[hidden] { display: none; }
+.plan-week-carry-banner {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    background: #FEF3C7; border: 1px solid #F59E0B; color: #92400E;
+    border-radius: 12px; padding: 10px 14px; font-size: 13px; margin-bottom: 12px;
+}
+.plan-week-carry-banner[hidden] { display: none; }
+.plan-week-carry-banner .pwc-text { flex: 1 1 auto; min-width: 200px; }
+.plan-week-carry-banner b { font-weight: 700; }
+.btn-sm { padding: 4px 12px; font-size: 12px; }
 
 /* 移动端表格 */
 @media (max-width: 767px) {
@@ -4301,6 +4310,10 @@ td.col-followup-content { position: relative; }
                     </div>
                 </div>
                     <div class="plan-sections" data-page-node-id="fs8IlogHRJWt8A9AHmSXhO">
+                    <div class="plan-week-carry-banner" id="planWeekCarryBanner" hidden>
+                        <span class="pwc-text">⚠️ 已进入新的一周，当前计划仍归属 <b id="planWeekCarryRange"></b>（未归档）。归档后开始新一周。</span>
+                        <button type="button" class="btn btn-warning btn-sm" id="planWeekCarryArchive">归档本周</button>
+                    </div>
                     <div class="plan-section this-week" id="planSectionThis" data-page-node-id="K0cDcQH5AvdTv1sHG0JrQp">
                         <div class="acc-block" data-acc id="reportAccBlock"><div class="acc-head" onclick="window._crm.toggleAcc(this)"><div class="acc-left"><span class="acc-icon" style="background:#ECFDF5;color:#059669;">📊</span><span class="acc-title">近期汇报客户</span><span class="acc-meta" id="reportCountBadge"></span></div><button type="button" class="report-add-btn" onclick="event.stopPropagation();window._crm.addReportCustomer()">＋ 添加客户</button><span class="acc-chev">›</span></div><div class="acc-body"><div class="plan-cell plan-focus"><div class="focus-list" id="reportList" data-page-node-id="4qLnYNE6Nc8IXBitTQfgws"></div></div></div></div>
                         <div class="acc-block" data-acc data-page-node-id="rhr99CrwlCrtla7a9a91cW">
@@ -6198,6 +6211,10 @@ function getWeekNumber(d) {
     return Math.ceil((diffDays + 1) / 7);
 }
 
+// 周锚点工具：把「本周」槽位钉到绝对周（weekStart = 周一 YYYY-MM-DD），日历跨周不动它，只有归档推进
+function mondayOf(date) { const d = new Date(date); const day = d.getDay() || 7; d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - day + 1); return d; }
+function isoMonday(date) { const d = mondayOf(date); const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const dd = String(d.getDate()).padStart(2, '0'); return y + '-' + m + '-' + dd; }
+function parseISODate(s) { if (!s) return null; const p = String(s).split('-'); if (p.length !== 3) return null; const y = +p[0], m = +p[1] - 1, d = +p[2]; if (!y || m < 0 || m > 11 || d < 1 || d > 31) return null; return new Date(y, m, d); }
 function isThisWeek(dateStr) {
     if (!dateStr) return false;
     const d = new Date(dateStr);
@@ -10311,11 +10328,15 @@ function renderPlan() {
     renderFocusList('next', 'nextFocusList', plan.nextWeek);
 
     // 给「本周」当天 cell 高亮标记 + 注入日期与顶部新增按钮
+    // 「本周」槽位钉到 weekStart（绝对周锚点）：日历跨周不自动改日期，只有归档才推进 → 时间真实归属
+    if (!state.workPlan.weekStart) state.workPlan.weekStart = isoMonday(new Date());
     const now = new Date();
     const todayIdx = (now.getDay() + 6) % 7;
     const todayDay = PLAN_DAYS[todayIdx];
-    const thisMonday = getWeekRange(now).monday;
-    const nextMonday = getWeekRange((function () { const d = new Date(now); d.setDate(now.getDate() + 7); return d; })()).monday;
+    const _curMonday = mondayOf(now);
+    const thisMonday = parseISODate(state.workPlan.weekStart) || _curMonday;
+    const nextMonday = new Date(thisMonday); nextMonday.setDate(thisMonday.getDate() + 7);
+    const isCurrentWeek = (_curMonday.getTime() === thisMonday.getTime());
     [['this', plan.thisWeek, thisMonday], ['next', plan.nextWeek, nextMonday]].forEach(function (pair) {
         const period = pair[0], week = pair[1], monday = pair[2];
         PLAN_DAYS.forEach(function (day, offset) {
@@ -10323,22 +10344,19 @@ function renderPlan() {
             const container = document.getElementById(planItemsId(period, day));
             const cell = container.closest('.plan-cell');
             if (cell) {
-                cell.classList.toggle('plan-cell-today', period === 'this' && day === todayDay);
+                cell.classList.toggle('plan-cell-today', period === 'this' && day === todayDay && isCurrentWeek);
                 setupDayCellHeader(cell, period, day, offset, monday);
             }
         });
     });
 
-    // 周次标签
-    const thisWeekRange = getWeekRange(now);
-    const nextWeekDate = new Date(now);
-    nextWeekDate.setDate(now.getDate() + 7);
-    const nextWeekRange = getWeekRange(nextWeekDate);
-    document.getElementById('thisWeekLabel').textContent = thisWeekRange.label;
-    document.getElementById('nextWeekLabel').textContent = nextWeekRange.label;
+    // 周次标签（钉到 weekStart，跨周不漂移；非当前自然周时标注「上周·未归档」）
+    document.getElementById('thisWeekLabel').textContent = getWeekRange(thisMonday).label + (isCurrentWeek ? '' : '（上周·未归档）');
+    document.getElementById('nextWeekLabel').textContent = getWeekRange(nextMonday).label;
 
     // 头部日期范围胶囊 + 本周/下周切换联动
     updatePlanWeekHeader();
+    updatePlanWeekCarry();
 
     // 渲染完成后根据 weekendOpen 同步周末折叠状态（默认隐藏周末，跨页预填周末时自动展开）
     applyWeekendVisibility();
@@ -10375,11 +10393,31 @@ function updatePlanWeekHeader() {
     const rangeEl = document.getElementById('planWeekRange');
     if (!rangeEl) return;
     const period = currentPlanPeriod();
-    const now = new Date();
-    const base = period === 'this' ? now : (function () { const d = new Date(now); d.setDate(now.getDate() + 7); return d; })();
+    const wkMon = parseISODate(state.workPlan.weekStart) || mondayOf(new Date());
+    const base = new Date(wkMon);
+    if (period === 'next') base.setDate(wkMon.getDate() + 7);
     const r = getWeekRange(base);
     const fmt = function (dt) { return String(dt.getMonth() + 1).padStart(2, '0') + '/' + String(dt.getDate()).padStart(2, '0'); };
-    rangeEl.textContent = fmt(r.monday) + '~' + fmt(r.sunday) + ' · ' + (period === 'this' ? '本周' : '下周');
+    const curMonday = mondayOf(new Date());
+    const isCur = (base.getFullYear() === curMonday.getFullYear() && base.getMonth() === curMonday.getMonth() && base.getDate() === curMonday.getDate());
+    const suffix = period === 'this' ? (isCur ? '本周' : '上周·未归档') : '下周';
+    rangeEl.textContent = fmt(r.monday) + '~' + fmt(r.sunday) + ' · ' + suffix;
+}
+// 跨周未归档提示条：钉住的「本周」早于当前自然周时显示，提醒用户去归档以翻篇
+function updatePlanWeekCarry() {
+    const b = document.getElementById('planWeekCarryBanner');
+    if (!b) return;
+    const wkMon = parseISODate(state.workPlan.weekStart);
+    const curMonday = mondayOf(new Date());
+    const carried = !!(wkMon && wkMon.getTime() < curMonday.getTime());
+    if (carried) {
+        const r = getWeekRange(wkMon);
+        const el = document.getElementById('planWeekCarryRange');
+        if (el) el.textContent = r.label;
+        b.hidden = false;
+    } else {
+        b.hidden = true;
+    }
 }
 function switchPlanPeriod(period) {
     if (period !== 'this' && period !== 'next') period = 'this';
@@ -10544,6 +10582,8 @@ function _planEntitiesToWorkPlan(dp, fi, focusPlan) {
         thisWeek: { focus: ((focusPlan && focusPlan.thisWeek && focusPlan.thisWeek.focus) || '').toString() },
         nextWeek: { focus: ((focusPlan && focusPlan.nextWeek && focusPlan.nextWeek.focus) || '').toString() }
     };
+    // 周锚点随「胜出方」workPlan 保留（focusPlan 即裁决出的 workPlan）；否则每次同步重建会丢失 weekStart → 又漂移
+    wp.weekStart = (focusPlan && focusPlan.weekStart) || (state.workPlan && state.workPlan.weekStart) || '';
     ['thisWeek', 'nextWeek'].forEach(function (p) {
         PLAN_DAYS.forEach(function (d) { wp[p][d] = []; });
         wp[p].focusList = [];
@@ -11580,6 +11620,8 @@ function archivePlan() {
         PLAN_DAYS.forEach(function (d) { state.workPlan.thisWeek[d] = planToItems(nw[d]).slice(); });
         state.workPlan.nextWeek = { focusList: [] };
         PLAN_DAYS.forEach(function (d) { state.workPlan.nextWeek[d] = []; });
+        // 归档 = 把「本周」锚点推进到归档时刻的自然周周一（时间归属由归档决定，而非日历自动翻篇）
+        state.workPlan.weekStart = isoMonday(new Date());
 
         // 归档本质是「本周计划」的一次更新：必须 bump 版本号并登记变更，
         // 否则下次同步时远端 workPlan._rev 更高（或 updatedAt 更新）会用旧值覆盖刚归档的结果，造成数据丢失/被同步成错误
@@ -16733,6 +16775,8 @@ function bindEvents() {
     // 工作计划
     document.getElementById('savePlanBtn').addEventListener('click', savePlan);
     document.getElementById('archivePlanBtn').addEventListener('click', archivePlan);
+    var pwcArchive = document.getElementById('planWeekCarryArchive');
+    if (pwcArchive) pwcArchive.addEventListener('click', archivePlan);
 
     // 工作计划页面 textarea 滚轮透传：当 textarea 内容不足以滚动时，允许页面滚动
     document.querySelectorAll('#page-plan textarea').forEach(ta => {
