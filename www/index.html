@@ -10169,7 +10169,7 @@ const PLAN_DAY_LABELS = { mon: '周一', tue: '周二', wed: '周三', thu: '周
 function planToItems(v) {
     if (Array.isArray(v)) {
         return v.map(function (it) {
-            if (it && typeof it === 'object') return { text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString() };
+            if (it && typeof it === 'object') return { text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString(), _deleted: !!(it._deleted) };
             return { text: (it || '').toString(), customer: '', customerId: '' };
         });
     }
@@ -10475,6 +10475,7 @@ function renderPlanDay(period, day, items) {
         if (Number.isFinite(_fIdx)) { try { _fStart = _focusTa.selectionStart; _fEnd = _focusTa.selectionEnd; } catch (e) {} }
     }
     const html = (items || []).map(function (it, idx) {
+        if (it && it._deleted) return ''; // 软删除项不渲染（保留数组槽位以稳定索引，删除经 _rev 同步到对端）
         const hasCust = !!(it.customer || it.customerId);
         const custName = it.customer || it.customerId || '';
         const pill = hasCust
@@ -10545,8 +10546,8 @@ function _workPlanToPlanEntities(plan, prevDP, prevFI) {
     const _prevFI = _indexBy(prevFI || state.focusItems || [], 'id');
     const _nowIso = new Date().toISOString();
     // 内容指纹：用于判断「本次镜像相对上次是否真的变了」
-    function _dpKey(o) { return (o.text || '') + '\u0001' + (o.customer || '') + '\u0001' + (o.customerId || ''); }
-    function _fiKey(o) { return (o.text || '') + '\u0001' + (o.completed ? '1' : '0') + '\u0001' + (o.starred ? '1' : '0'); }
+    function _dpKey(o) { return (o.text || '') + '\u0001' + (o.customer || '') + '\u0001' + (o.customerId || '') + '\u0001' + (o._deleted ? '1' : '0'); }
+    function _fiKey(o) { return (o.text || '') + '\u0001' + (o.completed ? '1' : '0') + '\u0001' + (o.starred ? '1' : '0') + '\u0001' + (o._deleted ? '1' : '0'); }
     function _stamp(id, prevMap, cur, keyFn) {
         const p = prevMap[id];
         if (!p) return { _rev: 1, updatedAt: _nowIso };
@@ -10559,8 +10560,8 @@ function _workPlanToPlanEntities(plan, prevDP, prevFI) {
         const wkey = (p === 'thisWeek') ? 'this' : 'next';
         PLAN_DAYS.forEach(function (d) {
             planToItems(wk[d]).forEach(function (it, idx) {
-                if (!it.text && !it.customer && !it.customerId) return; // 跳过空项
-                const _cur = { id: _planItemId(wkey, d, idx), week: wkey, day: d, text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString() };
+                if (!it.text && !it.customer && !it.customerId && !it._deleted) return; // 跳过空项（软删除项需保留以传播删除）
+                const _cur = { id: _planItemId(wkey, d, idx), week: wkey, day: d, text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString(), _deleted: !!(it._deleted) };
                 dp.push(Object.assign(_cur, _stamp(_cur.id, _prevDP, _cur, _dpKey)));
             });
         });
@@ -10571,7 +10572,7 @@ function _workPlanToPlanEntities(plan, prevDP, prevFI) {
             // 保留空项：刚点「添加一项重点」时尚未输入文字，若在此过滤，同步层就看不到它；
             // 而 applyRemoteData 用 focusItems 重建 workPlan，该新增项会凭空消失（用户「添加后找不到」）。
             // 代价是未填写的空项会同步到其他设备——这与「确实新增了一项」的语义一致，可接受。
-            const _f = { id: (it.id || _focusId(wkey, idx)), week: wkey, text: (it.text || '').toString(), completed: !!(it.completed), starred: !!(it.starred), src: (it.src || 'manual'), customerId: (it.customerId || '').toString() };
+            const _f = { id: (it.id || _focusId(wkey, idx)), week: wkey, text: (it.text || '').toString(), completed: !!(it.completed), starred: !!(it.starred), src: (it.src || 'manual'), customerId: (it.customerId || '').toString(), _deleted: !!(it._deleted) };
             fi.push(Object.assign(_f, _stamp(_f.id, _prevFI, _f, _fiKey)));
         });
     });
@@ -10592,11 +10593,11 @@ function _planEntitiesToWorkPlan(dp, fi, focusPlan) {
         const p = (it.week === 'next') ? 'nextWeek' : 'thisWeek';
         const d = it.day;
         if (!wp[p][d]) wp[p][d] = [];
-        wp[p][d].push({ text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString() });
+        wp[p][d].push({ text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString(), _deleted: !!(it._deleted) });
     });
     (fi || []).forEach(function (it) {
         const p = (it.week === 'next') ? 'nextWeek' : 'thisWeek';
-        wp[p].focusList.push({ id: (it.id || ''), text: (it.text || '').toString(), completed: !!(it.completed), starred: !!(it.starred), src: (it.src || 'manual'), customerId: (it.customerId || '').toString() });
+        wp[p].focusList.push({ id: (it.id || ''), text: (it.text || '').toString(), completed: !!(it.completed), starred: !!(it.starred), src: (it.src || 'manual'), customerId: (it.customerId || '').toString(), _deleted: !!(it._deleted) });
     });
     return wp;
 }
@@ -11362,7 +11363,8 @@ function onPlanDel(e) {
     const it = arr[idx];
     const preview = ((it && (it.text || it.customer)) || '').trim().substring(0, 20) || '这条计划';
     showConfirm('确定删除「' + preview + '」吗？删除后无法恢复。', () => {
-        arr.splice(idx, 1); renderPlanDay(period, day, arr); autoSavePlan();
+        if (it) it._deleted = true; // 软删除：保留槽位以稳定索引，避免下标式 id 错位；删除经 _rev 同步到对端
+        renderPlanDay(period, day, arr); autoSavePlan();
     }, '删除计划项');
 }
 
@@ -15204,7 +15206,13 @@ function applyRemoteData(remoteData) {
     const _hasUnsavedPlan = JSON.stringify(localPE.dailyPlans) !== JSON.stringify(_dpBefore)
         || JSON.stringify(localPE.focusItems) !== JSON.stringify(_fiBefore);
     let mergedDP, mergedFI;
-    if (hasPendingPlan || _hasUnsavedPlan) {
+    // ⚠️ 不再用 hasPendingPlan（粗粒度 plan:current 标记）做「留本地」裁决：
+    // savePlan 每次保存都记一条 synced:false 的 plan:current，只有推送成功才被 markChangesSynced 标成已同步；
+    // 纯拉取设备永不推送 → 该标记永远清不掉 → 后续每次拉取都被它误导走 localPE（本机旧 workPlan 派生），
+    // 把对端的新内容覆盖掉（表现：A 端改了每日计划，B 端拉取后仍是旧内容）。
+    // 真正的「本机有未落盘内存改动」已由下方 _hasUnsavedPlan（比对当前 workPlan 与 dailyPlans 是否一致）精确判定；
+    // 逐条合并由 unionMerge + 每条 _rev（_workPlanToPlanEntities 的 _stamp 跨镜像保留 rev）承担；焦点文本由 updatedAt LWW 承担。
+    if (_hasUnsavedPlan) {
         mergedDP = localPE.dailyPlans;
         mergedFI = localPE.focusItems;
     } else {
@@ -15216,7 +15224,7 @@ function applyRemoteData(remoteData) {
     // 导致「合并次数更多的设备」凭空获得更高 _rev，把对端较新的 focus 文本覆盖成旧值（“更新后旧数据回来”）。
     // 这里改用内容更新时间 updatedAt 做 LWW（savePlan/归档等真实改动才会 bump），与下方不再自增 _rev 配套。
     let focusPlan;
-    if (hasPendingPlan) {
+    if (_hasUnsavedPlan) {
         focusPlan = state.workPlan;
     } else {
         const lt = new Date((state.workPlan && state.workPlan.updatedAt) || 0).getTime() || 0;
