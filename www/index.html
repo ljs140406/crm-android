@@ -10595,11 +10595,18 @@ function _workPlanToPlanEntities(plan, prevDP, prevFI) {
         const wkey = (p === 'thisWeek') ? 'this' : 'next';
         PLAN_DAYS.forEach(function (d) {
             planToItems(wk[d]).forEach(function (it, idx) {
-                if (!it.text && !it.customer && !it.customerId && !it._deleted) return; // 跳过空项（软删除项需保留以传播删除）
+                const iid = (it.id && !_isLegacyPlanId(it.id)) ? it.id : _planItemStableId(wkey, d, it.text, it.customer, it.customerId);
+                // 清空内容（此前有内容、现在为空）当作软删除处理：使「清空/删除每日计划内容」跨端真正移除，
+                // 避免旧逻辑把空项直接丢出同步层 → 对端保留旧文字「一同步就回来」。全新空项（prev 也无内容，
+                // 如刚添加的待填项）仍跳过，避免误删未填写项。注：此处只改每日计划项（dailyPlans），
+                // 不影响归档——归档移动的项为活动态(_deleted:false)且带内容，不会命中 _isCleared。
+                const _dpPrev = _prevDP[iid];
+                const _dpPrevHadContent = !!(_dpPrev && (_dpPrev.text || _dpPrev.customer || _dpPrev.customerId));
+                const _isCleared = (!it.text && !it.customer && !it.customerId) && _dpPrevHadContent;
+                if (!it.text && !it.customer && !it.customerId && !it._deleted && !_isCleared) return;
                 // 稳定 id：优先沿用项自身 id（迁移后均为内容哈希 id；新增项为 _entId 随机 id）；
                 // 旧版下标式 id（dp_*_N）在此重算为内容哈希 id，避免跨端因随机 id 不一致产生重复项（铁律#16）。
-                const iid = (it.id && !_isLegacyPlanId(it.id)) ? it.id : _planItemStableId(wkey, d, it.text, it.customer, it.customerId);
-                const _cur = { id: iid, week: wkey, day: d, text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString(), _deleted: !!(it._deleted) };
+                const _cur = { id: iid, week: wkey, day: d, text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString(), _deleted: !!(it._deleted) || _isCleared };
                 dp.push(Object.assign(_cur, _stamp(iid, _prevDP, _cur, _dpKey)));
             });
         });
@@ -15231,6 +15238,13 @@ function applyRemoteData(remoteData) {
                     // 本地有未同步的修改 → 用本地版本
                     result.push(_clone(local));
                 } else {
+                    // 删除权威：本端已软删除的项，不被对端活动副本（即使 _rev 更高）复活。
+                    // 修复「删除/清空每日计划内容后，一同步就回来」：对端编辑次数更多(rev更高)时，
+                    // 旧逻辑无条件采用远端活动副本，把本端已做的删除覆盖掉。删除是单调权威变更，应保留。
+                    if (local._deleted && !remote._deleted) {
+                        result.push(_clone(local));
+                        return;
+                    }
                     // 无 pending 变更 → 先比较 _rev（避免依赖设备时钟），再用 updatedAt 作平局决胜
                     const localRev = local._rev || 0;
                     const remoteRev = remote._rev || 0;
@@ -17929,6 +17943,7 @@ window._crm = {
     openCustomerDetailByName,
     toggleCustomerStar,
     applyRemoteData,
+    getSyncPayload,
     closeCustomerModal,
     openFollowupHistory,
     closeFollowupHistory,
