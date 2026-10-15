@@ -11612,16 +11612,25 @@ function archivePlan() {
         // 合并到新本周 focusList：本周未完成 + 下周全部，全部重置 completed=false
         // （本周已完成项被丢弃——已完成的不再追踪，腾出本周重点位给未完成+下周任务）
         const _focusCarry = function (it) { return { id: it.id, text: it.text, completed: false, src: it.src, customerId: it.customerId }; };
+        // ⚠️ 下周迁移来的重点项必须「剥掉原 id」：下周项原 id 形如 fi_next_0，与下方软删除后留在同步层的同名 fi_next_0 撞 id，
+        // 会导致 unionMerge 按 id 去重把迁移项挤掉（本周丢项）。剥 id 后由 _workPlanToPlanEntities 分配本周新 id，规避冲突。
+        const _focusCarryFromNext = function (it) { return { id: '', text: it.text, completed: false, src: it.src, customerId: it.customerId }; };
         const mergedFocus = [].concat(
             thisFocusOpen.map(_focusCarry),
-            nextFocusAll.map(_focusCarry)
+            nextFocusAll.map(_focusCarryFromNext)
         );
 
-        // 每日 planItems：下周搬移到本周（与原行为一致），下周清空
+        // 每日 planItems：下周搬移到本周（与原行为一致）。
+        // ⚠️ 原下周槽位不再「移除」条目，而是「软删除」(_deleted:true)：
+        // 若直接移除，同步层 next 项缺失，云端/对端仍有的旧 next 项会在 unionMerge 按「仅远端有→保留」被并回，
+        // 归档后下周又被复活（且删除项也跟着复现）；软删除经 _rev 提升传播，对端拉取后保持隐藏 → 下周视觉清空且不再复现。
+        // （每日项 id 为 dp_this_/dp_next_ 区分周，软删除不会与本周迁移项撞 id；重点项已剥 id 规避撞 id）
         state.workPlan.thisWeek = { focusList: mergedFocus };
-        PLAN_DAYS.forEach(function (d) { state.workPlan.thisWeek[d] = planToItems(nw[d]).slice(); });
-        state.workPlan.nextWeek = { focusList: [] };
-        PLAN_DAYS.forEach(function (d) { state.workPlan.nextWeek[d] = []; });
+        // ⚠️ 下周每日项搬移到本周时必须「清除 _deleted」：下周槽里被软删除的项（如用户删过某条下周任务）
+        // 若带着 _deleted 进入本周会被 renderPlanDay 隐藏 → 归档丢项。归档=全部下周内容前向复活，故强制 _deleted:false。
+        PLAN_DAYS.forEach(function (d) { state.workPlan.thisWeek[d] = planToItems(nw[d]).map(function (it) { return Object.assign({}, it, { _deleted: false }); }); });
+        state.workPlan.nextWeek = { focusList: (nw.focusList || []).map(function (it) { return Object.assign({}, it, { _deleted: true }); }) };
+        PLAN_DAYS.forEach(function (d) { state.workPlan.nextWeek[d] = planToItems(nw[d]).map(function (it) { return Object.assign({}, it, { _deleted: true }); }); });
         // 归档 = 把「本周」锚点推进到归档时刻的自然周周一（时间归属由归档决定，而非日历自动翻篇）
         state.workPlan.weekStart = isoMonday(new Date());
 
@@ -11630,10 +11639,15 @@ function archivePlan() {
         state.workPlan.updatedAt = new Date().toISOString();
         state.workPlan._rev = (state.workPlan._rev || 0) + 1;
         state.workPlan._deviceId = DEVICE_ID;
+        // ⚠️ 关键修复：归档必须同步镜像到 dailyPlans/focusItems。
+        // 旧实现只改了 workPlan 内存/落盘，漏调 _mirrorPlanEntities → 同步层仍保留旧的 dp_next_*/fi_next_* 项；
+        // 下次拉取（applyRemoteData 用 dailyPlans 整体重建 workPlan）或 saveData 触发的自动同步会把下周内容复活
+        // → 「归档后下周计划还在」「删除项经同步复现」。补调用后同步层与 workPlan 一致，下周被彻底清空。
+        _mirrorPlanEntities();
         recordChange('update', 'plan', 'current', '工作计划', null);
 
         // 派生项已随 mergedFocus 保留身份，这里只做「置顶重排 + 镜像同步」，
-        // 不会再新建重复派生项；同时补上镜像（旧实现漏调，导致 focusItems 与 workPlan 不一致）
+        // 不会再新建重复派生项；镜像已由上方 _mirrorPlanEntities() 完成（旧实现漏调，导致 focusItems 与 workPlan 不一致）
         syncReportFocusLinks();
         saveData();
         renderPlan();
