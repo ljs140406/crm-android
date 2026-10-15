@@ -5786,7 +5786,19 @@ function migrateData() {
     if (state.workPlan) {
         ['thisWeek', 'nextWeek'].forEach(function (p) {
             const wk = state.workPlan[p] || (state.workPlan[p] = { focus: '' });
-            PLAN_DAYS.forEach(function (d) { wk[d] = planToItems(wk[d]); });
+            const wkey = (p === 'thisWeek') ? 'this' : 'next';
+            PLAN_DAYS.forEach(function (d) {
+                wk[d] = planToItems(wk[d]);
+                // 铁律#16：列表实体禁用下标式 id。旧数据每日项无 id → 按 (周,天,内容) 内容哈希分配稳定 id，
+                // 保证多端从同一云端数据迁移出一致 id（避免随机 id 跨端不一致产生重复项）；空项不分配（不参与同步）。
+                (wk[d] || []).forEach(function (it) {
+                    if (!it) return;
+                    const _hasContent = !!(it.text || it.customer || it.customerId || it._deleted);
+                    if (_hasContent && (!it.id || _isLegacyPlanId(it.id))) {
+                        it.id = _planItemStableId(wkey, d, it.text, it.customer, it.customerId);
+                    }
+                });
+            });
             if (wk.focusList == null) wk.focusList = [];
             else if (typeof wk.focusList === 'string') wk.focusList = normalizeFocusListWeb(null, wk.focusList);
             if (wk.focus == null) wk.focus = '';
@@ -8180,7 +8192,7 @@ function custPlanSave() {
         (g.items || []).forEach(function (it) {
             const t = (it.text || '').trim();
             if (t) {
-                (tw[g.dayKey] = tw[g.dayKey] || []).push({ text: t, customer: ctx.customerName, customerId: ctx.customerId || '' });
+                (tw[g.dayKey] = tw[g.dayKey] || []).push({ id: _entId('dp_this_' + g.dayKey + '_'), text: t, customer: ctx.customerName, customerId: ctx.customerId || '' });
             }
         });
     });
@@ -10169,8 +10181,8 @@ const PLAN_DAY_LABELS = { mon: '周一', tue: '周二', wed: '周三', thu: '周
 function planToItems(v) {
     if (Array.isArray(v)) {
         return v.map(function (it) {
-            if (it && typeof it === 'object') return { text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString(), _deleted: !!(it._deleted) };
-            return { text: (it || '').toString(), customer: '', customerId: '' };
+            if (it && typeof it === 'object') return { id: (it.id != null ? String(it.id) : ''), text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString(), _deleted: !!(it._deleted) };
+            return { id: '', text: (it || '').toString(), customer: '', customerId: '' };
         });
     }
     if (typeof v === 'string') return v.trim() ? [{ text: v, customer: '', customerId: '' }] : [];
@@ -10315,7 +10327,7 @@ function renderPlan() {
         const pa = state.pendingPlanAdd; state.pendingPlanAdd = null;
         const week = plan.thisWeek;
         if (!Array.isArray(week[pa.day])) week[pa.day] = [];
-        week[pa.day].push({ text: '', customer: pa.customerName || '', customerId: pa.customerId || '' });
+        week[pa.day].push({ id: _entId('dp_this_' + pa.day + '_'), text: '', customer: pa.customerName || '', customerId: pa.customerId || '' });
         if (pa.day === 'sat' || pa.day === 'sun') weekendOpen = true;
     }
     // 归一化：每天字段统一为 [{text, customer}] 数组
@@ -10491,7 +10503,7 @@ function renderPlanDay(period, day, items) {
                 '<textarea class="plan-item-input" rows="1" placeholder="计划内容" data-period="' + period + '" data-day="' + day + '" data-idx="' + idx + '">' + escapeHtml(it.text) + '</textarea>' +
             '</div>' +
             '<div class="action-row">' +
-                '<button type="button" class="act-btn danger plan-item-del" data-period="' + period + '" data-day="' + day + '" data-idx="' + idx + '" title="删除">删除</button>' +
+                '<button type="button" class="act-btn danger plan-item-del" data-period="' + period + '" data-day="' + day + '" data-idx="' + idx + '" data-id="' + escapeAttr(it.id || '') + '" title="删除">删除</button>' +
                 '<button type="button" class="act-btn plan-item-cust" data-period="' + period + '" data-day="' + day + '" data-idx="' + idx + '" title="关联客户">' + custIcon + '<span class="plan-cust-text">关联客户</span></button>' +
                 '<button type="button" class="act-btn primary plan-item-save" data-period="' + period + '" data-day="' + day + '" data-idx="' + idx + '" title="保存本条">保存</button>' +
             '</div>' +
@@ -10532,6 +10544,17 @@ function normalizeFocusListWeb(list, legacyFocus) {
 // 这样渲染层零改动，又达到「手机改周一、桌面改周二 两端都保留；同一天同位置双端都改才报冲突」的语义。
 function _planItemId(wkey, day, idx) { return 'dp_' + wkey + '_' + day + '_' + idx; }
 function _focusId(wkey, idx) { return 'fc_' + wkey + '_' + idx; }
+// 旧版每日计划 id 为下标式 dp_{wkey}_{day}_{N}（铁律#16 违例：删除/重镜像时邻居前移会撞 id）。
+// 此正则用于识别并淘汰旧版下标 id（新稳定 id 含 'h..z' 后缀、_entId 随机 id 含字母，均不匹配）。
+function _isLegacyPlanId(id) { return /^dp_(this|next)_(mon|tue|wed|thu|fri|sat|sun)_\d+$/.test(id || ''); }
+// 迁移用：对「无 id 的旧项」按 (周,天,内容) 生成确定性内容哈希 id。
+// 关键：多端从同一云端数据迁移会算出一致 id（不依赖随机），避免随机 id 跨端不一致产生重复项。
+function _planItemStableId(wkey, day, text, customer, customerId) {
+    const s = (wkey || '') + '|' + (day || '') + '|' + (text || '') + '|' + (customer || '') + '|' + (customerId || '');
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = (h * 0x01000193) >>> 0; }
+    return 'dp_' + wkey + '_' + day + '_h' + h.toString(36) + 'z';
+}
 function _workPlanToPlanEntities(plan, prevDP, prevFI) {
     plan = plan || {};
     const dp = [], fi = [];
@@ -10561,8 +10584,11 @@ function _workPlanToPlanEntities(plan, prevDP, prevFI) {
         PLAN_DAYS.forEach(function (d) {
             planToItems(wk[d]).forEach(function (it, idx) {
                 if (!it.text && !it.customer && !it.customerId && !it._deleted) return; // 跳过空项（软删除项需保留以传播删除）
-                const _cur = { id: _planItemId(wkey, d, idx), week: wkey, day: d, text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString(), _deleted: !!(it._deleted) };
-                dp.push(Object.assign(_cur, _stamp(_cur.id, _prevDP, _cur, _dpKey)));
+                // 稳定 id：优先沿用项自身 id（迁移后均为内容哈希 id；新增项为 _entId 随机 id）；
+                // 旧版下标式 id（dp_*_N）在此重算为内容哈希 id，避免跨端因随机 id 不一致产生重复项（铁律#16）。
+                const iid = (it.id && !_isLegacyPlanId(it.id)) ? it.id : _planItemStableId(wkey, d, it.text, it.customer, it.customerId);
+                const _cur = { id: iid, week: wkey, day: d, text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString(), _deleted: !!(it._deleted) };
+                dp.push(Object.assign(_cur, _stamp(iid, _prevDP, _cur, _dpKey)));
             });
         });
         let fl = wk.focusList;
@@ -10590,10 +10616,13 @@ function _planEntitiesToWorkPlan(dp, fi, focusPlan) {
         wp[p].focusList = [];
     });
     (dp || []).forEach(function (it) {
+        // 跳过旧版下标式 id：迁移期云端可能残留 dp_*_N，重建 workPlan 时丢弃，避免再次派生出下标 id 形成死循环/重复
+        if (_isLegacyPlanId(it.id)) return;
         const p = (it.week === 'next') ? 'nextWeek' : 'thisWeek';
         const d = it.day;
         if (!wp[p][d]) wp[p][d] = [];
-        wp[p][d].push({ text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString(), _deleted: !!(it._deleted) });
+        const _iid = it.id || _entId('dp_' + ((it.week === 'next') ? 'next' : 'this') + '_' + (it.day || '') + '_');
+        wp[p][d].push({ id: _iid, text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString(), _deleted: !!(it._deleted) });
     });
     (fi || []).forEach(function (it) {
         const p = (it.week === 'next') ? 'nextWeek' : 'thisWeek';
@@ -11335,7 +11364,7 @@ function savePlanAdd(id) {
     const tw = state.workPlan.thisWeek;
     days.forEach(function (d) {
         if (!Array.isArray(tw[d])) tw[d] = [];
-        tw[d].push({ text: text, customer: customer ? customer.name : '', customerId: id });
+        tw[d].push({ id: _entId('dp_this_' + d + '_'), text: text, customer: customer ? customer.name : '', customerId: id });
     });
     autoSavePlan();
     closePlanAddModal();
@@ -11348,7 +11377,7 @@ function onPlanAdd(e) {
     if (!week) return;
     if (!Array.isArray(week[day])) week[day] = [];
     const arr = week[day];
-    arr.push({ text: '', customer: '', customerId: '' });
+    arr.push({ id: _entId('dp_' + (period === 'this' ? 'this' : 'next') + '_' + day + '_'), text: '', customer: '', customerId: '' });
     renderPlanDay(period, day, arr);
     const container = document.getElementById(planItemsId(period, day));
     const inputs = container ? container.querySelectorAll('.plan-item-input') : [];
@@ -11357,13 +11386,23 @@ function onPlanAdd(e) {
 function onPlanDel(e) {
     const el = e.currentTarget || e.target;
     const period = el.dataset.period, day = el.dataset.day, idx = parseInt(el.dataset.idx);
+    const stableId = el.dataset.id; // 稳定 id（迁移后均为此；旧渲染无 data-id 时回退下标）
+    const wkey = period === 'this' ? 'this' : 'next';
     const week = state.workPlan[period === 'this' ? 'thisWeek' : 'nextWeek'];
     const arr = week && week[day];
     if (!arr) return;
     const it = arr[idx];
     const preview = ((it && (it.text || it.customer)) || '').trim().substring(0, 20) || '这条计划';
     showConfirm('确定删除「' + preview + '」吗？删除后无法恢复。', () => {
-        if (it) it._deleted = true; // 软删除：保留槽位以稳定索引，避免下标式 id 错位；删除经 _rev 同步到对端
+        if (it) {
+            it._deleted = true; // 软删除：保留槽位以稳定索引，避免下标式 id 错位；删除经 _rev 同步到对端
+            // 稳定 id 墓碑：直接用项自身稳定 id（data-id 已是完整 dp id，如 dp_next_mon_h…z），
+            // 杜绝「重镜像时邻居前移被下标 id 误罩」的复活（铁律#16）。旧渲染无 data-id 时回退下标 id。
+            const _dpId = (stableId && !_isLegacyPlanId(stableId)) ? stableId : _planItemId(wkey, day, idx);
+            if (!state._tombstones) state._tombstones = { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
+            if (!state._tombstones.dailyPlans) state._tombstones.dailyPlans = {};
+            state._tombstones.dailyPlans[_dpId] = new Date().toISOString();
+        }
         renderPlanDay(period, day, arr); autoSavePlan();
     }, '删除计划项');
 }
@@ -11644,6 +11683,13 @@ function archivePlan() {
         // 下次拉取（applyRemoteData 用 dailyPlans 整体重建 workPlan）或 saveData 触发的自动同步会把下周内容复活
         // → 「归档后下周计划还在」「删除项经同步复现」。补调用后同步层与 workPlan 一致，下周被彻底清空。
         _mirrorPlanEntities();
+        // 归档=清空下周：清除 dp_next_* 墓碑，避免旧下周删除墓碑误伤归档后重新填写的下周内容
+        // （归档已把下周内容前向复活到本周并整体软删除清空，下周槽 id 将复用，旧墓碑会屏蔽新填写项）
+        if (state._tombstones && state._tombstones.dailyPlans) {
+            Object.keys(state._tombstones.dailyPlans).forEach(function (k) {
+                if (k.indexOf('dp_next_') === 0) delete state._tombstones.dailyPlans[k];
+            });
+        }
         recordChange('update', 'plan', 'current', '工作计划', null);
 
         // 派生项已随 mergedFocus 保留身份，这里只做「置顶重排 + 镜像同步」，
@@ -14748,7 +14794,8 @@ function _derivePlanEntities(remote) {
             PLAN_DAYS.forEach(function (d) {
                 planToItems(wk[d]).forEach(function (it, idx) {
                     if (!it.text && !it.customer && !it.customerId) return;
-                    dpOut.push({ id: _planItemId(wkey, d, idx), week: wkey, day: d, text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString(), _rev: 1, updatedAt: '' });
+                    // 旧端兼容派生：同样用内容哈希稳定 id（而非下标），与迁移/新增保持一致，避免下标 id 撞墓碑
+                    dpOut.push({ id: _planItemStableId(wkey, d, it.text, it.customer, it.customerId), week: wkey, day: d, text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString(), _rev: 1, updatedAt: '' });
                 });
             });
             // 注意：必须在规范化 workPlan 之前读取原始 focusList，否则会被上一行清掉
@@ -15146,7 +15193,14 @@ function applyRemoteData(remoteData) {
         const allIds = new Set([...Object.keys(lMap), ...Object.keys(rMap)]);
         const result = [];
         allIds.forEach(id => {
-            if (tsMap[id]) return; // 墓碑中的条目跳过
+            // 墓碑中的条目：仅当「本地即是软删除」时保留本地版本（保证删除项留在 workPlan，
+            // 使「归档把下周删项迁入本周」语义成立，也避免被远端旧版复活）；其余（本地未删却被墓碑标记）
+            // 按墓碑删除，尊重其它设备的删除传播。
+            if (tsMap[id]) {
+                const localTomb = lMap[id];
+                if (localTomb && localTomb._deleted) result.push(_clone(localTomb));
+                return;
+            }
             const local = lMap[id];
             const remote = rMap[id];
             const pending = pendingMap[entityName + ':' + id];
