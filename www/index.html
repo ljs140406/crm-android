@@ -10826,7 +10826,7 @@ function focusRemove(period, idx) {
             state._tombstones.focusItems[delId] = new Date().toISOString();
         }
         renderFocusList(period, period === 'this' ? 'thisFocusList' : 'nextFocusList', state.workPlan[period === 'this' ? 'thisWeek' : 'nextWeek']);
-        autoSavePlan();
+        autoSavePlan(); scheduleAutoSync();
         // 单一真值：在「本周重点」删除派生（汇报）项，同时从「近期汇报客户」移除该客户，双端级联
         if (isReportItem && cid) removeReportCustomerByKey(cid);
     }, '删除重点');
@@ -11422,7 +11422,7 @@ function onPlanDel(e) {
             if (!state._tombstones.dailyPlans) state._tombstones.dailyPlans = {};
             state._tombstones.dailyPlans[_dpId] = new Date().toISOString();
         }
-        renderPlanDay(period, day, arr); autoSavePlan();
+        renderPlanDay(period, day, arr); autoSavePlan(); scheduleAutoSync();
     }, '删除计划项');
 }
 
@@ -15875,7 +15875,8 @@ function startPolling() {
         }
     }, 5000);
 
-    // 每30秒检查云端是否有更新（使用ETag轻量检测）
+    // 每10秒检查云端是否有更新（使用ETag轻量检测）
+    // ⚠️ 缩短 30s→10s：被动端（如刚打开的手机）靠它探测对端删除，过长会导致「打开手机删不掉、过会儿又回来」
     fullCheckTimer = setInterval(async () => {
         if (!syncReady()) return;
         if (isAutoSyncing || _syncInFlight) return;
@@ -15890,7 +15891,7 @@ function startPolling() {
         } catch(e) {
             // 静默处理
         }
-    }, 30000);
+    }, 10000);
 }
 
 function stopPolling() {
@@ -17898,6 +17899,11 @@ function init() {
         setTimeout(() => {
             doAutoSync();
         }, 1500);
+        // 双拉兜底：首拉若早于对端删除落地（对端删除经 ~1.7s 才推送），
+        // 第二次在 ~4s 后补抓，避免本端把陈旧的活动副本推回云端造成「删除项复活」
+        setTimeout(() => {
+            if (!isAutoSyncing && !_syncInFlight) doAutoSync();
+        }, 4000);
     }
 
     // 启动5秒轮询
@@ -17917,6 +17923,8 @@ function init() {
         if (!document.hidden && syncReady() && !isAutoSyncing && !_syncInFlight) {
             // 延迟500ms避免与渲染冲突
             setTimeout(() => doAutoSync(), 500);
+            // 双拉兜底：回到前台后再补一次，确保抓到对端在离开期间产生的删除/修改
+            setTimeout(() => { if (!isAutoSyncing && !_syncInFlight) doAutoSync(); }, 4000);
         }
     });
 
