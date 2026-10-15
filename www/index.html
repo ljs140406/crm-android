@@ -5863,6 +5863,12 @@ function loadData() {
             state.followups = data.followups || [];
             state.todos = Array.isArray(data.todos) ? data.todos : [];
             state.workPlan = data.workPlan || { thisWeek: {}, nextWeek: {} };
+            // 铁律#17 读写对称：saveData 会持久化同步层镜像 dailyPlans/focusItems，此处必须读回，
+            // 作为下方 _mirrorPlanEntities 的 prev 以保留每条 _rev/updatedAt。否则每次启动 dailyPlans 都被
+            // 从 workPlan 重建且 prev 为空 → _stamp 找不到 prev → _rev 重置为 1、updatedAt 重置为 now →
+            // LWW 平局本端赢，表现为「删除的每日计划项在另一设备拉取时复活 / 编辑有时不回传」。
+            state.dailyPlans = Array.isArray(data.dailyPlans) ? data.dailyPlans : [];
+            state.focusItems = Array.isArray(data.focusItems) ? data.focusItems : [];
             _mirrorPlanEntities();
             state.history = Array.isArray(data.history) ? data.history : [];
             state.reportCustomers = Array.isArray(data.reportCustomers) ? data.reportCustomers : [];
@@ -5929,6 +5935,12 @@ function loadData() {
             state.followups = data.followups || [];
             state.todos = Array.isArray(data.todos) ? data.todos : [];
             state.workPlan = data.workPlan || { thisWeek: {}, nextWeek: {} };
+            // 铁律#17 读写对称：saveData 会持久化同步层镜像 dailyPlans/focusItems，此处必须读回，
+            // 作为下方 _mirrorPlanEntities 的 prev 以保留每条 _rev/updatedAt。否则每次启动 dailyPlans 都被
+            // 从 workPlan 重建且 prev 为空 → _stamp 找不到 prev → _rev 重置为 1、updatedAt 重置为 now →
+            // LWW 平局本端赢，表现为「删除的每日计划项在另一设备拉取时复活 / 编辑有时不回传」。
+            state.dailyPlans = Array.isArray(data.dailyPlans) ? data.dailyPlans : [];
+            state.focusItems = Array.isArray(data.focusItems) ? data.focusItems : [];
             _mirrorPlanEntities();
             state.history = Array.isArray(data.history) ? data.history : [];
             state.reportCustomers = Array.isArray(data.reportCustomers) ? data.reportCustomers : [];
@@ -15227,12 +15239,22 @@ function applyRemoteData(remoteData) {
                     } else if (remoteRev > localRev) {
                         result.push(_clone(remote));
                     } else {
-                        const localUpdated = local.updatedAt || local.completedAt || local.createdAt || '1970-01-01T00:00:00Z';
-                        const remoteUpdated = remote.updatedAt || remote.completedAt || remote.createdAt || '1970-01-01T00:00:00Z';
-                        if (new Date(localUpdated).getTime() >= new Date(remoteUpdated).getTime()) {
-                            result.push(_clone(local));
+                        // _rev 平局时「删除态优先」：删除是权威的单调变更。v1.1.50 迁移会把 _rev 重置为 1
+                        // （旧下标 id 与新内容哈希 id 不匹配 → _stamp 找不到 prev），被删项(rev1) 会在对端被
+                        // 活动旧副本(rev1) 凭 updatedAt 平局/本端较新反超而复活——「删了下周内容一同步又回来」根因。
+                        // 仅在 _rev 相等时生效：一端编辑会 bump _rev 走上面 rev 比较的正常 LWW，不受影响；
+                        // 两端同删/同活仍走 updatedAt 决胜。
+                        const localDel = !!local._deleted, remoteDel = !!remote._deleted;
+                        if (localDel !== remoteDel) {
+                            result.push(_clone(localDel ? local : remote));
                         } else {
-                            result.push(_clone(remote));
+                            const localUpdated = local.updatedAt || local.completedAt || local.createdAt || '1970-01-01T00:00:00Z';
+                            const remoteUpdated = remote.updatedAt || remote.completedAt || remote.createdAt || '1970-01-01T00:00:00Z';
+                            if (new Date(localUpdated).getTime() >= new Date(remoteUpdated).getTime()) {
+                                result.push(_clone(local));
+                            } else {
+                                result.push(_clone(remote));
+                            }
                         }
                     }
                 }
