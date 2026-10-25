@@ -662,32 +662,32 @@ textarea { resize: vertical; }
 .fu-trend-summary { display: flex; gap: 8px; }
 .fu-trend-stat {
     flex: 1; min-width: 0; text-align: center;
-    background: linear-gradient(135deg, var(--gray-50) 0%, #fff 100%);
-    border: 1px solid var(--border); border-radius: var(--radius-sm);
-    padding: 8px 4px;
+    background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 8px 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 .fu-trend-stat .v { font-size: 17px; font-weight: 700; color: var(--primary); line-height: 1.2; }
 .fu-trend-stat .k { font-size: 11px; color: var(--text-secondary); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.fu-trend-chart { display: flex; flex-direction: column; height: 142px; padding-top: 4px; }
+.fu-trend-chart { display: flex; flex-direction: column; height: 150px; padding-top: 4px; }
 .fu-trend-bars-area { position: relative; flex: 1 1 auto; min-height: 0; }
 .fu-trend-xaxis { flex: 0 0 16px; display: flex; gap: 2px; margin-top: 3px; }
-.fu-trend-xlabel { flex: 1 1 0; min-width: 0; text-align: center; font-size: 8px; line-height: 14px; color: var(--text-secondary); overflow: hidden; white-space: nowrap; }
+.fu-trend-xlabel { flex: 1 1 0; min-width: 0; text-align: center; font-size: 11px; line-height: 16px; color: var(--text-secondary); overflow: hidden; white-space: nowrap; }
 .fu-trend-xlabel.today { color: #b45309; font-weight: 700; }
-.fu-trend-ctl { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 2px 0 8px; }
+.fu-trend-ctl { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 4px 0 8px; padding: 6px 10px; background: var(--gray-100); border: 1px solid var(--border); border-radius: 10px; }
 .fu-trend-ctl-label { font-size: 12px; color: var(--text-secondary); }
-.fu-trend-days-input { width: 56px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; background: #fff; font-size: 13px; color: var(--text); text-align: center; }
+.fu-trend-days-input { width: 56px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 8px; background: #fff; font-size: 13px; color: var(--text); text-align: center; }
+.fu-trend-days-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.15); }
 .fu-trend-ctl-unit { font-size: 12px; color: var(--text-secondary); }
 .fu-trend-ctl-quick { display: flex; gap: 4px; margin-left: auto; }
 .fu-trend-quick { padding: 3px 10px; border: 1px solid var(--border); border-radius: 999px; background: #fff; font-size: 12px; color: var(--text-secondary); cursor: pointer; line-height: 1.4; }
 .fu-trend-quick.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 .fu-trend-avg {
     position: absolute; left: 0; right: 0; height: 0;
-    border-top: 1px dashed #f59e0b; z-index: 2; pointer-events: none;
+    border-top: 1.5px dashed rgba(245,158,11,0.7); z-index: 2; pointer-events: none;
 }
 .fu-trend-avg span {
-    position: absolute; right: 0; top: -16px;
+    position: absolute; right: 0; top: -18px;
     font-size: 10px; color: #b45309; background: #fffbeb;
-    border: 1px solid #fde68a; border-radius: 4px; padding: 0 4px; line-height: 14px;
+    border: 1px solid #fde68a; border-radius: 999px; padding: 1px 6px; line-height: 14px;
 }
 .fu-trend-bars {
     display: flex; align-items: flex-end; gap: 2px;
@@ -700,12 +700,14 @@ textarea { resize: vertical; }
     display: flex; align-items: flex-end; cursor: default;
 }
 .fu-trend-bar {
-    width: 100%; border-radius: 3px 3px 0 0;
+    width: 100%; border-radius: 6px 6px 0 0;
     background: linear-gradient(180deg, var(--primary-light) 0%, var(--primary) 100%);
     transition: height 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative; min-height: 16px;
+    box-shadow: 0 2px 6px rgba(79,70,229,0.18);
 }
-.fu-trend-bar.zero { background: var(--gray-100); }
-.fu-trend-bar.today { background: linear-gradient(180deg, #fbbf24 0%, #d97706 100%); }
+.fu-trend-bar.zero { background: var(--gray-100); min-height: 2px; box-shadow: none; }
+.fu-trend-bar.today { background: linear-gradient(180deg, #fbbf24 0%, #d97706 100%); box-shadow: 0 0 0 2px rgba(217,119,6,0.22), 0 2px 6px rgba(217,119,6,0.3); }
 .fu-trend-bar-wrap:hover .fu-trend-bar { filter: brightness(1.12); }
 .fu-trend-bar-wrap.clickable { cursor: pointer; }
 .fu-trend-bar-wrap.clickable:active .fu-trend-bar { filter: brightness(0.95); }
@@ -728,11 +730,11 @@ textarea { resize: vertical; }
 .fu-trend-day-item .fu-trend-day-content { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
 /* 柱体数值标签：有数据的柱子在柱顶显示条数，不点进去也知道每天多少（bottom 由 JS 按柱高内联设置） */
 .fu-trend-bar-val {
-    position: absolute; left: 0; right: 0; bottom: calc(100% + 2px);
-    text-align: center; font-size: 9px; line-height: 1;
-    color: var(--text-secondary); font-weight: 700; pointer-events: none;
+    position: absolute; left: 0; right: 0; top: 3px;
+    text-align: center; font-size: 11px; line-height: 1;
+    color: #fff; font-weight: 700; pointer-events: none;
 }
-.fu-trend-bar-wrap.is-today .fu-trend-bar-val { color: #b45309; }
+.fu-trend-bar-wrap.is-today .fu-trend-bar-val { color: #7c2d12; }
 /* 图表说明行：解释柱高含义与点击穿透 */
 .fu-trend-hint {
     font-size: 11px; color: var(--gray-400); text-align: center;
@@ -763,7 +765,7 @@ textarea { resize: vertical; }
     .fu-trend-summary { gap: 6px; }
     .fu-trend-stat .v { font-size: 15px; }
     .fu-trend-stat .k { font-size: 10px; }
-    .fu-trend-chart { height: 100px; }
+    .fu-trend-chart { height: 110px; }
 }
 
 /* Key Customer List */
@@ -1136,6 +1138,36 @@ tr.customer-row.starred:hover td { background-color: #fde68a; }
 .cust-sort-label { font-size: 12px; color: #6b7280; white-space: nowrap; }
 .cust-sort-sel { padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fff; font-size: 13px; color: #1f2937; font-family: inherit; cursor: pointer; }
 .cust-sort-sel:hover { border-color: #d1d5db; }
+
+/* 客户总表：统一筛选工具栏（桌面，紧贴表格顶部、缩小与列表间距） */
+.cust-filter-toolbar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    margin: 8px 0 10px; padding: 8px 10px;
+    background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.cust-ft-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: #fff; color: var(--text); font-size: 13px; font-weight: 500;
+    padding: 6px 10px; cursor: pointer; outline: none; white-space: nowrap;
+}
+.cust-ft-btn:hover { border-color: var(--primary); color: var(--primary); }
+.cust-ft-icon { width: 14px; height: 14px; flex-shrink: 0; }
+.cust-ft-text { color: var(--text-secondary); }
+.cust-ft-arrow { font-size: 10px; color: var(--text-secondary); }
+.cust-ft-btn .th-filter-cur { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--primary); font-weight: 700; }
+.cust-ft-sel { padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fff; font-size: 13px; color: var(--text); font-family: inherit; cursor: pointer; }
+.cust-ft-sel:hover { border-color: var(--primary); }
+.cust-ft-search {
+    display: flex; align-items: center; gap: 4px; flex: 1 1 200px; min-width: 160px; margin-left: auto;
+    border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--gray-100); padding: 2px 8px;
+}
+.cust-ft-search-ico { color: var(--text-secondary); font-size: 13px; flex-shrink: 0; }
+.cust-ft-input { flex: 1; border: none; background: transparent; outline: none; padding: 5px 2px; font-size: 13px; color: var(--text); font-family: inherit; }
+.cust-ft-input::placeholder { color: var(--text-secondary); }
+.cust-ft-clear { border: none; background: transparent; cursor: pointer; color: var(--text-secondary); font-size: 14px; padding: 2px 4px; flex-shrink: 0; }
+.cust-ft-clear:hover { color: var(--danger); }
 
 /* 客户总表：行内快捷操作（桌面，悬停浮现于跟进记录列右侧） */
 td.col-followup-content { position: relative; }
@@ -6931,10 +6963,10 @@ function renderFollowupTrend() {
         // 数据穿透：有数据的日期可点击查看当日跟进明细（count=0 不可点）
         const clickable = d.count > 0 ? ' clickable' : '';
         const attr = d.count > 0 ? ' data-day-key="' + d.key + '" onclick="window._crm.openFuTrendDay(\'' + d.key + '\')"' : '';
-        // 柱顶数值标签：有数据的柱子显示条数（按柱高定位，zero 柱不显示避免噪音）
-        const valLabel = d.count > 0 ? '<span class="fu-trend-bar-val" style="bottom:calc(' + h + '% + 2px)">' + d.count + '</span>' : '';
+        // 柱内数值标签：有数据的柱子把条数显示在柱体内部（白字压柱色，今日深棕），zero 柱不显示避免噪音
+        const valLabel = d.count > 0 ? '<span class="fu-trend-bar-val">' + d.count + '</span>' : '';
         return '<div class="fu-trend-bar-wrap' + (isToday ? ' is-today' : '') + clickable + '"' + attr + ' title="' + tip + '">' +
-            '<div class="' + cls + '" style="height:' + h + '%"></div>' + valLabel + '</div>';
+            '<div class="' + cls + '" style="height:' + h + '%">' + valLabel + '</div></div>';
     }).join('');
     // X 轴日期标签：每月首日与起点标 "月/日"，其余标日号；今日高亮，悬停仍显示完整日期
     const xlabels = t.days.map(function (d, i) {
@@ -7858,17 +7890,28 @@ function renderCustomers() {
             </button>
         </div>`;
 
-    // 排序方式选择条（桌面，统计条下方右对齐）：切换即保存并重排，随 _meta 跨设备同步
-    const _sortBar = `
-        <div class="cust-sort-bar">
-            <span class="cust-sort-label">排序</span>
-            <select id="customerSortSel" class="cust-sort-sel" title="选择客户排序方式">${customerSortOptionsHTML(getCustomerSort())}</select>
+    // 统一筛选工具栏（桌面）：状态多选 + 城市 + 排序 + 名称搜索通栏，紧贴表格顶部、缩小与列表间距
+    const _filterToolbar = `
+        <div class="cust-filter-toolbar">
+            <button type="button" class="cust-ft-btn" id="customerStatusFilterBtn" title="按状态筛选（多选）">
+                <svg class="cust-ft-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                <span class="cust-ft-text">状态</span>
+                <span class="th-filter-cur" id="customerStatusFilterCur">全部</span>
+                <span class="cust-ft-arrow">▾</span>
+            </button>
+            <select id="customerCityFilter" class="cust-ft-sel" title="按城市筛选">${cityOptions}</select>
+            <select id="customerSortSel" class="cust-ft-sel" title="选择客户排序方式">${customerSortOptionsHTML(getCustomerSort())}</select>
+            <div class="cust-ft-search">
+                <span class="cust-ft-search-ico">🔍</span>
+                <input type="text" id="nameSearchInput" class="cust-ft-input" placeholder="搜索客户名称…" value="${escapeAttr(currentFilter._nameSearch || '')}" />
+                <button type="button" class="cust-ft-clear" id="nameSearchClear" title="清除">✕</button>
+            </div>
         </div>`;
 
     // 表格布局：状态 | 客户名称 | 待办/计划 | 跟进记录 | 最后跟进时间；列宽可拖拽并本地记忆
     container.innerHTML = `
         ${_statBar}
-        ${_sortBar}
+        ${_filterToolbar}
         <div class="customer-table-wrap">
             <table class="customer-table">
                 <colgroup>
@@ -7881,32 +7924,16 @@ function renderCustomers() {
                 <thead>
                     <tr>
                         <th class="col-status">
-                            <div class="th-filter">
-                                <span>状态</span>
-                                <button type="button" class="th-filter-trigger" id="customerStatusFilterBtn" title="按状态筛选">
-                                    <svg class="th-filter-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
-                                    <span class="th-filter-cur" id="customerStatusFilterCur">全部</span>
-                                </button>
-                            </div>
+                            <span>状态</span>
                             <span class="col-resizer" data-col="status"></span>
                         </th>
                         <th class="col-name">
-                            <div class="th-name-wrap">
-                                <span>客户名称</span>
-                                <button type="button" class="th-name-search" id="nameSearchBtn" title="按名称搜索" aria-label="按名称搜索">🔍</button>
-                            </div>
+                            <span>客户名称</span>
                             <span class="col-resizer" data-col="name"></span>
                         </th>
                         <th class="col-bp">待办/计划<span class="col-resizer" data-col="bp"></span></th>
                         <th class="col-followup-content">跟进记录</th>
                         <th class="col-last-followup">最后跟进时间</th>
-                    </tr>
-                    <tr class="name-search-row" id="nameSearchRow" style="display:none">
-                        <td colspan="5" class="name-search-cell">
-                            <span class="name-search-ico">🔍</span>
-                            <input type="text" id="nameSearchInput" class="name-search-input" placeholder="输入客户名称筛选…" />
-                            <button type="button" class="name-search-clear" id="nameSearchClear" title="清除">✕</button>
-                        </td>
                     </tr>
                 </thead>
                 <tbody>
@@ -7983,9 +8010,6 @@ function renderCustomers() {
     if (citySelect) {
         citySelect.addEventListener('change', (e) => {
             currentFilter.city = e.target.value;
-            delete currentFilter._overdue;
-            delete currentFilter._names;
-            delete currentFilter._nameSearch;
             renderCustomers();
         });
     }
