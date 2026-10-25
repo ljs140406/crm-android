@@ -350,6 +350,21 @@
             toast('已跳过 v' + info.version + '，下次有更新版本再提醒');
         };
 
+        // 历次更新日志：打开主程序的更新日志弹窗（含全部历史版本）
+        var changelog = document.createElement('button');
+        changelog.textContent = '查看历次更新日志';
+        changelog.style.cssText = 'display:block;width:100%;border:none;background:none;color:#4f46e5;font-size:13px;padding:0 0 14px;cursor:pointer';
+        changelog.onclick = function () {
+            closeUpdateModal();
+            try {
+                if (window._crm && typeof window._crm.openChangelog === 'function') {
+                    window._crm.openChangelog();
+                } else {
+                    toast('更新日志暂不可用', 1600);
+                }
+            } catch (e) { toast('更新日志打开失败', 1600); }
+        };
+
         var go = mkBtn('下载新版本', true);
         go.onclick = function () {
             closeUpdateModal();
@@ -368,6 +383,7 @@
         card.appendChild(body);
         card.appendChild(foot);
         card.appendChild(skip);
+        card.appendChild(changelog);
         overlayEl.appendChild(card);
         overlayEl.addEventListener('click', function (e) {
             if (e.target === overlayEl) closeUpdateModal();
@@ -471,6 +487,28 @@
             checkUpdate(true);
         };
         footer.appendChild(btn);
+
+        // 更新日志入口：与「检查更新」并排，打开主程序的更新日志弹窗（历次版本可查）
+        var logBtn = document.createElement('button');
+        logBtn.id = 'androidChangelogBtn';
+        logBtn.textContent = '更新日志';
+        logBtn.style.cssText = [
+            'display:block', 'width:100%', 'margin-top:6px', 'padding:8px 0',
+            'border:1px solid rgba(148,163,184,.45)', 'border-radius:8px',
+            'background:transparent', 'color:inherit', 'opacity:.85',
+            'font-size:13px', 'cursor:pointer'
+        ].join(';');
+        logBtn.onclick = function (e) {
+            e.stopPropagation();
+            try {
+                if (window._crm && typeof window._crm.openChangelog === 'function') {
+                    window._crm.openChangelog();
+                } else {
+                    toast('更新日志暂不可用', 1600);
+                }
+            } catch (err) { toast('更新日志打开失败', 1600); }
+        };
+        footer.appendChild(logBtn);
     }
 
     // ---------------------------------------------------------------

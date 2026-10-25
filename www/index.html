@@ -271,7 +271,9 @@ textarea { resize: vertical; }
     height: var(--header-h);
     /* 侧栏折叠位移走 transform（合成层动画，不触发重排）；
        实际位移量由下方 @media (min-width:1024px) 按 --sidebar-w / --sidebar-collapsed-w 施加 */
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    /* 侧栏折叠位移走 left（定位属性，不裁切右侧按钮）；
+       早期用 transform:translateX 位移整条 fixed 头部，会把右边缘（搜索/设置按钮）推出屏外 → 设置按钮被遮挡 */
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
     color: #fff;
     display: flex;
@@ -693,7 +695,25 @@ textarea { resize: vertical; }
 .fu-trend-bar.zero { background: var(--gray-100); }
 .fu-trend-bar.today { background: linear-gradient(180deg, #fbbf24 0%, #d97706 100%); }
 .fu-trend-bar-wrap:hover .fu-trend-bar { filter: brightness(1.12); }
+.fu-trend-bar-wrap.clickable { cursor: pointer; }
+.fu-trend-bar-wrap.clickable:active .fu-trend-bar { filter: brightness(0.95); }
 .fu-trend-foot { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); }
+/* 趋势穿透：某日跟进明细弹窗（低于基础弹窗 300，保证从其打开的编辑弹窗在上层） */
+#fuTrendDayModal { z-index: 290; }
+.fu-trend-day-item {
+    padding: 12px; margin-bottom: 8px; cursor: pointer;
+    background: linear-gradient(135deg, var(--gray-50) 0%, #fff 100%);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    transition: background 0.15s, transform 0.15s;
+}
+.fu-trend-day-item:active { background: var(--gray-100); transform: translateX(2px); }
+.fu-trend-day-item .fu-trend-day-cust { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+.fu-trend-day-item .fu-trend-day-meta { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--gray-400); margin-bottom: 4px; }
+.fu-trend-day-item .fu-trend-day-tag {
+    padding: 1px 8px; border-radius: 999px; font-size: 11px;
+    background: var(--primary-light); color: var(--primary);
+}
+.fu-trend-day-item .fu-trend-day-content { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
 @media (max-width: 768px) {
     .fu-trend-summary { gap: 6px; }
     .fu-trend-stat .v { font-size: 15px; }
@@ -1189,10 +1209,12 @@ td.col-followup-content { position: relative; }
 
 /* 客户总表：手机端「紧凑分隔列表」（方案C） */
 @media (max-width: 767px) {
-    .cust-m-toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px 6px; }
-    .cust-m-filter-wrap { position: relative; flex: 1 1 0; min-width: 0; }
-    .cust-m-filter-btn { width: 100%; display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; padding: 9px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fff; font-size: 13px; color: #1f2937; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .cust-m-filter-arrow { font-size: 11px; color: var(--gray-400); flex-shrink: 0; transition: transform .15s ease; }
+    /* 筛选栏单行：状态 | 城市 | 排序 | 搜索 四件套一行排布（参考上方四等分统计条），
+       不再占据三行；每件 flex:1 平分宽度，超长内容各自截断 */
+    .cust-m-toolbar { display: flex; flex-wrap: nowrap; gap: 6px; padding: 10px 12px 8px; align-items: center; }
+    .cust-m-filter-wrap { position: relative; flex: 1.2 1 0; min-width: 0; }
+    .cust-m-filter-btn { width: 100%; display: inline-flex; align-items: center; justify-content: space-between; gap: 4px; padding: 9px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fff; font-size: 12.5px; color: #1f2937; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cust-m-filter-arrow { font-size: 10px; color: var(--gray-400); flex-shrink: 0; transition: transform .15s ease; }
     .cust-m-filter-btn.is-open .cust-m-filter-arrow { transform: rotate(180deg); }
     /* 手机端状态筛选弹窗：左对齐、最小宽度 220px（窄屏会超出按钮向右延伸），限制高度避免被底部遮挡 */
     .cust-m-filter-pop.kf-menu {
@@ -1212,26 +1234,15 @@ td.col-followup-content { position: relative; }
         word-break: break-word;
         line-height: 1.45;
     }
-    .cust-m-select { flex: 1 1 0; min-width: 0; padding: 9px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fff; font-size: 13px; color: #1f2937; }
-    /* 排序下拉独占第二行（flex-basis 100% 强制换行），避免与状态/城市挤在一行被省略 */
-    .cust-m-sort-wrap { flex: 1 1 100%; }
-    /* 单行统计条（与桌面统计条同口径同交互）：四等分、总高约 44px，只占一行 */
-    .cust-m-statbar { display: flex; margin: 10px 12px 8px; border: 0.5px solid var(--border); border-radius: 9px; overflow: hidden; background: #fff; }
-    .cust-m-stat-seg { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 6px 2px 7px; border: 0; border-left: 0.5px solid var(--border); background: #fff; cursor: pointer; font-family: inherit; -webkit-tap-highlight-color: transparent; }
-    .cust-m-stat-seg:first-child { border-left: 0; }
-    .cust-m-stat-seg:active { background: var(--gray-50); }
-    .cust-m-stat-num { font-size: 15px; font-weight: 500; line-height: 1.15; color: var(--text-primary); }
-    .cust-m-stat-label { font-size: 11px; line-height: 1.15; color: var(--text-secondary); }
-    .cust-m-stat-seg.seg-star .cust-m-stat-num { color: #854F0B; }
-    .cust-m-stat-seg.seg-overdue .cust-m-stat-num { color: #A32D2D; }
-    .cust-m-stat-seg.active { background: #185FA5; }
-    .cust-m-stat-seg.active .cust-m-stat-num,
-    .cust-m-stat-seg.active .cust-m-stat-label { color: #fff; }
-    .cust-m-search { display: flex; align-items: center; gap: 8px; margin: 0 12px 8px; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fff; }
-    .cust-m-search-ico { font-size: 13px; color: var(--gray-400); flex-shrink: 0; }
-    .cust-m-search-input { flex: 1 1 auto; min-width: 0; border: 0; outline: 0; font-size: 14px; background: transparent; color: #1f2937; }
+    .cust-m-select { flex: 1 1 0; min-width: 0; padding: 9px 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fff; font-size: 12.5px; color: #1f2937; }
+    /* 排序下拉与状态/城市同行（不再独占一行） */
+    .cust-m-sort-wrap { flex: 1 1 0; }
+    /* 搜索框并入同一行：图标 + 输入 + 清除按钮，输入框可压缩 */
+    .cust-m-search { flex: 1.3 1 0; min-width: 0; display: flex; align-items: center; gap: 5px; padding: 9px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fff; }
+    .cust-m-search-ico { font-size: 12px; color: var(--gray-400); flex-shrink: 0; }
+    .cust-m-search-input { flex: 1 1 auto; min-width: 0; border: 0; outline: 0; font-size: 13px; background: transparent; color: #1f2937; }
     .cust-m-search-input::placeholder { color: var(--gray-400); }
-    .cust-m-search-clear { border: 0; background: transparent; color: var(--gray-400); font-size: 15px; padding: 0 2px; line-height: 1; cursor: pointer; }
+    .cust-m-search-clear { border: 0; background: transparent; color: var(--gray-400); font-size: 13px; padding: 0 1px; line-height: 1; cursor: pointer; flex-shrink: 0; }
     .cust-m-list { padding: 6px 12px 12px; }
     .customer-row-m { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 13px 14px; margin-bottom: 10px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
     .customer-row-m:active { background: var(--gray-50); }
@@ -2371,7 +2382,11 @@ td.col-followup-content { position: relative; }
     gap: 8px;
 }
 .detail-more-item:hover { background: var(--primary-bg); color: var(--primary); }
-.modal-body { padding: 16px 18px; overflow-y: auto; flex: 1; min-height: 0; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+/* overflow-x:hidden：弹窗正文只允许上下滑动。
+   旧样式仅设 overflow-y:auto 时，按 CSS 规范 overflow-x 会被计算为 auto →
+   移动端整块可左右拖动/橡皮筋回弹（用户反馈「云端同步设置页能左右滑动，体验不好」）。
+   嵌套的横向滚动区（标签 chip 行等）自带 overflow-x:auto，不受影响。 */
+.modal-body { padding: 16px 18px; overflow-y: auto; overflow-x: hidden; flex: 1; min-height: 0; min-width: 0; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 .modal-footer { padding: 14px 18px; display: flex; gap: 10px; justify-content: flex-end; border-top: 1px solid var(--border); flex-shrink: 0; }
 /* 确认弹窗层级高于其他弹窗，避免被遮挡 */
 #todoModal { z-index: 350; }
@@ -2382,7 +2397,32 @@ td.col-followup-content { position: relative; }
 #confirmModal .modal { max-width: 360px; }
 /* 同步冲突弹窗需高于「数据损坏」确认弹窗，避免后者全屏遮罩拦截冲突按钮点击 */
 #syncConflictModal { z-index: 2100; }
+/* 更新日志弹窗：高于 syncModal(450)，保证从同步设置里打开时压住设置弹窗 */
+#changelogModal { z-index: 460; }
 #confirmMessage { white-space: pre-wrap; line-height: 1.6; font-size: 14px; }
+
+/* ==================== 更新日志 ==================== */
+.changelog-current {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+    padding: 10px 12px; margin-bottom: 14px;
+    background: var(--primary-bg, #EEF2FF); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); font-size: 13px; color: var(--text-secondary);
+}
+.changelog-current b { color: var(--primary); font-size: 14px; }
+.changelog-entry { padding: 4px 0 14px; border-bottom: 1px dashed var(--border); }
+.changelog-entry:last-child { border-bottom: none; }
+.changelog-entry-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.changelog-entry-ver { font-size: 15px; font-weight: 700; color: var(--text); }
+.changelog-entry.is-current .changelog-entry-ver { color: var(--primary); }
+.changelog-entry-date { font-size: 12px; color: var(--gray-400); }
+.changelog-entry-tag {
+    font-size: 11px; padding: 1px 8px; border-radius: 999px;
+    background: var(--primary); color: #fff; font-weight: 600;
+}
+.changelog-entry-av { font-size: 12px; color: var(--text-secondary); }
+.changelog-entry ul { margin: 0; padding-left: 18px; }
+.changelog-entry li { font-size: 13px; line-height: 1.7; color: var(--text-secondary); margin-bottom: 2px; }
+.changelog-entry li b { color: var(--text); font-weight: 600; }
 
 /* ==================== Forms ==================== */
 .form-group { margin-bottom: 16px; }
@@ -3416,7 +3456,9 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
 }
 
 @media (min-width: 1024px) {
-    .app-header { transform: translateX(var(--sidebar-w)); }
+    /* 桌面端：头部从侧栏右缘开始排（left 偏移 + 右侧贴边），绝不用 transform 整条右移
+       （旧实现 transform:translateX(--sidebar-w) 会把固定宽度的头部右端推出视口 → 右上角设置按钮被遮挡） */
+    .app-header { left: var(--sidebar-w); transform: none; }
     .menu-toggle { display: none; }
     .sidebar { transform: translateX(0); }
     .sidebar-overlay { display: none; }
@@ -3426,7 +3468,7 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
     .sidebar-collapse-btn { display: inline-flex; }
     body.sidebar-collapsed .sidebar { width: var(--sidebar-collapsed-w); }
     body.sidebar-collapsed .main-content { margin-left: var(--sidebar-collapsed-w); }
-    body.sidebar-collapsed .app-header { transform: translateX(var(--sidebar-collapsed-w)); }
+    body.sidebar-collapsed .app-header { left: var(--sidebar-collapsed-w); transform: none; }
     /* 收起态：仅图标，隐藏文字/页脚 */
     body.sidebar-collapsed .sidebar-header { flex-direction: column; padding: 16px 8px; gap: 10px; }
     body.sidebar-collapsed .sidebar-title { display: none; }
@@ -3785,6 +3827,11 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                             <div class="settings-card-icon" style="background:#FEF3C7;color:#B45309;" data-page-node-id="QOE6UPTUiY3IQjpgwfxTTM"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="yAsnIKnGjK9xh9vWUhTq14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" data-page-node-id="wfn8yiWvatoKCH8RApiNjX"/><polyline points="14 2 14 8 20 8" data-page-node-id="2FeN66uA0O7GfQPjqEAcVz"/><line x1="16" y1="13" x2="8" y2="13" data-page-node-id="DOERtxsoqmKYpHIcFZwLNS"/><line x1="16" y1="17" x2="8" y2="17" data-page-node-id="TfLFtEgSqfHOeFzbIUAfkx"/></svg></div>
                             <div class="settings-card-title" data-page-node-id="BB44z083osv2R9XqpbEJwF">同步日志</div>
                             <div class="settings-card-desc" data-page-node-id="WH5F2eL1VOaG18CxIsQ1Yy">同步操作记录</div>
+                        </div>
+                        <div class="settings-card" onclick="window._crm.closeSettingsCenter();window._crm.openChangelog()" data-page-node-id="changelogCard">
+                            <div class="settings-card-icon" style="background:#E0F2FE;color:#0369A1;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3"/><path d="M3.05 11a9 9 0 1 1 .5 4"/><path d="M3 4v5h5"/></svg></div>
+                            <div class="settings-card-title">更新日志</div>
+                            <div class="settings-card-desc">历次版本更新内容</div>
                         </div>
                         <div class="settings-card" onclick="window._crm.closeSettingsCenter();window._crm.openOperationLogModal()" data-page-node-id="UBZ201pYiTwqUR9tovzCfN">
                             <div class="settings-card-icon" style="background:#E0F2FE;color:#0369A1;" data-page-node-id="SK9apVWw17U0OBge97QIst"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="a9755FnO5FQfKxQoRN8DXx"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" data-page-node-id="pCC3HCFz9XmBl4DxLQFSmf"/><polyline points="14 2 14 8 20 8" data-page-node-id="E9rbczOy1m35BHD2xyCt4y"/><line x1="16" y1="13" x2="8" y2="13" data-page-node-id="F23yvb2ccPNBlPbx1VB1Ev"/><line x1="16" y1="17" x2="8" y2="17" data-page-node-id="jDiHDQTMdkn4SaGOJCPO9L"/></svg></div>
@@ -4387,6 +4434,28 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
         </div>
     </div>
 
+    <!-- 跟进趋势穿透：某日跟进明细弹窗（z-index 290，从其打开的编辑弹窗在上层） -->
+    <div class="modal-overlay" id="fuTrendDayModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title" id="fuTrendDayTitle">当日跟进</h2>
+                <button class="modal-close" id="fuTrendDayClose">&times;</button>
+            </div>
+            <div class="modal-body" id="fuTrendDayBody"></div>
+        </div>
+    </div>
+
+    <!-- 更新日志：历次版本更新内容（含当前版本，随时可查） -->
+    <div class="modal-overlay" id="changelogModal">
+        <div class="modal" style="width:520px;max-width:94vw;">
+            <div class="modal-header">
+                <h2 class="modal-title">更新日志</h2>
+                <button class="modal-close" id="changelogClose">&times;</button>
+            </div>
+            <div class="modal-body" id="changelogBody"></div>
+        </div>
+    </div>
+
     <!-- 客户编辑弹窗 -->
     <div class="modal-overlay" id="editModal" data-page-node-id="YsAphLg9xb8R4V0e6sqED6">
         <div class="modal" data-page-node-id="eN1CX2IKphA9gJC0K6PBJU">
@@ -4890,8 +4959,9 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                 <!-- 桌面端：应用更新入口（仅桌面显示，由 setupUpdaterUI 控制显隐） -->
                 <div class="form-group" id="appUpdateRow" style="display:none;margin-top:14px;" data-page-node-id="u9E0WnyKePzvUyrcsBCZGG">
                     <label data-page-node-id="ac9ohhfgTVgLro1UUjdoVx">应用更新</label>
-                    <div style="display:flex;align-items:center;gap:10px;" data-page-node-id="R4w2ayNbtc6a0vExC2wkP1">
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;" data-page-node-id="R4w2ayNbtc6a0vExC2wkP1">
                         <button class="btn btn-secondary btn-sm" id="appUpdateBtn" type="button" data-page-node-id="un5fZhjTtyTthY07KVBKDW">检查更新</button>
+                        <button class="btn btn-ghost btn-sm" id="appChangelogBtn" type="button" data-page-node-id="appChangelogBtn">更新日志</button>
                         <span class="form-tip" style="margin:0;" data-page-node-id="cXuxDE9BXChCA0eR9MJ3du">桌面版可在线检查并下载新版本</span>
                     </div>
                 </div>
@@ -6742,8 +6812,11 @@ function renderFollowupTrend() {
         const isToday = (i === t.days.length - 1);
         const h = d.count > 0 ? Math.max(4, Math.round((d.count / maxV) * 100)) : 2;
         const cls = 'fu-trend-bar' + (d.count > 0 ? '' : ' zero') + (isToday ? ' today' : '');
-        const tip = d.key + ' · ' + d.count + ' 条';
-        return '<div class="fu-trend-bar-wrap' + (isToday ? ' is-today' : '') + '" title="' + tip + '">' +
+        const tip = d.key + ' · ' + d.count + ' 条' + (d.count > 0 ? '（点击查看明细）' : '');
+        // 数据穿透：有数据的日期可点击查看当日跟进明细（count=0 不可点）
+        const clickable = d.count > 0 ? ' clickable' : '';
+        const attr = d.count > 0 ? ' data-day-key="' + d.key + '" onclick="window._crm.openFuTrendDay(\'' + d.key + '\')"' : '';
+        return '<div class="fu-trend-bar-wrap' + (isToday ? ' is-today' : '') + clickable + '"' + attr + ' title="' + tip + '">' +
             '<div class="' + cls + '" style="height:' + h + '%"></div></div>';
     }).join('');
     container.innerHTML =
@@ -6758,6 +6831,47 @@ function renderFollowupTrend() {
             '<div class="fu-trend-bars">' + bars + '</div>' +
         '</div>' +
         '<div class="fu-trend-foot"><span>' + t.startKey.slice(5) + '</span><span>今天 ' + t.endKey.slice(5) + '</span></div>';
+}
+
+// ==================== 趋势数据穿透：某日跟进明细 ====================
+// 口径与 computeFollowupTrend 一致：只统计有效跟进（客户仍存在），按本地日期桶过滤，时间倒序。
+function computeFollowupsOnDay(key) {
+    const { valid } = computeValidFollowups();
+    return valid
+        .filter(f => fuDateKey(f.time) === key)
+        .sort((a, b) => new Date(b.time) - new Date(a.time));
+}
+function openFuTrendDay(key) {
+    const modal = document.getElementById('fuTrendDayModal');
+    if (!modal || !key) return;
+    const list = computeFollowupsOnDay(key);
+    const d = new Date(key + 'T00:00:00');
+    const dateLabel = isNaN(d.getTime()) ? key : (d.getMonth() + 1) + '月' + d.getDate() + '日';
+    const titleEl = document.getElementById('fuTrendDayTitle');
+    if (titleEl) titleEl.textContent = dateLabel + '跟进 · 共 ' + list.length + ' 条';
+    const body = document.getElementById('fuTrendDayBody');
+    if (!body) return;
+    if (list.length === 0) {
+        body.innerHTML = '<div class="empty-state"><div class="title">当天暂无跟进记录</div></div>';
+    } else {
+        body.innerHTML = list.map(f => {
+            const time = f.time ? formatDateTime(f.time) : '';
+            const tag = String(f.tag || '').trim();
+            return '<div class="fu-trend-day-item" onclick="window._crm.editFollowup(\'' + f.id + '\')">' +
+                '<div class="fu-trend-day-cust">' + escapeHtml(f.customer || '未填写客户') + '</div>' +
+                '<div class="fu-trend-day-meta">' +
+                '<span>' + escapeHtml(time) + '</span>' +
+                (tag ? '<span class="fu-trend-day-tag">' + escapeHtml(tag) + '</span>' : '') +
+                '</div>' +
+                '<div class="fu-trend-day-content">' + escapeHtml(f.content || '') + '</div>' +
+                '</div>';
+        }).join('');
+    }
+    modal.classList.add('show');
+}
+function closeFuTrendDay() {
+    const modal = document.getElementById('fuTrendDayModal');
+    if (modal) modal.classList.remove('show');
 }
 
 function renderKeyCustomers() {
@@ -7779,11 +7893,11 @@ function buildCustomersMobileHTML(filtered, custLastMap, customerTodoMap, custom
             </div>
             <select id="m-city-filter" class="cust-m-select">${cityOptions}</select>
             <select id="m-customer-sort" class="cust-m-select cust-m-sort-wrap" title="选择客户排序方式">${customerSortOptionsHTML(getCustomerSort())}</select>
-        </div>
-        <div class="cust-m-search">
-            <span class="cust-m-search-ico">🔍</span>
-            <input id="m-name-search" class="cust-m-search-input" type="text" placeholder="搜索客户名称…" value="${escapeAttr(currentFilter._nameSearch || '')}" />
-            <button id="m-name-clear" class="cust-m-search-clear" type="button" title="清除">✕</button>
+            <div class="cust-m-search">
+                <span class="cust-m-search-ico">🔍</span>
+                <input id="m-name-search" class="cust-m-search-input" type="text" placeholder="搜索客户" value="${escapeAttr(currentFilter._nameSearch || '')}" />
+                <button id="m-name-clear" class="cust-m-search-clear" type="button" title="清除">✕</button>
+            </div>
         </div>
         <div class="cust-m-list">${rowsHTML || emptyHTML}</div>
     `;
@@ -8615,11 +8729,16 @@ function computeCustomerTimeline(customer) {
         const seg = det.split('；').filter(function (s) { return s.indexOf('状态：') === 0; })[0];
         if (seg) push('status', e.time, seg);
     });
+    // 同类事件的时间先后次序（用于同一时间戳的裁决）：创建客户是客户生命周期的起点，
+    // 必须排在同样时间戳的其它事件之后（时间线倒序 = 新的在上，创建置底）。
+    const _kindOrder = { create: 0, status: 1, plan: 2, todo_add: 3, todo_done: 4, followup: 5 };
     events.sort(function (a, b) {
         if (a.ts == null && b.ts == null) return 0;
         if (a.ts == null) return 1;   // 无时间的排最后
         if (b.ts == null) return -1;
-        return b.ts - a.ts;           // 新的在上
+        if (a.ts !== b.ts) return b.ts - a.ts;           // 新的在上
+        // 同一时间戳：按 _kindOrder 反排，使 create(0) 沉底、followup(5) 在上
+        return (_kindOrder[b.kind] || 0) - (_kindOrder[a.kind] || 0);
     });
     const counts = {};
     events.forEach(function (ev) { counts[ev.kind] = (counts[ev.kind] || 0) + 1; });
@@ -9744,6 +9863,16 @@ function refreshFollowupViews() {
     const _custModal = document.getElementById('customerModal');
     if (_custModal && _custModal.classList.contains('show') && currentDetailCustomerId) {
         openCustomerDetail(currentDetailCustomerId);    // 打开中的客户详情：重绘其「跟进历史」
+    }
+    // 打开中的「跟进历史」弹窗：删除/修改后必须重绘其列表与计数，否则已删记录仍显示，
+    // 用户要关闭弹窗再进来才刷新（「跟进记录删除的时候不刷新」根因）
+    const _histModal = document.getElementById('followupHistoryModal');
+    if (_histModal && _histModal.classList.contains('show') && _histFuCustomer) {
+        renderFollowupHistoryList();
+        const _cnt = document.querySelector('#followupHistoryBody .followup-history-summary .count');
+        if (_cnt) {
+            _cnt.textContent = String((state.followups || []).filter(function (f) { return f.customer === _histFuCustomer; }).length);
+        }
     }
     if (currentPage === 'customers') renderCustomers();
 }
@@ -11053,6 +11182,8 @@ function _planEntitiesToWorkPlan(dp, fi, focusPlan) {
     };
     // 周锚点随「胜出方」workPlan 保留（focusPlan 即裁决出的 workPlan）；否则每次同步重建会丢失 weekStart → 又漂移
     wp.weekStart = (focusPlan && focusPlan.weekStart) || (state.workPlan && state.workPlan.weekStart) || '';
+    // 归档周记录同样随「胜出方」保留：否则每次同步重建 workPlan 都会丢档，「同周不重复归档」守卫失效
+    wp.lastArchivedWeek = (focusPlan && focusPlan.lastArchivedWeek) || (state.workPlan && state.workPlan.lastArchivedWeek) || '';
     ['thisWeek', 'nextWeek'].forEach(function (p) {
         PLAN_DAYS.forEach(function (d) { wp[p][d] = []; });
         wp[p].focusList = [];
@@ -11094,12 +11225,15 @@ function renderFocusList(period, containerId, week) {
         if (Number.isFinite(_fIdx)) { try { _fStart = _focusTa.selectionStart; _fEnd = _focusTa.selectionEnd; } catch (e) {} }
     }
     const list = (week.focusList || []).map(function (it) {
-        return { id: (it && it.id) || '', text: (it && it.text || '').toString(), completed: !!(it && it.completed), starred: !!(it && it.starred), src: (it && it.src) || 'manual', customerId: (it && it.customerId) || '' };
+        return { id: (it && it.id) || '', text: (it && it.text || '').toString(), completed: !!(it && it.completed), starred: !!(it && it.starred), src: (it && it.src) || 'manual', customerId: (it && it.customerId) || '', _deleted: !!(it && it._deleted) };
     });
     // 未完成在前、已完成在后，同时保留用户原始顺序；渲染序号用排序后下标，data-idx 用原始下标
     const sorted = list.map(function (it, i) { return { it: it, originalIdx: i }; })
         .sort(function (a, b) { return (a.it.completed ? 1 : 0) - (b.it.completed ? 1 : 0); });
-    container.innerHTML = sorted.map(function (wrap, idx) {
+    // ⚠️ 软删除项不渲染（与 renderPlanDay 一致）：归档会把已完成/已消费的本周重点沉进同步层成软删除态，
+    // 旧不过滤导致这些项在页面上依旧完整显示（用户反馈「已完成的归档后还在显示」）。
+    // data-idx 仍取完整数组（含软删除项）的原始下标——onFocusInput/focusRemove 等按完整数组定位。
+    container.innerHTML = sorted.filter(function (wrap) { return !wrap.it._deleted; }).map(function (wrap, idx) {
         const it = wrap.it, originalIdx = wrap.originalIdx;
         const doneLabel = it.completed ? '↩ 标记未完成' : '✓ 标记已完成';
         const idxLabel = (it.starred && !it.completed) ? ('★' + (idx + 1)) : (idx + 1);
@@ -11596,6 +11730,7 @@ function markReportOrderDirty() {
 function readFocusList(containerId) {
     const c = document.getElementById(containerId);
     if (!c) return [];
+    const period = (containerId === 'thisFocusList') ? 'this' : (containerId === 'nextFocusList') ? 'next' : '';
     const items = Array.prototype.slice.call(c.querySelectorAll('.focus-item')).map(function (el) {
         const ta = el.querySelector('.focus-text');
         // data-idx 是该项在 focusList 中的原始下标（DOM 顺序是「未完成在前」的排序结果，不能直接当原顺序用）
@@ -11614,7 +11749,32 @@ function readFocusList(containerId) {
     // 若照抄 DOM 顺序（排序后）回写，会打乱 focusList 原有顺序，使 data-idx 与数组下标错位，
     // 导致用户在新项里继续输入时内容被写到另一项上（表现为「不能输入 / 找不到刚输的内容」）。
     items.sort(function (a, b) { return a.idx - b.idx; });
-    return items.map(function (it) { return { id: it.id, text: it.text, completed: it.completed, starred: it.starred, src: it.src, customerId: it.customerId }; });
+    const out = items.map(function (it) { return { id: it.id, text: it.text, completed: it.completed, starred: it.starred, src: it.src, customerId: it.customerId }; });
+    // ⚠️ 软删除项不在 DOM 渲染，但必须原样补回数组（按内存中的原始下标插入，保持 data-idx 对齐）：
+    // 否则 savePlan 的 DOM 回读会把删除态整体抹掉 → 镜像丢项 → 云端旧副本借 unionMerge「仅远端有」复活
+    // （归档已完成项/删除项「一保存又回来」的根因）。
+    if (period) {
+        const memArr = ensureFocusList(period) || [];
+        const domIds = {};
+        out.forEach(function (it) { if (it.id) domIds[it.id] = true; });
+        memArr.forEach(function (m, memIdx) {
+            if (m && m._deleted && (!m.id || !domIds[m.id])) {
+                out.push({
+                    idx: memIdx,
+                    id: (m.id || ''),
+                    text: (m.text || '').toString(),
+                    completed: !!m.completed,
+                    starred: !!m.starred,
+                    src: m.src || 'manual',
+                    customerId: (m.customerId || '').toString(),
+                    _deleted: true
+                });
+            }
+        });
+        out.sort(function (a, b) { return (a.idx || 0) - (b.idx || 0); });
+        out.forEach(function (it) { delete it.idx; });
+    }
+    return out;
 }
 
 // textarea 根据内容自动撑高（带「手动调整大小记忆」：手动拖拽的高度作为下限，输入时不会缩回）
@@ -12055,6 +12215,19 @@ function onPlanItemSave(e) {
 }
 
 function archivePlan() {
+    // ⚠️ 同一自然周只允许归档一次（归档 = 「关闭本周」的一次性操作）。
+    // 旧实现无守卫：同周反复归档会把「已软删除的下周槽内容」反复复活进本周
+    // （_focusNorm 不识别 _deleted、每日项迁移强制 _deleted:false），
+    // 导致每次归档结果都不同、历史记录重复累积（用户实测「同周归档好几次，每次本周事项都不一样」）。
+    // 守卫：workPlan.lastArchivedWeek 记录上次归档的自然周周一；
+    // 兼容旧数据（升级前归档的没有该字段）：本周已有归档历史记录同样视为「本周已归档」。
+    const _weekKey = isoMonday(new Date());
+    const _archivedThisWeek = (state.workPlan && state.workPlan.lastArchivedWeek === _weekKey) ||
+        (state.history || []).some(function (h) { return !!(h && isThisWeek(h.createdAt || h.date || h.updatedAt || '')); });
+    if (_archivedThisWeek) {
+        showToast('本周已归档过，无需重复归档（下周一后再归档）');
+        return;
+    }
     showConfirm('确定要归档本周吗？\n本周已完成重点将丢弃，未完成重点与下周重点合并为新本周重点。', () => {
         const now = new Date();
         const weekRange = getWeekRange(now);
@@ -12067,13 +12240,17 @@ function archivePlan() {
         // ⚠️ 必须保留 id/src/customerId：派生（汇报）项一旦丢掉 src，就会被当成普通手动项，
         // 下次同步 syncReportFocusLinks 又按汇报名单新建一份 → 同名两份、且每归档一次累加（「越归档越多」根因）。
         const _focusNorm = function (it) {
-            return { id: (it && it.id || '').toString(), text: (it && it.text || '').toString(), completed: !!(it && it.completed), src: (it && it.src) || 'manual', customerId: (it && it.customerId || '').toString() };
+            return { id: (it && it.id || '').toString(), text: (it && it.text || '').toString(), completed: !!(it && it.completed), src: (it && it.src) || 'manual', customerId: (it && it.customerId || '').toString(), starred: !!(it && it.starred), _deleted: !!(it && it._deleted) };
         };
-        // 保留条件：有文本，或本身是派生（汇报）项（派生项内容可为空，但身份必须保留）
-        const _focusKeep = function (it) { return !!(it.text || it.src === 'report'); };
+        // 保留条件：有文本，或本身是派生（汇报）项（派生项内容可为空，但身份必须保留）。
+        // ⚠️ 软删除项一律不保留：下周槽里的 _deleted 项来自「用户删除 / 清空内容 / 上一次归档的整体软删除」，
+        // 归档必须尊重删除语义，绝不能再复活（旧实现在此把删项反复迁回本周，是同周多次归档结果飘忽的根因）。
+        const _focusKeep = function (it) { return !!(it.text || it.src === 'report') && !it._deleted; };
         const thisFocusAll = (tw.focusList || []).map(_focusNorm).filter(_focusKeep);
-        const thisFocusOpen = thisFocusAll.filter(function (it) { return !it.completed || it.src === 'report'; });
-        // 解析下周 focusList（全部视为未完成，跟随到新本周末尾）
+        // 已完成一律丢弃（含派生汇报项）：兑现弹窗承诺「本周已完成重点将丢弃」。
+        // 汇报客户仍会由下方 syncReportFocusLinks 按「近期汇报客户」名单重建为新的未完成项（新周新提醒）。
+        const thisFocusOpen = thisFocusAll.filter(function (it) { return !it.completed; });
+        // 解析下周 focusList（全部视为未完成，跟随到新本周末尾；软删除项不迁移，见 _focusKeep）
         const nextFocusAll = (nw.focusList || []).map(_focusNorm).filter(_focusKeep);
 
         // 历史记录：本周 focus 全部入历史（已完成+未完成，便于回看）
@@ -12084,7 +12261,8 @@ function archivePlan() {
             focusList: thisFocusAll.slice(),
             focus: thisFocusAll.map(function (it) { return it.text; }).join('\n')
         };
-        PLAN_DAYS.forEach(function (d) { historyEntry[d] = planToItems(tw[d]).slice(); });
+        // 软删除的计划项不进历史（用户已删除的内容不应出现在归档记录里）
+        PLAN_DAYS.forEach(function (d) { historyEntry[d] = planToItems(tw[d]).filter(function (it) { return !it._deleted; }).slice(); });
         historyEntry.createdAt = nowIso;
         historyEntry.updatedAt = nowIso;
         state.history.unshift(historyEntry);
@@ -12092,28 +12270,56 @@ function archivePlan() {
 
         // 合并到新本周 focusList：本周未完成 + 下周全部，全部重置 completed=false
         // （本周已完成项被丢弃——已完成的不再追踪，腾出本周重点位给未完成+下周任务）
-        const _focusCarry = function (it) { return { id: it.id, text: it.text, completed: false, src: it.src, customerId: it.customerId }; };
-        // ⚠️ 下周迁移来的重点项必须「剥掉原 id」：下周项原 id 形如 fi_next_0，与下方软删除后留在同步层的同名 fi_next_0 撞 id，
-        // 会导致 unionMerge 按 id 去重把迁移项挤掉（本周丢项）。剥 id 后由 _workPlanToPlanEntities 分配本周新 id，规避冲突。
-        const _focusCarryFromNext = function (it) { return { id: '', text: it.text, completed: false, src: it.src, customerId: it.customerId }; };
+        const _focusCarry = function (it) { return { id: it.id, text: it.text, completed: false, starred: !!it.starred, src: it.src, customerId: it.customerId }; };
+        // ⚠️ 已完成的本周重点「软删除保留在同步层」而非直接丢弃：直接丢弃会让同步层镜像少了这些 id，
+        // 而云端仍有它们的活动副本 → unionMerge「仅远端有→添加」把已完成项复活回新本周继续显示
+        // （用户反馈「已完成内容归档后还在显示」）。软删除后本端删除态权威，不被对端副本复活。
+        const _focusDrop = function (it) { return { id: it.id, text: it.text, completed: false, starred: !!it.starred, src: it.src, customerId: it.customerId, _deleted: true }; };
+        // ⚠️ 下周迁移来的重点项必须换发新 id：原 id（fc_next_* 或旧随机 id）与下方整体软删除后
+        // 留在同步层的同名副本撞 id → unionMerge 按 id 去重会把迁移项挤掉（本周丢项）。
+        // 新随机 id 随实体同步到对端，两端一致；且不改用下标 id（fc_this_N 会随派生项置顶重排而漂移）。
+        const _focusCarryFromNext = function (it) { return { id: _entId('fc_this'), text: it.text, completed: false, starred: !!it.starred, src: it.src, customerId: it.customerId }; };
+        const thisFocusDropped = thisFocusAll.filter(function (it) { return it.completed; });
         const mergedFocus = [].concat(
             thisFocusOpen.map(_focusCarry),
+            thisFocusDropped.map(_focusDrop),
             nextFocusAll.map(_focusCarryFromNext)
         );
 
-        // 每日 planItems：下周搬移到本周（与原行为一致）。
-        // ⚠️ 原下周槽位不再「移除」条目，而是「软删除」(_deleted:true)：
-        // 若直接移除，同步层 next 项缺失，云端/对端仍有的旧 next 项会在 unionMerge 按「仅远端有→保留」被并回，
-        // 归档后下周又被复活（且删除项也跟着复现）；软删除经 _rev 提升传播，对端拉取后保持隐藏 → 下周视觉清空且不再复现。
-        // （每日项 id 为 dp_this_/dp_next_ 区分周，软删除不会与本周迁移项撞 id；重点项已剥 id 规避撞 id）
+        // 每日 planItems：下周「活动项」搬移到本周（软删除项尊重删除语义，不迁移——已删除/已消费的不复活）。
+        // ⚠️ 迁移必须「剥掉原 id」：原 id 形如 dp_next_mon_xxx，与下方整体软删除后留在同步层的
+        // 同名 dp_next_mon_xxx 撞 id → unionMerge 按 id 去重会把迁移项挤掉（归档丢项 / 下周残留的根因）。
+        // 剥 id 后由 _workPlanToPlanEntities 按新周重算内容哈希稳定 id（dp_this_mon_h…z），多端一致。
+        // ⚠️ 旧本周项「软删除保留在同步层」：归档把本周内容整体消费进历史，但同步层里不能直接消失——
+        // 否则云端旧副本被 unionMerge「仅远端有→添加」复活（实测：归档后一次自动同步，已入历史的
+        // 旧本周项又变回活动计划项，「归档后本周事项莫名其妙多出来」的根因）。
+        // 软删除态在对端同样隐藏（renderPlanDay 过滤 _deleted），用户重添相同内容时同 id 自然复活为活动态。
+        // 顺序：软删除的旧项在前、迁入的活动项在后——同内容哈希 id 碰撞时活动项胜出（_indexBy 后写覆盖前写）。
         state.workPlan.thisWeek = { focusList: mergedFocus };
-        // ⚠️ 下周每日项搬移到本周时必须「清除 _deleted」：下周槽里被软删除的项（如用户删过某条下周任务）
-        // 若带着 _deleted 进入本周会被 renderPlanDay 隐藏 → 归档丢项。归档=全部下周内容前向复活，故强制 _deleted:false。
-        PLAN_DAYS.forEach(function (d) { state.workPlan.thisWeek[d] = planToItems(nw[d]).map(function (it) { return Object.assign({}, it, { _deleted: false }); }); });
+        PLAN_DAYS.forEach(function (d) {
+            const _migrated = planToItems(nw[d])
+                .filter(function (it) { return !it._deleted; })
+                .map(function (it) { return { id: '', text: it.text, customer: it.customer, customerId: it.customerId }; });
+            const _migIds = {};
+            _migrated.forEach(function (it) { _migIds[_planItemStableId('this', d, it.text, it.customer, it.customerId)] = true; });
+            // 去重键与镜像的 id 计算保持一致：非旧式 id 用项自身 id，否则用内容哈希。
+            // ⚠️ 软删除副本必须保留原 id（随机 id 项尤其如此）：镜像对随机 id 原样沿用，
+            // 只有旧式下标 id 才会重算内容哈希——剥 id 会让副本 id 与云端副本不一致，挡不住复活。
+            const _consumed = planToItems(tw[d])
+                .filter(function (it) {
+                    const _iid = (it.id && !_isLegacyPlanId(it.id)) ? it.id : _planItemStableId('this', d, it.text, it.customer, it.customerId);
+                    return !_migIds[_iid];
+                })
+                .map(function (it) { return { id: it.id, text: it.text, customer: it.customer, customerId: it.customerId, _deleted: true }; });
+            state.workPlan.thisWeek[d] = _consumed.concat(_migrated);
+        });
         state.workPlan.nextWeek = { focusList: (nw.focusList || []).map(function (it) { return Object.assign({}, it, { _deleted: true }); }) };
         PLAN_DAYS.forEach(function (d) { state.workPlan.nextWeek[d] = planToItems(nw[d]).map(function (it) { return Object.assign({}, it, { _deleted: true }); }); });
         // 归档 = 把「本周」锚点推进到归档时刻的自然周周一（时间归属由归档决定，而非日历自动翻篇）
         state.workPlan.weekStart = isoMonday(new Date());
+        // 记录归档周：供函数开头的「同周不重复归档」守卫使用（同步层随 workPlan 整体传播，
+        // 且 _planEntitiesToWorkPlan 重建时会像 weekStart 一样从胜出方保留该字段）
+        state.workPlan.lastArchivedWeek = isoMonday(new Date());
 
         // 归档本质是「本周计划」的一次更新：必须 bump 版本号并登记变更，
         // 否则下次同步时远端 workPlan._rev 更高（或 updatedAt 更新）会用旧值覆盖刚归档的结果，造成数据丢失/被同步成错误
@@ -17955,6 +18161,7 @@ function bindEvents() {
     document.getElementById('operationLogClose').addEventListener('click', closeOperationLogModal);
     document.getElementById('importExportClose').addEventListener('click', closeImportExportModal);
     document.getElementById('settingsCenterClose').addEventListener('click', closeSettingsCenter);
+    document.getElementById('changelogClose').addEventListener('click', closeChangelog);
     document.getElementById('cancelSyncBtn').addEventListener('click', closeSyncModal);
     // 同步方式切换：即时显示对应配置面板
     const _provSel = document.getElementById('syncProvider');
@@ -19076,6 +19283,16 @@ window._crm = {
     fuDateKey,
     computeFollowupTrend,
     renderFollowupTrend,
+    // 趋势数据穿透：某日跟进明细（测试辅助）
+    computeFollowupsOnDay,
+    openFuTrendDay,
+    closeFuTrendDay,
+    // 更新日志（历次版本更新内容，测试辅助）
+    currentAppVersion,
+    openChangelog,
+    closeChangelog,
+    // RELEASE_NOTES 定义在本对象之后（var 赋值时序），用 getter 懒引用避免取到 undefined
+    get RELEASE_NOTES() { return RELEASE_NOTES; },
     fuTagAdd,
     fuTagRename,
     toggleFuCustomer,
@@ -19209,6 +19426,185 @@ window._crm = {
     getCurrentFilter: function () { return currentFilter; }
 };
 
+// ---------- 更新日志（历次版本更新内容，桌面/安卓/网页随时可查）----------
+// v=桌面版本号，av=安卓版本号（仅安卓发版的条目 v 留空表示桌面未动），date=发布日期，notes=更新要点（新的在前）
+var RELEASE_NOTES = [
+    { v: '1.1.55', av: '1.1.60', date: '2026-10-25', notes: [
+        '<b>归档本周</b>：修复同一周反复归档结果不一致、已完成内容归档后仍显示的问题（同周只允许归档一次，已删除/已完成内容不再复活）',
+        '<b>客户全景时间线</b>：创建客户事件固定沉底为时间线起点，同戳事件按类型分层',
+        '<b>跟进记录</b>：删除后即时刷新（含打开中的跟进历史弹窗），无需切页重进',
+        '<b>数据看板</b>：跟进趋势支持数据穿透——点击柱体查看当日跟进明细，可点进单条编辑',
+        '<b>手机端客户页</b>：状态/城市/排序/搜索四件套整理为一行',
+        '<b>设置弹窗</b>：正文禁止左右滑动（仅上下），与其它设置页一致',
+        '<b>桌面端</b>：修复右上角设置按钮被遮挡',
+        '<b>更新日志</b>：历次更新内容可在设置中心/同步设置/安卓侧边栏随时查看'
+    ] },
+    { v: '1.1.54', av: '1.1.59', date: '2026-10-25', notes: [
+        '<b>Gist 镜像默认关闭</b>：代码保留、默认不再启用，高级面板可随时开回（纯网页端仍兜底开启，防同步中断）',
+        '<b>跟进附件</b>：支持图片/文件附件，二进制独立 WebDAV 目录存储，IndexedDB 缓存 + 容量上限 + 一键清理，删除跟进级联清理',
+        '<b>手机端一键记跟进</b>：底部 FAB + 最近客户 chips 快捷抽屉，与完整弹窗共用写入核心',
+        '<b>跟进趋势图表</b>：仪表盘新增近 30 天日柱状图 + 日均参考线 + 四项汇总',
+        '<b>客户全景时间线</b>：客户详情新增全景视图，合并跟进/待办/计划/创建/状态变更'
+    ] },
+    { v: '1.1.53', av: '1.1.58', date: '2026-10-15', notes: [
+        '<b>删除计划项同步时序优化</b>：删除后立即同步上云（不再等打字防抖）',
+        '<b>被动端双拉兜底</b>：启动/回前台做两次拉取，抓住对端删除落地前的窗口，根治「打开手机又复活」',
+        '<b>远端变更探测</b>：轮询 30s → 10s，被动端更快感知对端删除'
+    ] },
+    { v: '1.1.52', av: '1.1.57', date: '2026-10-15', notes: [
+        '<b>清空每日计划内容不再复活</b>：清空内容按软删除进同步层传播（区别于全新空项），合并层保护删除态'
+    ] },
+    { v: '1.1.51', av: '1.1.56', date: '2026-10-15', notes: [
+        '<b>删除计划项二次根治</b>：启动时读回同步层实体作镜像基准，删除时间戳不再丢失；合并平局时删除态优先'
+    ] },
+    { v: '1.1.50', av: '1.1.55', date: '2026-10-15', notes: [
+        '<b>每日计划项稳定 id</b>：弃用下标式 id，改内容哈希/随机 id，杜绝删除后邻居前移撞 id 复活'
+    ] },
+    { v: '1.1.49', av: '1.1.54', date: '2026-10-15', notes: [
+        '<b>归档本周修复</b>：归档后补镜像同步，下周槽软删除传播；迁移项剥 id 防合并丢项'
+    ] },
+    { v: '1.1.48', av: '1.1.53', date: '2026-10-08', notes: [
+        '<b>每日计划编辑回退</b>：拉取设备二次拉取不再被旧内容覆盖（pending 判据改按实际差异）',
+        '<b>删除跨端</b>：每日计划删除改软删除 + 稳定下标，墓碑正常传播'
+    ] },
+    { v: '1.1.47', av: '1.1.52', date: '2026-10-08', notes: [
+        '<b>计划时间钉死</b>：每日计划按归档周锚定，不随日历漂移；跨周未归档有黄条提示 + 一键归档'
+    ] },
+    { v: '1.1.46', av: '1.1.51', date: '2026-10-01', notes: [
+        '<b>弹窗提示被遮挡</b>：toast 层级提升到所有弹窗之上'
+    ] },
+    { v: '1.1.45', av: '1.1.50', date: '2026-10-01', notes: [
+        '<b>沉默客户预警增强</b>：参与预警的客户状态可配置（默认全部）；修复「从未跟进」显示 Infinity 的缺陷'
+    ] },
+    { v: '1.1.44', av: '1.1.49', date: '2026-09-19', notes: [
+        '<b>每日计划输入框焦点还原</b>：停顿思考不再被自动保存/同步轮询打断',
+        '<b>备份保留数</b>：改为读设置项，自动备份路径下同样生效'
+    ] },
+    { v: '', av: '1.1.48', date: '2026-09-15', notes: [
+        '<b>安卓更新自动清理旧 APK</b>：下载新版本前自动清理下载目录里的历史安装包（仅安卓）'
+    ] },
+    { v: '1.1.43', av: '1.1.47', date: '2026-09-15', notes: [
+        '<b>桌面宽屏视觉修复</b>：本周重点窄屏视觉增强改用媒体查询隔离，桌面不再被「美颜」拖累'
+    ] },
+    { v: '1.1.42', av: '1.1.46', date: '2026-09-15', notes: [
+        '<b>本周重点视觉优化</b>：白底卡片、三胶囊统一全圆角、内容区独立底色；窄屏编辑框自动换行铺满'
+    ] },
+    { v: '1.1.41', av: '1.1.45', date: '2026-09-15', notes: [
+        '<b>安卓本周重点排版</b>：派生项编辑框窄屏挤压逐字换行问题修复（换行铺满整行）'
+    ] },
+    { v: '1.1.40', av: '1.1.44', date: '2026-09-14', notes: [
+        '<b>标记已完成一步到位</b>：点完成即退出编辑态、页面不跳动；顺带修复自动同步可能被连续输入「饿死」'
+    ] },
+    { v: '1.1.39', av: '1.1.43', date: '2026-09-14', notes: [
+        '<b>编辑卡顿根治</b>：日志不再全量压缩写盘、同步变更不塞整表快照、存量瘦身 + 打字期间推迟落盘与同步（实测主线程阻塞降 94%）'
+    ] },
+    { v: '1.1.38', av: '1.1.42', date: '2026-09-13', notes: [
+        '<b>同步误报修复</b>：冲突检测补「本地≠云端」守卫，过期基准不再误报',
+        '<b>重点项稳定 id</b>：弃用下标式 id，重复项不再越积越多',
+        '<b>一键清理重复重点项</b>：设置中心新增清理入口',
+        '<b>读写对称</b>：启动时正常加载删除墓碑'
+    ] },
+    { v: '1.1.37', av: '1.1.40', date: '2026-09-13', notes: [
+        '<b>汇报客户/本周重点五项修复</b>：操作行默认隐藏点整行展开、归档不再越归档越多、派生项不再重复展示、卡顿修复、删后重加不再被同步删除'
+    ] },
+    { v: '1.1.36', av: '1.1.39', date: '2026-09-09', notes: [
+        '<b>汇报客户 → 本周重点联动</b>：汇报客户自动派生到本周重点顶部（带徽标），任一端删除双端级联收敛'
+    ] },
+    { v: '1.1.35', av: '1.1.38', date: '2026-09-09', notes: [
+        '<b>状态筛选「全部」切不回</b>：改按时间戳 LWW 裁决',
+        '<b>本周重点同步回旧数据</b>：合并不再自增版本号，按内容更新时间裁决',
+        '<b>汇报客户顺序双端收敛</b>：平局取远端顺序'
+    ] },
+    { v: '1.1.34', av: '1.1.37', date: '2026-09-09', notes: [
+        '<b>重点/计划内容编辑后不同步</b>：镜像保持修订号与时间戳，仅内容实际变化才 bump',
+        '<b>汇报客户排序不同步</b>：新增排序时间戳 LWW',
+        '<b>同步异常不再静默吞掉</b>'
+    ] },
+    { v: '1.1.33', av: '1.1.36', date: '2026-09-09', notes: [
+        '<b>输入法组字保护</b>：本周重点/每日计划输入不再被打断，中文组字不再莫名变英文'
+    ] },
+    { v: '1.1.32', av: '1.1.35', date: '2026-09-09', notes: [
+        '<b>跟进记录页改版</b>：筛选栏两行、卡片信息分层、编辑删除收进 ⋮ 菜单',
+        '<b>客户总表统计卡居中</b>',
+        '<b>备份提醒横幅闪现修复</b>：首轮同步后判定 + 会话级抑制'
+    ] },
+    { v: '1.1.31', av: '1.1.34', date: '2026-09-09', notes: [
+        '<b>单设备编辑误报冲突</b>：同步基准按实际上云内容记录，推送失败回滚',
+        '<b>汇报客户「添加客户」按钮展开后才显示</b>'
+    ] },
+    { v: '1.1.30', av: '1.1.33', date: '2026-09-09', notes: [
+        '<b>添加重点后不能输入</b>：修复保存回读打乱顺序导致内容写错项；新增空项正常进同步层不再消失'
+    ] },
+    { v: '1.1.29', av: '1.1.32', date: '2026-09-09', notes: [
+        '<b>四项体验修复</b>：全平台文本可复制；改/删跟进后无需刷新即更新；重点输入框焦点光标稳定；近期汇报客户补回「添加客户」按钮'
+    ] },
+    { v: '1.1.28', av: '1.1.31', date: '2026-09-08', notes: [
+        '<b>草稿丢失修复</b>：远端空值不再静默覆盖本地刚存的草稿/标签/折叠偏好/看板顺序'
+    ] },
+    { v: '1.1.27', av: '1.1.30', date: '2026-09-08', notes: [
+        '<b>七项优化</b>：镜像 Gist 自动复活根因修复；跟进按客户折叠；草稿箱多端同步；汇报客户移入工作计划；默认标签；偏好弹窗层级；备份列表移动端排版'
+    ] },
+    { v: '1.1.26', av: '1.1.29', date: '2026-09-08', notes: [
+        '<b>跟进标签 + 未跟进提醒徽标</b>：标签单选可增删改、按标签筛选；「最后跟进」变色天数徽标（7/14 天可配）'
+    ] },
+    { v: '1.1.25', av: '1.1.28', date: '2026-09-08', notes: [
+        '<b>备份列表被旧目标覆盖</b>：切换页签后旧目标异步响应不再覆盖新列表'
+    ] },
+    { v: '1.1.24', av: '1.1.27', date: '2026-09-08', notes: [
+        '<b>备份开关不刷新</b>：切页签后自动备份开关与提示即时刷新'
+    ] },
+    { v: '1.1.23', av: '1.1.26', date: '2026-09-08', notes: [
+        '<b>自动备份开关 UI</b>：Gist 目标下开关禁用并明确提示（自动备份仅 WebDAV 生效）'
+    ] },
+    { v: '1.1.22', av: '1.1.25', date: '2026-09-08', notes: [
+        '<b>WebDAV 自动备份</b>：桌面/安卓按 12/24/48 小时间隔静默快照，保留最新 N 份'
+    ] }
+];
+/** 当前运行版本号：安卓 Capacitor 桥 → 桌面 electronAPI → 源码兜底常量 */
+function currentAppVersion() {
+    try {
+        if (window.crmAndroid && window.crmAndroid.version) return String(window.crmAndroid.version);
+    } catch (e) { }
+    try {
+        if (window.electronAPI && window.electronAPI.app && typeof window.electronAPI.app.getVersion === 'function') {
+            var v = window.electronAPI.app.getVersion();
+            if (v) return String(v);
+        }
+    } catch (e) { }
+    return (RELEASE_NOTES.length && RELEASE_NOTES[0].v) || '1.1.55';
+}
+function openChangelog() {
+    var modal = document.getElementById('changelogModal');
+    var body = document.getElementById('changelogBody');
+    if (!modal || !body) return;
+    var cur = currentAppVersion();
+    var isAndroid = false;
+    try { isAndroid = !!(window.Capacitor && window.Capacitor.Plugins); } catch (e) { }
+    var html = '<div class="changelog-current">当前版本：<b>v' + escapeHtml(cur) + '</b>' +
+        (isAndroid ? '<span>（安卓 App）</span>' : '') +
+        '<span>· 共 ' + RELEASE_NOTES.length + ' 个版本，新的在上</span></div>';
+    html += RELEASE_NOTES.map(function (e) {
+        var isCur = (isAndroid ? (e.av === cur) : (e.v === cur));
+        var verText = isAndroid ? ('安卓 v' + (e.av || '-')) : ('桌面 v' + (e.v || '-'));
+        var avText = (!isAndroid && e.av) ? (' / 安卓 v' + e.av) : '';
+        return '<div class="changelog-entry' + (isCur ? ' is-current' : '') + '">' +
+            '<div class="changelog-entry-head">' +
+            '<span class="changelog-entry-ver">' + verText + '</span>' +
+            (isCur ? '<span class="changelog-entry-tag">当前版本</span>' : '') +
+            '<span class="changelog-entry-date">' + escapeHtml(e.date || '') + '</span>' +
+            (avText ? '<span class="changelog-entry-av">' + avText + '</span>' : '') +
+            '</div>' +
+            '<ul>' + e.notes.map(function (n) { return '<li>' + n + '</li>'; }).join('') + '</ul>' +
+            '</div>';
+    }).join('');
+    body.innerHTML = html;
+    modal.classList.add('show');
+}
+function closeChangelog() {
+    var modal = document.getElementById('changelogModal');
+    if (modal) modal.classList.remove('show');
+}
+
 // ---------- 桌面端自动更新进度框（仅桌面端 window.electronAPI.updater 存在时生效）----------
 function setupUpdaterUI() {
     if (!(window.electronAPI && window.electronAPI.updater)) return;
@@ -19256,6 +19652,8 @@ function setupUpdaterUI() {
     u.onError(function (msg) { showToast('检查更新失败：' + (msg || '未知错误')); });
     var checkBtn = document.getElementById('appUpdateBtn');
     if (checkBtn) checkBtn.onclick = function () { try { u.check(); } catch (e) {} };
+    var changelogBtn = document.getElementById('appChangelogBtn');
+    if (changelogBtn) changelogBtn.onclick = function () { openChangelog(); };
 }
 
 initTextareaResizeMemory();
