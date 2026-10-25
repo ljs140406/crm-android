@@ -40,7 +40,7 @@ button:focus-visible {
     outline-offset: 1px;
 }
 /* 滚动容器：开启 iOS 惯性滚动 */
-.scrollable, .modal-body, .city-picker-list, .sidebar-content, .main-content, .todo-list, .customer-list, .followup-timeline, .history-list, .dashboard-grid, .sync-panel-log {
+.scrollable, .modal-body, .city-picker-list, .sidebar-content, .main-content, .todo-list, .customer-list, .followup-timeline, .history-list, .dashboard-grid {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
 }
@@ -53,7 +53,7 @@ button:focus-visible {
 }
 /* 按钮最小可点击区域 44x44（Apple HIG） */
 @media (max-width: 767px) {
-    .icon-btn, .modal-close, .filter-chip, .city-picker-btn {
+    .icon-btn, .modal-close, .city-picker-btn {
         min-width: 36px;
         min-height: 36px;
     }
@@ -72,7 +72,6 @@ button:focus-visible {
     --success: #10b981;
     --warning: #f59e0b;
     --danger: #ef4444;
-    --info: #3b82f6;
     --gray-50: #f9fafb;
     --gray-100: #f3f4f6;
     --gray-200: #e5e7eb;
@@ -82,15 +81,16 @@ button:focus-visible {
     --gray-600: #4b5563;
     --gray-700: #374151;
     --gray-800: #1f2937;
-    --gray-900: #111827;
     --bg: #f0f2f5;
     --card-bg: #ffffff;
     --text: #1f2937;
     --text-secondary: #6b7280;
     --border: #e5e7eb;
     --shadow: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
     --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
     --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+    --primary-soft: #eef2ff;
     --radius: 12px;
     --radius-sm: 8px;
     --header-h: 56px;
@@ -98,19 +98,6 @@ button:focus-visible {
     --sidebar-w: 240px;
     --sidebar-collapsed-w: 64px;
 }
-
-/* Status Colors */
-.status-A { --sc: #ef4444; --sc-bg: #fef2f2; }
-.status-B { --sc: #f97316; --sc-bg: #fff7ed; }
-.status-C { --sc: #eab308; --sc-bg: #fefce8; }
-.status-D { --sc: #3b82f6; --sc-bg: #eff6ff; }
-.status-E { --sc: #06b6d4; --sc-bg: #ecfeff; }
-.status-F { --sc: #6b7280; --sc-bg: #f9fafb; }
-.status-G { --sc: #4b5563; --sc-bg: #f3f4f6; }
-.status-H { --sc: #8b5cf6; --sc-bg: #f5f3ff; }
-.status-R { --sc: #0ea5e9; --sc-bg: #f0f9ff; }
-.status-Y { --sc: #10b981; --sc-bg: #ecfdf5; }
-.status-Z { --sc: #dc2626; --sc-bg: #fef2f2; }
 
 /* ==================== Reset ==================== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -198,7 +185,6 @@ textarea { resize: vertical; }
     .bk-grid .bk-size { grid-column: 1 / 2; grid-row: 4; font-size: 12px; }
     .bk-grid.bk-row > div:last-child { grid-column: 2 / 3; grid-row: 4; justify-self: end; }
 }
-.backup-modal-actions { display:flex; gap:10px; margin-top:14px; align-items:center; }
 .backup-sel-count { font-size:13px; color:var(--text-secondary); }
 .sync-status-card {
     display: flex;
@@ -249,11 +235,6 @@ textarea { resize: vertical; }
     gap: 10px;
     margin: 14px 0;
 }
-.sync-data-size { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
-.sync-data-size-item { background: var(--gray-50); border-radius: 8px; padding: 10px; text-align: center; }
-.sync-data-size-label { display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
-.sync-data-size-value { font-size: 18px; font-weight: 700; color: var(--primary); font-variant-numeric: tabular-nums; }
-.sync-data-size-value.warn { color: var(--warning); }
 .sync-log {
     max-height: 200px;
     overflow-y: auto;
@@ -265,32 +246,9 @@ textarea { resize: vertical; }
     line-height: 1.5;
     -webkit-overflow-scrolling: touch;
 }
-.sync-log-section { margin-top: 14px; }
-.sync-log-section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 6px;
-}
-.sync-log-section-title { font-size: 13px; font-weight: 600; color: var(--text); }
 .sync-log-item { margin-bottom: 4px; }
 .sync-log-item.error { color: var(--danger); }
 .sync-log-item.success { color: var(--success); }
-.conflict-info {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin: 16px 0;
-    padding: 12px;
-    background: var(--gray-50);
-    border-radius: var(--radius-sm);
-}
-.conflict-side { flex: 1; text-align: center; }
-.conflict-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
-.conflict-time { font-size: 13px; font-weight: 600; margin-top: 4px; }
-.conflict-count { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
-.conflict-vs { font-size: 11px; color: var(--gray-400); font-weight: 600; }
 
 /* 字段级冲突合并 */
 .conflict-actions-top { display: flex; gap: 8px; margin: 12px 0; }
@@ -302,8 +260,8 @@ textarea { resize: vertical; }
 .conflict-value-row .tag { font-size: 11px; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
 .conflict-value-row.local .tag { background: #dbeafe; color: #1e40af; }
 .conflict-value-row.remote .tag { background: #dcfce7; color: #166534; }
-.conflict-value-row .val { flex: 1; font-size: 13px; word-break: break-all; color: var(--text-primary); }
-.conflict-value-row button { font-size: 12px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--gray-300); background: #fff; color: var(--text-primary); }
+.conflict-value-row .val { flex: 1; font-size: 13px; word-break: break-all; color: var(--text); }
+.conflict-value-row button { font-size: 12px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--gray-300); background: #fff; color: var(--text); }
 .conflict-value-row button.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
 
 /* ==================== Header ==================== */
@@ -311,7 +269,9 @@ textarea { resize: vertical; }
     position: fixed;
     top: 0; left: 0; right: 0;
     height: var(--header-h);
-    transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    /* 侧栏折叠位移走 transform（合成层动画，不触发重排）；
+       实际位移量由下方 @media (min-width:1024px) 按 --sidebar-w / --sidebar-collapsed-w 施加 */
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
     color: #fff;
     display: flex;
@@ -332,40 +292,6 @@ textarea { resize: vertical; }
 .icon-btn:active { background: rgba(255,255,255,0.18); }
 .icon-btn.syncing svg { animation: spin 1s linear infinite; }
 @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
-
-/* ==================== Dropdown Menu ==================== */
-.dropdown-menu {
-    position: fixed;
-    top: calc(var(--header-h) + env(safe-area-inset-top, 0) + 4px);
-    right: 10px;
-    background: var(--card-bg);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-lg);
-    min-width: 180px;
-    z-index: 99;
-    opacity: 0;
-    transform: translateY(-8px) scale(0.96);
-    pointer-events: none;
-    transition: opacity 0.2s, transform 0.2s;
-    overflow: hidden;
-}
-.dropdown-menu.show { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
-.dropdown-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 16px;
-    font-size: 14px;
-    color: var(--text);
-    border-bottom: 1px solid var(--border);
-    transition: background 0.15s;
-    font-weight: 500;
-}
-.dropdown-item:last-child { border-bottom: none; }
-.dropdown-item:active { background: var(--gray-100); }
-.dropdown-item svg { color: var(--text-secondary); flex-shrink: 0; }
-.dropdown-divider { height: 1px; background: var(--border); margin: 4px 0; }
-.dropdown-sync-info { padding: 8px 16px; font-size: 11px; color: var(--text-secondary); background: var(--gray-50, #f8fafc); }
 
 /* 冲突横幅 */
 .conflict-banner {
@@ -444,6 +370,23 @@ textarea { resize: vertical; }
 .search-result-item .name { font-weight: 600; font-size: 15px; }
 .search-result-item .meta { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
 .search-result-item mark { background: #fde047; color: #1f2937; border-radius: 2px; padding: 0 2px; }
+/* 全局搜索结果分组：客户 / 跟进记录 / 待办 */
+.search-group-title {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px 6px; font-size: 12px; font-weight: 700;
+    color: var(--text-secondary); background: var(--gray-50);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 1;
+}
+.search-group-count {
+    font-size: 11px; font-weight: 600; color: var(--primary);
+    background: var(--primary-bg); border-radius: 999px; padding: 1px 8px;
+}
+.search-result-snippet {
+    font-size: 13px; color: var(--text); margin-top: 4px; line-height: 1.5;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    word-break: break-word;
+}
 
 /* ==================== Sidebar ==================== */
 .sidebar {
@@ -537,16 +480,6 @@ textarea { resize: vertical; }
     border-radius: 0 3px 3px 0;
 }
 .nav-item svg { flex-shrink: 0; }
-.nav-badge {
-    margin-left: auto;
-    background: var(--primary);
-    color: #fff;
-    font-size: 11px;
-    padding: 2px 7px;
-    border-radius: 10px;
-    min-width: 20px;
-    text-align: center;
-}
 .sidebar-footer { padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.08); }
 .version-info { font-size: 12px; color: rgba(255,255,255,0.4); }
 .sidebar-overlay {
@@ -722,6 +655,52 @@ textarea { resize: vertical; }
 .city-bar-track { flex: 1; height: 20px; background: var(--gray-100); border-radius: 5px; overflow: hidden; }
 .city-bar-fill { height: 100%; background: linear-gradient(90deg, var(--primary) 0%, var(--primary-light) 100%); border-radius: 5px; transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1); min-width: 20px; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; color: #fff; font-size: 11px; font-weight: 600; }
 
+/* Followup Trend Chart（纯 CSS 柱状图 + 日均参考线，不引外部库） */
+.fu-trend { display: flex; flex-direction: column; gap: 10px; }
+.fu-trend-summary { display: flex; gap: 8px; }
+.fu-trend-stat {
+    flex: 1; min-width: 0; text-align: center;
+    background: linear-gradient(135deg, var(--gray-50) 0%, #fff 100%);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 8px 4px;
+}
+.fu-trend-stat .v { font-size: 17px; font-weight: 700; color: var(--primary); line-height: 1.2; }
+.fu-trend-stat .k { font-size: 11px; color: var(--text-secondary); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fu-trend-chart { position: relative; height: 120px; padding-top: 4px; }
+.fu-trend-avg {
+    position: absolute; left: 0; right: 0; height: 0;
+    border-top: 1px dashed #f59e0b; z-index: 2; pointer-events: none;
+}
+.fu-trend-avg span {
+    position: absolute; right: 0; top: -16px;
+    font-size: 10px; color: #b45309; background: #fffbeb;
+    border: 1px solid #fde68a; border-radius: 4px; padding: 0 4px; line-height: 14px;
+}
+.fu-trend-bars {
+    display: flex; align-items: flex-end; gap: 2px;
+    height: 100%; position: relative; z-index: 1;
+    border-bottom: 1px solid var(--border);
+}
+.fu-trend-bar-wrap {
+    flex: 1 1 0; min-width: 0; height: 100%;
+    display: flex; align-items: flex-end; cursor: default;
+}
+.fu-trend-bar {
+    width: 100%; border-radius: 3px 3px 0 0;
+    background: linear-gradient(180deg, var(--primary-light) 0%, var(--primary) 100%);
+    transition: height 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.fu-trend-bar.zero { background: var(--gray-100); }
+.fu-trend-bar.today { background: linear-gradient(180deg, #fbbf24 0%, #d97706 100%); }
+.fu-trend-bar-wrap:hover .fu-trend-bar { filter: brightness(1.12); }
+.fu-trend-foot { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); }
+@media (max-width: 768px) {
+    .fu-trend-summary { gap: 6px; }
+    .fu-trend-stat .v { font-size: 15px; }
+    .fu-trend-stat .k { font-size: 10px; }
+    .fu-trend-chart { height: 100px; }
+}
+
 /* Key Customer List */
 .key-customer-list { display: flex; flex-direction: column; gap: 8px; }
 .key-customer-item {
@@ -768,46 +747,6 @@ textarea { resize: vertical; }
     margin-bottom: 14px;
     align-items: flex-start;
 }
-.filter-chips-wrap {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--card-bg);
-    padding: 8px 10px;
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    flex: 1;
-    min-width: 0;
-}
-.filter-chips {
-    display: flex;
-    gap: 6px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    flex: 1;
-    min-width: 0;
-}
-.filter-chips::-webkit-scrollbar { display: none; }
-.filter-chip {
-    padding: 6px 12px;
-    background: var(--gray-50);
-    border-radius: 16px;
-    font-size: 12px;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    border: 1px solid transparent;
-    transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s;
-    flex-shrink: 0;
-    font-weight: 500;
-}
-.filter-chip.active {
-    background: var(--primary);
-    color: #fff;
-    border-color: var(--primary);
-    box-shadow: 0 2px 6px rgba(79,70,229,0.25);
-}
-.filter-chip:active { transform: scale(0.96); }
 .followup-range {
     display: flex;
     align-items: center;
@@ -880,7 +819,6 @@ textarea { resize: vertical; }
     color: var(--text);
     font-size: 12px;
     outline: none;
-    font-family: var(--font);
 }
 .followup-date:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(79,70,229,0.08); }
 .followup-range-sep { color: var(--text-secondary); font-size: 12px; }
@@ -898,30 +836,6 @@ textarea { resize: vertical; }
 .followup-range-clear { background: #fff; color: var(--text-secondary); border-color: var(--border); }
 .followup-range-apply:hover, .followup-range-clear:hover { opacity: .85; }
 .followup-range.active { border: 1px solid var(--primary); background: var(--primary-bg); }
-.filter-manage-btn {
-    width: 32px; height: 32px;
-    border-radius: 50%;
-    background: var(--primary-bg);
-    color: var(--primary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    transition: background 0.15s, color 0.15s, transform 0.15s;
-}
-.filter-manage-btn:active { background: var(--primary); color: #fff; transform: scale(0.92); }
-.filter-select { flex-shrink: 0; }
-.filter-select select {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--card-bg);
-    color: var(--text);
-    font-size: 13px;
-    outline: none;
-    min-width: 110px;
-}
 
 /* ==================== Status Management ==================== */
 .status-manage-hint {
@@ -1072,20 +986,6 @@ textarea { resize: vertical; }
     gap: 6px;
     position: relative;
 }
-.th-select {
-    padding: 4px 8px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: #fff;
-    color: var(--text);
-    font-size: 12px;
-    outline: none;
-    min-width: 90px;
-    max-width: 130px;
-    cursor: pointer;
-    font-weight: 500;
-}
-.th-select:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(79,70,229,0.08); }
 
 /* 状态筛选：图标触发按钮 + 弹出面板（替代原下拉框，节省表头空间） */
 .th-filter-trigger {
@@ -1105,31 +1005,6 @@ textarea { resize: vertical; }
 .th-filter-trigger:hover { border-color: var(--primary); color: var(--primary); }
 .th-filter-icon { width: 14px; height: 14px; flex-shrink: 0; }
 .th-filter-cur { max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.th-filter-pop {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    z-index: 50;
-    min-width: 140px;
-    background: #fff;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    box-shadow: var(--shadow);
-    padding: 4px 0;
-}
-.th-filter-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    font-size: 13px;
-    color: var(--gray-700);
-    cursor: pointer;
-    white-space: nowrap;
-}
-.th-filter-item:hover { background: var(--gray-100); }
-.th-filter-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.th-filter-manage { color: var(--primary); border-top: 1px solid var(--border); margin-top: 2px; }
 
 /* 客户总表状态多选弹窗（桌面）：fixed 定位脱离表格容器，JS 按按钮位置精确定位 */
 #customerStatusFilterPop.kf-menu {
@@ -1191,6 +1066,12 @@ tr.customer-row.starred:hover td { background-color: #fde68a; }
 .cust-stat.cs-overdue.active { background: #fef2f2; border-color: #dc2626; }
 .cust-stat.cs-overdue.active .cs-label { color: #b91c1c; }
 
+/* 客户总表：排序方式选择条（桌面表格上方，右对齐） */
+.cust-sort-bar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin: 0 0 10px; }
+.cust-sort-label { font-size: 12px; color: #6b7280; white-space: nowrap; }
+.cust-sort-sel { padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fff; font-size: 13px; color: #1f2937; font-family: inherit; cursor: pointer; }
+.cust-sort-sel:hover { border-color: #d1d5db; }
+
 /* 客户总表：行内快捷操作（桌面，悬停浮现于跟进记录列右侧） */
 td.col-followup-content { position: relative; }
 .row-quick-actions {
@@ -1238,7 +1119,6 @@ td.col-followup-content { position: relative; }
 .bp-stack { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .bp-row { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; }
 
-.followup-overdue { color: var(--danger); font-weight: 600; }
 .no-data { color: var(--gray-400); }
 .followup-content-text {
     display: -webkit-box;
@@ -1272,7 +1152,6 @@ td.col-followup-content { position: relative; }
     gap: 10px;
 }
 .plan-head-row--end { justify-content: space-between; gap: 10px; }
-.plan-page-title { font-size: 20px; font-weight: 700; color: var(--text); margin: 0; }
 .plan-week-range {
     background: var(--gray-100); color: var(--text);
     font-size: 13px; padding: 6px 14px; border-radius: 999px;
@@ -1284,7 +1163,7 @@ td.col-followup-content { position: relative; }
 .plan-period-btn {
     border: 1px solid var(--border); background: #fff; color: var(--text-secondary);
     padding: 6px 16px; border-radius: 999px; font-size: 13px;
-    cursor: pointer; font-weight: 500; transition: all 0.15s;
+    cursor: pointer; font-weight: 500; transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 .plan-period-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 .plan-period-btn:not(.active):hover { border-color: var(--primary); color: var(--primary); background: var(--primary-bg); }
@@ -1297,7 +1176,6 @@ td.col-followup-content { position: relative; }
 .plan-week-carry-banner[hidden] { display: none; }
 .plan-week-carry-banner .pwc-text { flex: 1 1 auto; min-width: 200px; }
 .plan-week-carry-banner b { font-weight: 700; }
-.btn-sm { padding: 4px 12px; font-size: 12px; }
 
 /* 移动端表格 */
 @media (max-width: 767px) {
@@ -1307,12 +1185,11 @@ td.col-followup-content { position: relative; }
     .col-status { min-width: 120px; }
     .col-followup-time { min-width: 100px; }
     .col-city-filter { min-width: 120px; }
-    .th-select { min-width: 80px; max-width: 110px; font-size: 11px; }
 }
 
 /* 客户总表：手机端「紧凑分隔列表」（方案C） */
 @media (max-width: 767px) {
-    .cust-m-toolbar { display: flex; gap: 8px; padding: 10px 12px 6px; }
+    .cust-m-toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px 6px; }
     .cust-m-filter-wrap { position: relative; flex: 1 1 0; min-width: 0; }
     .cust-m-filter-btn { width: 100%; display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; padding: 9px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fff; font-size: 13px; color: #1f2937; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .cust-m-filter-arrow { font-size: 11px; color: var(--gray-400); flex-shrink: 0; transition: transform .15s ease; }
@@ -1336,6 +1213,20 @@ td.col-followup-content { position: relative; }
         line-height: 1.45;
     }
     .cust-m-select { flex: 1 1 0; min-width: 0; padding: 9px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fff; font-size: 13px; color: #1f2937; }
+    /* 排序下拉独占第二行（flex-basis 100% 强制换行），避免与状态/城市挤在一行被省略 */
+    .cust-m-sort-wrap { flex: 1 1 100%; }
+    /* 单行统计条（与桌面统计条同口径同交互）：四等分、总高约 44px，只占一行 */
+    .cust-m-statbar { display: flex; margin: 10px 12px 8px; border: 0.5px solid var(--border); border-radius: 9px; overflow: hidden; background: #fff; }
+    .cust-m-stat-seg { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 6px 2px 7px; border: 0; border-left: 0.5px solid var(--border); background: #fff; cursor: pointer; font-family: inherit; -webkit-tap-highlight-color: transparent; }
+    .cust-m-stat-seg:first-child { border-left: 0; }
+    .cust-m-stat-seg:active { background: var(--gray-50); }
+    .cust-m-stat-num { font-size: 15px; font-weight: 500; line-height: 1.15; color: var(--text-primary); }
+    .cust-m-stat-label { font-size: 11px; line-height: 1.15; color: var(--text-secondary); }
+    .cust-m-stat-seg.seg-star .cust-m-stat-num { color: #854F0B; }
+    .cust-m-stat-seg.seg-overdue .cust-m-stat-num { color: #A32D2D; }
+    .cust-m-stat-seg.active { background: #185FA5; }
+    .cust-m-stat-seg.active .cust-m-stat-num,
+    .cust-m-stat-seg.active .cust-m-stat-label { color: #fff; }
     .cust-m-search { display: flex; align-items: center; gap: 8px; margin: 0 12px 8px; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fff; }
     .cust-m-search-ico { font-size: 13px; color: var(--gray-400); flex-shrink: 0; }
     .cust-m-search-input { flex: 1 1 auto; min-width: 0; border: 0; outline: 0; font-size: 14px; background: transparent; color: #1f2937; }
@@ -1408,9 +1299,7 @@ td.col-followup-content { position: relative; }
     /* 工作计划 */
     .plan-page-head { gap: 10px; padding: 0 2px; }
     .plan-head-row { gap: 8px; }
-    .plan-page-title { min-width: 0; }
     .plan-week-range { margin-left: 0; }
-    .plan-section-header { padding: 4px 0 0; }
     .plan-grid { padding: 0; gap: 10px; }
     .plan-cell { padding: 4px 0; }
     .plan-cell:not(.plan-focus) { gap: 10px; }
@@ -1557,7 +1446,6 @@ td.col-followup-content { position: relative; }
 
 /* 大屏桌面 */
 @media (min-width: 768px) {
-    .plan-section-header { padding: 16px 20px; }
     .plan-grid { padding: 16px; gap: 12px; }
     .plan-cell { padding: 14px 16px; }
     .history-card-header { padding: 16px 20px; }
@@ -1583,6 +1471,35 @@ td.col-followup-content { position: relative; }
     transition: transform 0.2s, box-shadow 0.2s;
 }
 .fab:active { transform: scale(0.92) rotate(45deg); box-shadow: 0 2px 10px rgba(79,70,229,0.35); }
+
+/* ==================== 手机端「一键记跟进」：FAB + 底部抽屉 ==================== */
+/* FAB 仅移动端显示；桌面端继续用「＋ 添加跟进」完整弹窗（.hidden 优先级需双类选择器压过） */
+.quick-fu-fab { display: none !important; }
+@media (max-width: 768px) {
+    .quick-fu-fab { display: flex !important; }
+}
+.quick-fu-fab.hidden { display: none !important; }
+.quick-sheet-mask { position: fixed; inset: 0; background: rgba(15,23,42,.45); z-index: 210; opacity: 0; pointer-events: none; transition: opacity .22s; }
+.quick-sheet-mask.show { opacity: 1; pointer-events: auto; }
+.quick-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 211; background: var(--card-bg); border-radius: 18px 18px 0 0; box-shadow: 0 -8px 32px rgba(15,23,42,.22); transform: translateY(102%); transition: transform .26s cubic-bezier(.32,.72,.24,1); padding: 6px 16px calc(14px + env(safe-area-inset-bottom, 0)); max-height: 82vh; display: flex; flex-direction: column; }
+.quick-sheet.show { transform: translateY(0); }
+.quick-sheet-handle { width: 38px; height: 4px; border-radius: 999px; background: var(--gray-300); margin: 6px auto 8px; flex: 0 0 auto; }
+.quick-sheet-head { display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; }
+.quick-sheet-title { font-size: 16px; font-weight: 600; color: var(--text); }
+.quick-sheet-close { border: 0; background: none; font-size: 22px; line-height: 1; color: var(--text-secondary); cursor: pointer; padding: 4px 8px; }
+.quick-sheet-body { flex: 1 1 auto; overflow-y: auto; padding: 4px 0 8px; }
+.qf-label { font-size: 12px; color: var(--text-secondary); margin: 10px 0 6px; font-weight: 500; }
+.qf-cust-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.qf-cust-row::-webkit-scrollbar { display: none; }
+.qf-cust-chip { flex: 0 0 auto; border: 1px solid var(--border); background: var(--gray-50); border-radius: 999px; padding: 6px 12px; font-size: 13px; color: var(--text); cursor: pointer; font-family: inherit; }
+.qf-cust-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.qf-empty { font-size: 12px; color: var(--text-secondary); }
+.qf-input { width: 100%; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 11px; font-size: 14px; font-family: inherit; color: var(--text); background: #fff; box-sizing: border-box; }
+.qf-input:focus { outline: none; border-color: var(--primary-light); }
+.qf-textarea { resize: none; line-height: 1.5; }
+.qf-tag-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.quick-sheet-foot { display: flex; gap: 10px; justify-content: flex-end; flex: 0 0 auto; padding-top: 8px; border-top: 1px solid var(--border); }
+.quick-sheet-foot .btn { min-width: 96px; }
 
 /* ==================== Header Action Buttons ==================== */
 .header-add-btn, .header-sync-btn { position: relative; }
@@ -1660,34 +1577,6 @@ td.col-followup-content { position: relative; }
 }
 .plan-section.this-week { border-top: none; }
 .plan-section.next-week { border-top: none; }
-.plan-section-header {
-    padding: 4px 2px 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: none;
-    gap: 10px;
-    background: transparent;
-}
-.plan-section.next-week .plan-section-header {
-    background: transparent;
-}
-.plan-section-title {
-    font-size: 15px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--primary);
-}
-.plan-section-title::before {
-    content: '';
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: currentColor;
-}
-.plan-section.next-week .plan-section-title { color: var(--warning); }
 .week-label {
     font-size: 12px;
     color: var(--text-secondary);
@@ -1844,8 +1733,9 @@ td.col-followup-content { position: relative; }
     padding: 10px 12px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.04);
 }
-/* 窄屏（手机/小窗口）：白底卡片 + 内容区独立底色，视觉更精致 */
-@media (max-width: 768px) {
+/* 窄屏（手机/小窗口）：白底卡片 + 内容区独立底色，视觉更精致
+   ⚠️ 断点必须与全项目一致用 767px：768 会与下方 min-width:768 的「大屏桌面」规则在视口恰好 768px 时同时生效 */
+@media (max-width: 767px) {
     .focus-item {
         background: #fff; border: 1px solid #E8E8E8; padding: 12px;
         box-shadow: 0 1px 4px rgba(0,0,0,0.03);
@@ -1893,8 +1783,8 @@ td.col-followup-content { position: relative; }
 }
 .focus-item .focus-text:hover { background: var(--gray-50); }
 .focus-item .focus-text:focus { background: #fff; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-bg); }
-/* 窄屏（手机/小窗口）：内容区独立底色+边框，与卡片背景区分 */
-@media (max-width: 768px) {
+/* 窄屏（手机/小窗口）：内容区独立底色+边框，与卡片背景区分（断点同上，统一 767px） */
+@media (max-width: 767px) {
     .focus-item .focus-text {
         border: 1px solid #EEE; border-radius: 8px; background: #FAFAFA;
         padding: 9px 11px;
@@ -1902,18 +1792,6 @@ td.col-followup-content { position: relative; }
     .focus-item .focus-text:hover { background: #F5F5F5; }
     .focus-item .focus-text:placeholder-shown { border-style: dashed; border-color: #CCC; }
 }
-.focus-toolbar {
-    flex: 0 0 auto; display: flex; flex-direction: row; align-items: center; gap: 4px;
-}
-.focus-toolbar .focus-save, .focus-toolbar .more-toggle {
-    height: 24px; padding: 0 8px; font-size: 11px; line-height: 1;
-    border-radius: 6px; cursor: pointer; border: 1px solid var(--border);
-    background: #fff; display: inline-flex; align-items: center; justify-content: center;
-}
-.focus-toolbar .focus-save { color: var(--primary); border-color: var(--primary); }
-.focus-toolbar .focus-save:hover { background: var(--primary); color: #fff; }
-.focus-toolbar .more-toggle { color: var(--text-secondary); }
-.focus-toolbar .more-toggle:hover { border-color: var(--primary); color: var(--primary); }
 .focus-add-btn {
     margin-left: auto;
     font-size: 13px; color: var(--primary); background: #fff;
@@ -1966,18 +1844,6 @@ td.col-followup-content { position: relative; }
 }
 .report-seq.starred { background: #f59e0b; color: #fff; box-shadow: 0 0 0 2px #fcd34d; }
 .report-seq:active { transform: scale(0.92); }
-.report-toolbar {
-    flex: 0 0 auto; display: flex; flex-direction: row; align-items: center; gap: 4px;
-}
-.report-toolbar .report-save, .report-toolbar .more-toggle {
-    width: auto; height: 24px; padding: 0 8px; font-size: 11px; line-height: 1;
-    border-radius: 6px; cursor: pointer; border: 1px solid var(--border);
-    background: #fff; display: inline-flex; align-items: center; justify-content: center;
-}
-.report-toolbar .report-save { color: var(--primary); border-color: var(--primary); }
-.report-toolbar .report-save:hover { background: var(--primary); color: #fff; }
-.report-toolbar .more-toggle { color: var(--text-secondary); }
-.report-toolbar .more-toggle:hover { border-color: var(--primary); color: var(--primary); }
 /* 通用「更多」下拉菜单（重点 / 汇报客户共用） */
 .more-wrap { position: relative; display: inline-flex; }
 .more-menu {
@@ -1996,21 +1862,6 @@ td.col-followup-content { position: relative; }
 .more-item.danger { color: var(--danger); }
 .more-item.danger:hover { background: #fdecec; }
 .history-focus-done { text-decoration: line-through; color: var(--text-secondary); }
-.plan-cell-meta {
-    margin-top: 6px;
-    font-size: 11px;
-    color: var(--text-secondary);
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-.plan-cell-meta .filled-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--success);
-    display: inline-block;
-}
 .plan-actions {
     display: flex;
     gap: 10px;
@@ -2052,7 +1903,6 @@ td.col-followup-content { position: relative; }
     width: 100%;
     box-sizing: border-box;
 }
-.plan-related-title { display: none; }
 .plan-related-group { margin-bottom: 14px; }
 .plan-related-group:last-child { margin-bottom: 0; }
 .plan-related-label { font-size: 12px; color: var(--text-secondary); font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
@@ -2115,11 +1965,6 @@ td.col-followup-content { position: relative; }
 }
 .plan-item-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-bg); background: #fff; padding: 4px 6px; }
 .plan-item-input::placeholder { color: var(--text-secondary); }
-.plan-item-actions {
-    flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px;
-    padding-top: 2px;
-}
-.plan-item-actions-row { display: flex; flex-direction: row; gap: 6px; justify-content: center; }
 .plan-item-del {
     width: 26px; height: 26px; line-height: 26px;
     border: none; border-radius: 50%; background: var(--gray-100); color: var(--text-secondary);
@@ -2162,13 +2007,6 @@ td.col-followup-content { position: relative; }
 /* 计划项关联客户：小药丸 */
 .cust-pill-wrap { flex: 1 1 auto; min-width: 0; display: flex; }
 .cust-pill { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; box-sizing: border-box; }
-.cust-pill-empty {
-    flex: 1; justify-content: center;
-    border: 1px dashed var(--border); border-radius: 999px;
-    padding: 5px 10px; background: var(--gray-50); color: var(--text-secondary);
-    font-size: 12px; cursor: pointer;
-}
-.cust-pill-empty:hover { background: var(--primary-bg); border-color: var(--primary); color: var(--primary); }
 .cust-pill-filled {
     flex: 1; min-width: 0;
     background: var(--primary-bg); border: 1px solid transparent; border-radius: 999px;
@@ -2197,39 +2035,6 @@ td.col-followup-content { position: relative; }
     background: var(--gray-50); color: var(--text-secondary); font-size: 12px; cursor: pointer;
 }
 .weekend-toggle:hover { background: var(--primary-bg); border-color: var(--primary); color: var(--primary); }
-
-/* 全屏客户选择弹层 */
-.cust-fullscreen {
-    position: fixed; inset: 0; z-index: 1000;
-    background: var(--gray-50); display: flex; flex-direction: column;
-}
-.cust-fullscreen[hidden] { display: none; }
-.cust-fullscreen-head {
-    display: flex; align-items: center; justify-content: center; position: relative;
-    padding: 12px 16px; background: #fff; border-bottom: 1px solid var(--border); min-height: 48px;
-}
-.cust-fullscreen-back, .cust-fullscreen-close {
-    position: absolute; top: 50%; transform: translateY(-50%);
-    width: 36px; height: 36px; border: none; background: transparent; cursor: pointer;
-    font-size: 26px; color: var(--gray-600); border-radius: 8px;
-}
-.cust-fullscreen-back { left: 8px; }
-.cust-fullscreen-close { right: 8px; font-size: 18px; }
-.cust-fullscreen-back:hover, .cust-fullscreen-close:hover { background: var(--gray-100); }
-.cust-fullscreen-title { font-size: 15px; font-weight: 700; color: var(--text); }
-.cust-fullscreen-search { padding: 10px 12px; background: #fff; }
-.cust-fullscreen-input {
-    width: 100%; box-sizing: border-box; padding: 9px 14px; font-size: 14px;
-    border: 1px solid var(--border); border-radius: 999px; background: var(--gray-50); outline: none;
-}
-.cust-fullscreen-input:focus { border-color: var(--primary); background: #fff; }
-.cust-fullscreen-list { flex: 1; background: #fff; margin-top: 8px; overflow-y: auto; }
-.cust-fullscreen-row {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 13px 16px; border-bottom: 1px solid var(--gray-100); font-size: 14px; cursor: pointer; color: var(--text);
-}
-.cust-fullscreen-row:hover { background: var(--primary-bg); }
-.cust-fullscreen-empty { padding: 30px 16px; text-align: center; font-size: 13px; color: var(--text-secondary); }
 
 /* 客户详情：添加计划 — 独立子页面（动态生成） */
 .modal-overlay.plan-add-overlay { z-index: 1100; }
@@ -2343,7 +2148,7 @@ td.col-followup-content { position: relative; }
     display: inline-flex; align-items: center; gap: 6px;
     border: 1px solid var(--border); background: #fff; color: var(--text-secondary);
     padding: 8px 14px; border-radius: 999px; font-size: 13px;
-    cursor: pointer; font-weight: 500; transition: all 0.15s;
+    cursor: pointer; font-weight: 500; transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 .history-back-btn:hover { background: var(--primary-bg); border-color: var(--primary); color: var(--primary); }
 .history-page-title { font-size: 18px; font-weight: 700; color: var(--text); margin: 0; }
@@ -2381,7 +2186,6 @@ td.col-followup-content { position: relative; }
     font-weight: 600;
     flex-shrink: 0;
 }
-.history-week { font-size: 14px; font-weight: 600; }
 .history-date {
     font-size: 12px;
     color: var(--text-secondary);
@@ -2502,8 +2306,6 @@ td.col-followup-content { position: relative; }
     -webkit-overflow-scrolling: touch;
 }
 .modal-overlay.show .modal { transform: scale(1) translateY(0); }
-.modal { will-change: transform; }
-.modal-overlay { will-change: opacity; }
 .modal-sm { max-width: 380px; border-radius: 20px; }
 /* 拖动手柄已弃用（弹窗改为居中展示） */
 .modal::before {
@@ -2621,6 +2423,70 @@ td.col-followup-content { position: relative; }
 .detail-followup-item { padding: 12px; background: var(--gray-50); border-radius: 10px; border-left: 2px solid var(--primary-light); }
 .detail-followup-item .time { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; font-weight: 500; }
 .detail-followup-item .content { font-size: 13px; white-space: pre-wrap; word-break: break-word; line-height: 1.5; }
+
+/* ==================== 客户详情：全景时间线（segmented 切换 + 垂直时间线） ==================== */
+.detail-tl-tabs { display: flex; gap: 4px; background: var(--gray-100); border-radius: 8px; padding: 3px; flex-wrap: wrap; }
+.detail-tl-tab {
+    border: 0; background: transparent; border-radius: 6px;
+    font-size: 12px; font-weight: 600; color: var(--text-secondary);
+    padding: 5px 10px; cursor: pointer; line-height: 1.3; white-space: nowrap;
+}
+.detail-tl-tab.active { background: #fff; color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.detail-timeline { position: relative; display: flex; flex-direction: column; gap: 12px; padding-left: 18px; }
+.detail-timeline::before {
+    content: ''; position: absolute; left: 5px; top: 6px; bottom: 6px;
+    width: 2px; background: var(--border); border-radius: 1px;
+}
+.tl-item { position: relative; }
+.tl-dot {
+    position: absolute; left: -18px; top: 4px;
+    width: 10px; height: 10px; border-radius: 50%;
+    border: 2px solid #fff; box-shadow: 0 0 0 1px var(--border);
+}
+.tl-body { min-width: 0; }
+.tl-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tl-kind {
+    font-size: 10px; font-weight: 700; line-height: 1;
+    padding: 3px 6px; border-radius: 4px; flex: 0 0 auto;
+}
+.tl-time { font-size: 11px; color: var(--text-secondary); font-weight: 500; }
+.tl-text { font-size: 13px; line-height: 1.5; margin-top: 3px; white-space: pre-wrap; word-break: break-word; }
+.tl-sub { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
+@media (max-width: 768px) {
+    .detail-tl-tab { font-size: 11px; padding: 5px 8px; }
+}
+
+/* ==================== 跟进附件（编辑态列表 / 展示态 chip / 查看器 / 管理弹窗） ==================== */
+.fu-att-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.fu-att-empty { font-size: 12px; color: var(--text-secondary); padding: 4px 0; }
+.fu-att-chip { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--gray-50); font-size: 13px; }
+.fu-att-chip.is-img { border-color: #BFDBFE; background: #EFF6FF; }
+.fu-att-ico { font-size: 14px; flex: 0 0 auto; line-height: 1; }
+.fu-att-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); text-align: left; }
+.fu-att-size { flex: 0 0 auto; font-size: 11px; color: var(--text-secondary); }
+.fu-att-del { flex: 0 0 auto; border: 0; background: none; color: #A32D2D; font-size: 15px; line-height: 1; cursor: pointer; padding: 2px 4px; }
+.fu-att-new { flex: 0 0 auto; font-size: 10px; color: #185FA5; background: #DBEAFE; border-radius: 4px; padding: 1px 5px; }
+.fu-att-actions { display: flex; gap: 8px; align-items: center; }
+/* 展示态：跟进卡片内的附件 chip 行（图片/文件同形态，不撑乱卡片排版） */
+.fu-att-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+button.fu-att-chip { cursor: pointer; font-family: inherit; transition: border-color .15s; }
+button.fu-att-chip:hover { border-color: var(--primary-light); }
+/* 附件查看器 */
+.att-viewer-modal { max-width: 720px; }
+#attViewerBody { min-height: 220px; display: flex; align-items: center; justify-content: center; }
+.att-view-img { max-width: 100%; max-height: 62vh; border-radius: 8px; display: block; }
+.att-loading { color: var(--text-secondary); font-size: 13px; padding: 40px 0; }
+.att-view-file { text-align: center; padding: 24px 0; }
+.att-view-file-ico { font-size: 42px; line-height: 1; }
+.att-view-file-name { font-size: 14px; font-weight: 500; margin-top: 10px; word-break: break-all; }
+.att-view-file-size { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+.att-view-file-tip { font-size: 12px; color: var(--text-secondary); margin-top: 14px; }
+/* 附件管理弹窗 */
+.att-usage-text { font-size: 13px; color: var(--text); margin-bottom: 6px; }
+@media (max-width: 768px) {
+    .fu-att-chip { font-size: 12px; padding: 6px 8px; }
+    .att-view-img { max-height: 55vh; }
+}
 .detail-todo-list { display: flex; flex-direction: column; gap: 8px; }
 .detail-todo-item { padding: 12px; background: var(--gray-50); border-radius: 10px; border-left: 2px solid var(--primary-light); cursor: pointer; transition: background .15s; }
 .detail-todo-item:hover { background: var(--primary-bg); }
@@ -2807,42 +2673,8 @@ td.col-followup-content { position: relative; }
 }
 .bottom-nav-item:active { color: var(--primary-light); }
 
-/* ==================== Sync Panel ==================== */
-.sync-panel {
-    position: fixed;
-    right: 12px;
-    bottom: calc(var(--bottom-nav-h) + 110px + env(safe-area-inset-bottom, 0));
-    width: 300px;
-    max-height: 300px;
-    background: var(--card-bg);
-    border-radius: 16px;
-    box-shadow: var(--shadow-lg);
-    z-index: 54;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    transform: translateY(10px) scale(0.95);
-    opacity: 0;
-    pointer-events: none;
-    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    border: 1px solid var(--border);
-}
-.sync-panel.show {
-    transform: translateY(0) scale(1);
-    opacity: 1;
-    pointer-events: auto;
-}
-.sync-panel-header {
-    padding: 10px 14px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-}
-.sync-panel-title { font-size: 13px; font-weight: 600; }
-.sync-panel-actions { display: flex; gap: 8px; align-items: center; }
-.sync-panel-clear, .sync-panel-minimize {
+/* 日志弹窗头部「清空」小按钮（.sync-panel 悬浮面板已废弃，此类名保留复用） */
+.sync-panel-clear {
     font-size: 11px;
     color: var(--text-secondary);
     padding: 3px 8px;
@@ -2850,25 +2682,7 @@ td.col-followup-content { position: relative; }
     background: var(--gray-50);
     font-weight: 500;
 }
-.sync-panel-clear:active, .sync-panel-minimize:active { background: var(--gray-200); }
-.sync-panel-log {
-    flex: 1;
-    overflow-y: auto;
-    padding: 8px 12px;
-    font-size: 11px;
-    line-height: 1.6;
-}
-.sync-panel-log .sync-log-item {
-    padding: 3px 0;
-    border-bottom: 1px solid var(--gray-50);
-    color: var(--text-secondary);
-}
-.sync-panel-log .sync-log-item:last-child { border-bottom: none; }
-.sync-panel-log .sync-log-item .time { color: var(--gray-400); margin-right: 6px; }
-.sync-panel-log .sync-log-item.error { color: var(--danger); }
-.sync-panel-log .sync-log-item.success { color: var(--success); }
-.sync-panel-log .sync-log-item.warning { color: var(--warning); }
-.sync-panel-log .sync-log-item.info { color: #3b82f6; }
+.sync-panel-clear:active { background: var(--gray-200); }
 .sync-log-empty { color: var(--gray-400); text-align: center; padding: 20px; font-size: 12px; }
 .sync-log-detail { color: var(--gray-400); font-size: 11px; padding: 2px 0 4px 0; margin-left: 2px; line-height: 1.5; word-break: break-word; }
 .sync-log-dev { color: var(--primary); font-size: 11px; background: #eef4ff; border-radius: 4px; padding: 0 5px; margin: 0 2px; font-variant-numeric: tabular-nums; }
@@ -3314,7 +3128,6 @@ td.col-followup-content { position: relative; }
 .todo-item-date.overdue-date { color: #dc2626; font-weight: 600; }
 .todo-item-customer { color: var(--primary); background: var(--primary-bg); padding: 1px 6px; border-radius: 4px; font-size: 11px; cursor: pointer; }
 .todo-item-customer:hover { text-decoration: underline; }
-.todo-item-actions { display: flex; flex-shrink: 0; }
 
 /* 优先级选择器 */
 .priority-select {
@@ -3592,8 +3405,6 @@ td.col-followup-content { position: relative; }
     .modal { border-radius: 16px; max-height: 85vh; }
     .menu-toggle { display: none; }
     .filter-bar { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; }
-    .filter-chips-wrap { flex: 1; min-width: 0; }
-    .filter-select { width: 140px; flex-shrink: 0; }
     .customer-table-wrap { border-radius: var(--radius); }
     .customer-table { min-width: auto; }
     .fab { right: 24px; bottom: 24px; }
@@ -3605,7 +3416,7 @@ td.col-followup-content { position: relative; }
 }
 
 @media (min-width: 1024px) {
-    .app-header { left: var(--sidebar-w); }
+    .app-header { transform: translateX(var(--sidebar-w)); }
     .menu-toggle { display: none; }
     .sidebar { transform: translateX(0); }
     .sidebar-overlay { display: none; }
@@ -3615,7 +3426,7 @@ td.col-followup-content { position: relative; }
     .sidebar-collapse-btn { display: inline-flex; }
     body.sidebar-collapsed .sidebar { width: var(--sidebar-collapsed-w); }
     body.sidebar-collapsed .main-content { margin-left: var(--sidebar-collapsed-w); }
-    body.sidebar-collapsed .app-header { left: var(--sidebar-collapsed-w); }
+    body.sidebar-collapsed .app-header { transform: translateX(var(--sidebar-collapsed-w)); }
     /* 收起态：仅图标，隐藏文字/页脚 */
     body.sidebar-collapsed .sidebar-header { flex-direction: column; padding: 16px 8px; gap: 10px; }
     body.sidebar-collapsed .sidebar-title { display: none; }
@@ -3623,7 +3434,6 @@ td.col-followup-content { position: relative; }
     body.sidebar-collapsed .sidebar-collapse-btn svg { transform: rotate(180deg); }
     body.sidebar-collapsed .nav-item { justify-content: center; padding: 14px 0; }
     body.sidebar-collapsed .nav-item span { display: none; }
-    body.sidebar-collapsed .nav-badge { display: none; }
     body.sidebar-collapsed .sidebar-footer { display: none; }
     body.sidebar-collapsed .nav-item.active::before { display: none; }
     .main-content { padding-bottom: 24px; }
@@ -3707,7 +3517,7 @@ td.col-followup-content { position: relative; }
     padding: 3px 12px; font-size: 12px; font-weight: 500;
     background: var(--card-bg, #fff); border: 1px solid var(--border, #E5E7EB);
     border-radius: 14px; cursor: pointer; color: var(--text, #1F2937);
-    transition: all .15s;
+    transition: background .15s, border-color .15s, color .15s;
 }
 .fu-tag-chip.active { background: var(--primary, #1F6FEB); border-color: var(--primary, #1F6FEB); color: #fff; }
 .fu-tag-chip-row { display: flex; gap: 6px; overflow-x: auto; padding: 6px 0 2px; -webkit-overflow-scrolling: touch; }
@@ -3731,7 +3541,6 @@ td.col-followup-content { position: relative; }
 .fu-pref-add { display: flex; gap: 8px; margin-top: 8px; }
 .fu-pref-add input { flex: 1 1 auto; min-width: 0; }
 /* 超期预警参与状态（多选） */
-.fu-pref-status-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0 10px; }
 .fu-pref-status-opt { display: flex; align-items: center; gap: 6px; padding: 5px 0; font-size: 13px; cursor: pointer; }
 .fu-pref-status-opt input { flex: 0 0 auto; }
 .fu-pref-status-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
@@ -3997,6 +3806,11 @@ td.col-followup-content { position: relative; }
                             <div class="settings-card-title">清理重复重点项</div>
                             <div class="settings-card-desc">本周重点去重 · 同步生效</div>
                         </div>
+                        <div class="settings-card" onclick="window._crm.closeSettingsCenter();window._crm.openAttManage()" data-page-node-id="attManageCard">
+                            <div class="settings-card-icon" style="background:#E0F2FE;color:#0369A1;" data-page-node-id="attManageCardIco"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="attManageCardSvg"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" data-page-node-id="attManageCardPath"/></svg></div>
+                            <div class="settings-card-title" data-page-node-id="attManageCardTitle">附件管理</div>
+                            <div class="settings-card-desc" data-page-node-id="attManageCardDesc">跟进图片 / 文件 · 缓存清理</div>
+                        </div>
                         <div class="settings-card settings-card-danger" onclick="window._crm.closeSettingsCenter();window._crm.resetData()" data-page-node-id="W9ZQyoU3AUOqdOQzVEATqQ">
                             <div class="settings-card-icon" style="background:#FEE2E2;color:#DC2626;" data-page-node-id="b6lDM1PBmHHhRq3IZKSoYx"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="kFilyhGmWzYXN3VmACojEX"><path d="M3 12a9 9 0 1 0 9-9" data-page-node-id="glXGX5SR77voYjrMWBciRm"/><polyline points="3 3 3 12 12 12" data-page-node-id="hxZWe3n4qxL1QhkwLbEqdG"/></svg></div>
                             <div class="settings-card-title" data-page-node-id="stzj1fwHGMEuM2F8joaXr1">重置演示数据</div>
@@ -4011,7 +3825,7 @@ td.col-followup-content { position: relative; }
         <div class="search-overlay" id="searchOverlay" data-page-node-id="oxHxOTA4znjB035LdcrisI">
             <div class="search-bar" data-page-node-id="EiJHel6KNLXvApbXUlcHvT">
                 <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="Tpsix4YB8ObsGjJBYFs4lZ"><circle cx="11" cy="11" r="8" data-page-node-id="VB9Wxc4vP8nsYamlITQBdW"/><line x1="21" y1="21" x2="16.65" y2="16.65" data-page-node-id="hZMJtKKIO2Q8yDGbqpOixn"/></svg>
-                <input type="text" id="globalSearch" placeholder="搜索客户名称、城市、备注..." autocomplete="off" data-page-node-id="fQ81NCqdxTYT6dByEqHHMP">
+                <input type="text" id="globalSearch" placeholder="搜索客户、跟进记录、待办..." autocomplete="off" data-page-node-id="fQ81NCqdxTYT6dByEqHHMP">
                 <button class="search-close" id="searchClose" data-page-node-id="cmm3tHVXQY6gbcVv3juC8y">取消</button>
             </div>
             <div class="search-results" id="searchResults" data-page-node-id="48RKG5qpPTC7U3uc3JQei6"></div>
@@ -4235,6 +4049,18 @@ td.col-followup-content { position: relative; }
                         </div>
                         <div class="card-body" data-page-node-id="M8qZIa4FFiXZEssNDMOZrT">
                             <div class="city-chart" id="cityChart" data-page-node-id="s9rhthmXIoFh1piYeMRrBW"></div>
+                        </div>
+                    </div>
+
+                    <div class="card" data-card-id="fuTrend" data-page-node-id="Tz8Kq2mWvNbXpR4dLsYcE1">
+                        <div class="card-header" data-page-node-id="Qw3Ln9pXrTgHmK5bVdZaC7">
+                            <h2 class="card-title" data-page-node-id="Hj6Rt2yUoPsDfN8wMcBqX4">跟进趋势</h2>
+                            <div class="card-header-right" data-page-node-id="Kp9Vm4tXsLrYnQ2hWdCeB6">
+                                <div class="card-order-btns" data-page-node-id="Bv7Nq3zToHmJxR5kPdFaW8"><button type="button" class="order-btn up" data-dir="up" title="上移" data-page-node-id="Cd2Ry8uPlKgWnM6tQbXhE9">↑</button><button type="button" class="order-btn down" data-dir="down" title="下移" data-page-node-id="Fm5Tk1oNiBsZqV8rWdYpL3">↓</button></div>
+                            </div>
+                        </div>
+                        <div class="card-body" data-page-node-id="Xn4Lp7kRoTgVmQ1yUdCeH5">
+                            <div class="fu-trend" id="fuTrend" data-page-node-id="Jd9Wc2bNhMqXtR6vSyPaK7"></div>
                         </div>
                     </div>
                 </div>
@@ -4642,6 +4468,18 @@ td.col-followup-content { position: relative; }
                     <div style="color:var(--text-secondary);font-size:12px;margin-top:4px;">默认黄 ≥7 天、红 &gt;14 天；「从未跟进」恒为红色。</div>
                 </div>
                 <div class="form-group">
+                    <label>客户详情「跟进历史」默认显示条数</label>
+                    <div class="fu-pref-row">
+                        <select id="fuDetailLimitSel" style="width:150px;">
+                            <option value="3">3 条</option>
+                            <option value="5">5 条</option>
+                            <option value="10">10 条</option>
+                            <option value="0">全部</option>
+                        </select>
+                        <span style="color:var(--text-secondary);font-size:12px;">超出后显示「查看全部」入口</span>
+                    </div>
+                </div>
+                <div class="form-group">
                     <label>参与「超期未跟进预警」的客户状态</label>
                     <div id="fuPrefOverdueStatusList"></div>
                     <div style="color:var(--text-secondary);font-size:12px;margin-top:4px;">建议排除 Y-赢单、Z-在用友商 等终态客户；未勾选任何状态时按「全部客户参与」处理。</div>
@@ -4683,6 +4521,15 @@ td.col-followup-content { position: relative; }
                     <label data-page-node-id="H85ewz8NX2n13SUzldt7nw">跟进时间</label>
                     <input type="datetime-local" id="followupTime" data-page-node-id="7I6KCbBtrTsF0dByTQPx9C">
                 </div>
+                <div class="form-group" id="fuAttGroup">
+                    <label>附件（图片 / 文件）</label>
+                    <div class="form-tip" id="fuAttTip">仅桌面 / 安卓端支持：文件存于 WebDAV 独立目录，不占用主同步额度，可多端查看。</div>
+                    <div class="fu-att-list" id="fuAttList"></div>
+                    <div class="fu-att-actions">
+                        <button type="button" class="btn btn-ghost btn-sm" id="fuAttAddBtn">+ 添加附件</button>
+                        <input type="file" id="fuAttInput" multiple style="display:none;">
+                    </div>
+                </div>
             </div>
             <div class="modal-footer" data-page-node-id="yWXFYcvd6J4LEXAIpOMD0X">
                 <button class="btn btn-danger" id="deleteFollowupBtn" style="display:none;" data-page-node-id="W9Cff9TdWlyMi6zoMvz0AB">删除</button>
@@ -4690,6 +4537,81 @@ td.col-followup-content { position: relative; }
                 <button class="btn btn-ghost" id="draftFollowupBtn" data-page-node-id="Bk2GsQUmLrcaNjDO0EhopD">存草稿</button>
                 <button class="btn btn-primary" id="saveFollowupBtn" data-page-node-id="sHgWQx4gDHvaNqxaz2cnsw">保存</button>
             </div>
+        </div>
+    </div>
+
+    <!-- 附件查看器（图片全屏浏览 / 文件下载） -->
+    <div class="modal-overlay" id="attViewerModal" data-page-node-id="attViewerModal">
+        <div class="modal att-viewer-modal" data-page-node-id="attViewerModalBox">
+            <div class="modal-header" data-page-node-id="attViewerModalHead">
+                <h2 class="modal-title" id="attViewerTitle" data-page-node-id="attViewerTitle">附件</h2>
+                <button class="modal-close" id="attViewerClose" data-page-node-id="attViewerClose">&times;</button>
+            </div>
+            <div class="modal-body" id="attViewerBody" data-page-node-id="attViewerBody"></div>
+            <div class="modal-footer" data-page-node-id="attViewerFoot">
+                <button class="btn btn-secondary" id="attViewerPrev" style="display:none;" data-page-node-id="attViewerPrev">&lsaquo; 上一张</button>
+                <button class="btn btn-secondary" id="attViewerNext" style="display:none;" data-page-node-id="attViewerNext">下一张 &rsaquo;</button>
+                <button class="btn btn-primary" id="attViewerDownload" data-page-node-id="attViewerDownload">下载 / 打开</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 附件管理（本地缓存用量 + 容量上限 + 一键清理） -->
+    <div class="modal-overlay" id="attManageModal" data-page-node-id="attManageModal">
+        <div class="modal" data-page-node-id="attManageModalBox">
+            <div class="modal-header" data-page-node-id="attManageModalHead">
+                <button class="settings-back-btn" onclick="window._crm.backToSettings()" data-page-node-id="attManageBack">&lsaquo; 设置</button>
+                <h2 class="modal-title" data-page-node-id="attManageTitle">附件管理</h2>
+                <button class="modal-close" id="attManageClose" data-page-node-id="attManageClose">&times;</button>
+            </div>
+            <div class="modal-body" data-page-node-id="attManageBody">
+                <div class="form-tip" style="margin-bottom:10px;" data-page-node-id="attManageTip">
+                    附件文件存于 WebDAV 独立目录（不占主同步文件额度），仅在本机按需缓存。
+                    超出上限后自动清理最久未使用的缓存文件（云端文件保留，之后查看会重新下载）。
+                </div>
+                <div class="form-group" data-page-node-id="attUsageGroup">
+                    <label data-page-node-id="attUsageLabel">本地缓存占用</label>
+                    <div class="att-usage-text" id="attUsageText" data-page-node-id="attUsageText">计算中&hellip;</div>
+                    <div class="usage-bar" data-page-node-id="attUsageBar"><div class="usage-fill" id="attUsageFill" style="width:0;" data-page-node-id="attUsageFill"></div></div>
+                </div>
+                <div class="form-group" data-page-node-id="attLimitGroup">
+                    <label data-page-node-id="attLimitLabel">缓存容量上限</label>
+                    <select id="attCacheLimitSel" style="width:150px;" data-page-node-id="attCacheLimitSel"></select>
+                    <div class="form-tip" data-page-node-id="attLimitTip">超出上限时自动淘汰最久未使用的文件；该设置随账号跨设备同步。</div>
+                </div>
+                <div class="form-group" data-page-node-id="attClearGroup">
+                    <button class="btn btn-ghost btn-sm" id="attCacheClearBtn" type="button" data-page-node-id="attCacheClearBtn">一键清理缓存</button>
+                    <span class="form-tip" style="display:inline-block;margin-left:8px;" data-page-node-id="attClearTip">仅清本机缓存，云端附件不受影响</span>
+                </div>
+            </div>
+            <div class="modal-footer" data-page-node-id="attManageFoot">
+                <button class="btn btn-secondary" id="attManageCancel" data-page-node-id="attManageCancel">关闭</button>
+                <button class="btn btn-primary" id="attManageSave" data-page-node-id="attManageSave">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 手机端「一键记跟进」：FAB 唤起底部抽屉（最近客户点选 + 内容 + 标签） -->
+    <div class="quick-sheet-mask" id="quickFuMask" data-page-node-id="quickFuMask"></div>
+    <div class="quick-sheet" id="quickFuSheet" data-page-node-id="quickFuSheet">
+        <div class="quick-sheet-handle" data-page-node-id="quickFuHandle"></div>
+        <div class="quick-sheet-head" data-page-node-id="quickFuHead">
+            <span class="quick-sheet-title" data-page-node-id="quickFuTitle">记跟进</span>
+            <button type="button" class="quick-sheet-close" id="quickFuClose" data-page-node-id="quickFuClose">&times;</button>
+        </div>
+        <div class="quick-sheet-body" data-page-node-id="quickFuBody">
+            <div class="qf-label" data-page-node-id="qfCustLabel">客户（最近跟进过）</div>
+            <div class="qf-cust-row" id="qfCustRow" data-page-node-id="qfCustRow"></div>
+            <input type="text" id="qfCustomer" class="qf-input" placeholder="点选上方客户，或输入名称" list="qfCustList" autocomplete="off" data-page-node-id="qfCustomer">
+            <datalist id="qfCustList" data-page-node-id="qfCustList"></datalist>
+            <div class="qf-label" data-page-node-id="qfContentLabel">跟进内容</div>
+            <textarea id="qfContent" class="qf-input qf-textarea" rows="3" placeholder="聊了什么？下一步？" data-page-node-id="qfContent"></textarea>
+            <div class="qf-label" data-page-node-id="qfTagLabel">标签（可再点一次取消）</div>
+            <div class="qf-tag-row" id="qfTagRow" data-page-node-id="qfTagRow"></div>
+        </div>
+        <div class="quick-sheet-foot" data-page-node-id="quickFuFoot">
+            <button type="button" class="btn btn-ghost btn-sm" id="quickFuFullBtn" data-page-node-id="quickFuFullBtn">完整记录</button>
+            <button type="button" class="btn btn-primary btn-sm" id="quickFuSaveBtn" data-page-node-id="quickFuSaveBtn">保存</button>
         </div>
     </div>
 
@@ -4901,12 +4823,12 @@ td.col-followup-content { position: relative; }
                 <div class="form-group" data-page-node-id="FrlDZoSMMxXFcRvX443rvS">
                     <label data-page-node-id="kZhL0oryNlyt5aUcmnQO2S">同步后端</label>
                     <div class="form-tip" style="margin-bottom:6px;" data-page-node-id="ERXGysa2se8UtLzBCG1bVH">
-                        主同步使用 <b data-page-node-id="tAo6fjJOkSrheCBAhJY7nI">WebDAV</b>（桌面 / 安卓）；勾选下方「镜像到 Gist」后，每次同步会<u data-page-node-id="CCR5fN98I07JyryxBUf71G">同时</u>把数据写到 GitHub Gist，
-                        供<b data-page-node-id="WmgkivQx7tcHBQpJibE6zL">网页端（浏览器直接打开本应用）</b>实时查看与编辑。WebDAV 不可用时自动降级走 Gist。
+                        主同步使用 <b data-page-node-id="tAo6fjJOkSrheCBAhJY7nI">WebDAV</b>（桌面 / 安卓），<b>Gist 镜像默认关闭</b>。
+                        只有需要在<b data-page-node-id="WmgkivQx7tcHBQpJibE6zL">网页端（浏览器直接打开本应用）</b>实时查看与编辑数据时，才勾选下方「镜像到 Gist」，并在高级设置中填写 Token 与 Gist ID。WebDAV 不可用时自动降级走 Gist。
                     </div>
                     <label class="checkbox-row" style="display:flex;align-items:center;gap:8px;margin-top:4px;" data-page-node-id="aWZqoAoXzd9yLRKDGTkdlH">
-                        <input type="checkbox" id="mirrorGistChk" checked data-page-node-id="qo7QPT6qckp3n388B0Gavm">
-                        <span data-page-node-id="bWlKIlpH1nKmNEUWXMybQx">同时把数据镜像到 GitHub Gist（供网页端使用）</span>
+                        <input type="checkbox" id="mirrorGistChk" data-page-node-id="qo7QPT6qckp3n388B0Gavm">
+                        <span data-page-node-id="bWlKIlpH1nKmNEUWXMybQx">同时把数据镜像到 GitHub Gist（默认关闭，仅供网页端使用）</span>
                     </label>
                     <div class="form-tip" id="syncProviderTip" data-page-node-id="WQE5A8ppXCIcziHTGFAtgY"></div>
                 </div>
@@ -4973,6 +4895,7 @@ td.col-followup-content { position: relative; }
                         <span class="form-tip" style="margin:0;" data-page-node-id="cXuxDE9BXChCA0eR9MJ3du">桌面版可在线检查并下载新版本</span>
                     </div>
                 </div>
+                <button type="button" class="btn btn-ghost btn-sm" id="gistPanelToggle" style="margin-top:12px;">&#9654; 高级：GitHub Gist 镜像设置（默认关闭，供网页端使用）</button>
                 <div id="gistPanel" data-page-node-id="CySYvmjfIMBl1TNofOMLKR">
                 <div class="sync-status-card" id="syncStatusCard" data-page-node-id="p8kN0KC45HW9m6ZLnNYD9i">
                     <div class="sync-status-icon" id="syncStatusIcon" data-page-node-id="7QigzS6QByD1hCbktQAi4t">
@@ -6555,6 +6478,9 @@ function navigateTo(page, opts) {
     // 看板返回胶囊：根据是否从看板下钻显示
     updateDashBackCapsule();
 
+    // 手机端「一键记跟进」FAB：仅跟进记录页显示（桌面端由 CSS 媒体查询恒隐藏）
+    updateQuickFuFab();
+
     // 滚动到顶部
     window.scrollTo(0, 0);
 }
@@ -6647,6 +6573,9 @@ function renderDashboard() {
 
     // 城市分布
     renderCityChart();
+
+    // 跟进趋势（近30天柱状图 + 日均参考线）
+    renderFollowupTrend();
 
     // 近期重点客户
     renderKeyCustomers();
@@ -6748,6 +6677,87 @@ function renderCityChart() {
             </div>
         `;
     }).join('');
+}
+
+// ==================== 跟进趋势（近 30 天柱状图 + 日均参考线，纯 CSS 不引外部库） ====================
+// 数据口径与看板其他统计一致：只统计有效跟进（客户仍存在的），按本地日期分桶。
+function _dateKeyOf(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + dd;
+}
+function fuDateKey(t) {
+    if (!t) return '';
+    const d = new Date(t);
+    if (isNaN(d.getTime())) return '';
+    return _dateKeyOf(d);
+}
+function computeFollowupTrend(days) {
+    days = days || 30;
+    const { valid } = computeValidFollowups();
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const start = new Date(today); start.setDate(start.getDate() - (days - 1));
+    const counts = {}; const custSet = {};
+    let total = 0;
+    valid.forEach(f => {
+        const d = new Date(f.time);
+        if (isNaN(d.getTime())) return;
+        const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        if (day < start || day > today) return;
+        const key = _dateKeyOf(d);
+        counts[key] = (counts[key] || 0) + 1;
+        if (f.customer) custSet[f.customer] = true;
+        total++;
+    });
+    const list = [];
+    for (let i = 0; i < days; i++) {
+        const d = new Date(start); d.setDate(start.getDate() + i);
+        list.push({ key: _dateKeyOf(d), label: (d.getMonth() + 1) + '/' + d.getDate(), count: counts[_dateKeyOf(d)] || 0 });
+    }
+    const activeDays = list.filter(x => x.count > 0).length;
+    return {
+        days: list,
+        total: total,
+        avg: days ? (total / days) : 0,
+        custCount: Object.keys(custSet).length,
+        activeDays: activeDays,
+        max: list.reduce((m, x) => Math.max(m, x.count), 0),
+        startKey: _dateKeyOf(start),
+        endKey: _dateKeyOf(today)
+    };
+}
+function renderFollowupTrend() {
+    const container = document.getElementById('fuTrend');
+    if (!container) return;
+    const t = computeFollowupTrend(30);
+    if (t.total === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="title">近 30 天暂无跟进</div><div class="desc">记一笔跟进后，这里会显示每日趋势</div></div>';
+        return;
+    }
+    const avgText = (Math.round(t.avg * 10) / 10).toFixed(1);
+    const maxV = t.max || 1;
+    const avgPct = Math.min(100, Math.round((t.avg / maxV) * 100));
+    const bars = t.days.map((d, i) => {
+        const isToday = (i === t.days.length - 1);
+        const h = d.count > 0 ? Math.max(4, Math.round((d.count / maxV) * 100)) : 2;
+        const cls = 'fu-trend-bar' + (d.count > 0 ? '' : ' zero') + (isToday ? ' today' : '');
+        const tip = d.key + ' · ' + d.count + ' 条';
+        return '<div class="fu-trend-bar-wrap' + (isToday ? ' is-today' : '') + '" title="' + tip + '">' +
+            '<div class="' + cls + '" style="height:' + h + '%"></div></div>';
+    }).join('');
+    container.innerHTML =
+        '<div class="fu-trend-summary">' +
+            '<div class="fu-trend-stat"><div class="v">' + t.total + '</div><div class="k">近30天跟进</div></div>' +
+            '<div class="fu-trend-stat"><div class="v">' + avgText + '</div><div class="k">日均</div></div>' +
+            '<div class="fu-trend-stat"><div class="v">' + t.custCount + '</div><div class="k">覆盖客户</div></div>' +
+            '<div class="fu-trend-stat"><div class="v">' + t.activeDays + '</div><div class="k">有跟进天数</div></div>' +
+        '</div>' +
+        '<div class="fu-trend-chart">' +
+            '<div class="fu-trend-avg" style="bottom:' + avgPct + '%"><span>日均 ' + avgText + '</span></div>' +
+            '<div class="fu-trend-bars">' + bars + '</div>' +
+        '</div>' +
+        '<div class="fu-trend-foot"><span>' + t.startKey.slice(5) + '</span><span>今天 ' + t.endKey.slice(5) + '</span></div>';
 }
 
 function renderKeyCustomers() {
@@ -7286,6 +7296,91 @@ function statusCodeSortKey(statusName) {
     return prefix + ch; // '0'+数字 或 '1'+字母，按字典序即为字母先后顺序
 }
 
+// ==================== 客户总表：排序方式 ====================
+// 排序偏好存 state._meta.customerSort + customerSortAt（At 时间戳 LWW 跨设备同步，与
+// customerStatusFilter 同一模式：getSyncPayload 上传 + applyRemoteData 按 At 裁决）。
+// 「默认排序」即升级前的既有行为（状态标识 → 关注置顶 → 最近跟进），老用户无感。
+var CUSTOMER_SORT_OPTIONS = [
+    { key: 'default', label: '默认排序' },
+    { key: 'recent',  label: '最近跟进' },
+    { key: 'name',    label: '客户名称' },
+    { key: 'status',  label: '按状态' },
+    { key: 'starred', label: '关注优先' }
+];
+// 各排序键语义：
+//   default —— 状态标识 → 关注置顶 → 最近跟进（升级前既有行为，默认值）
+//   recent  —— 最近跟进时间倒序（无跟进时间排最后）
+//   name    —— 客户名称（中文拼音 / 英文 A→Z）
+//   status  —— 状态标识字母序，同状态按名称（不提前关注客户）
+//   starred —— 关注客户置顶，其余按最近跟进
+function getCustomerSort() {
+    const k = state._meta && state._meta.customerSort;
+    return CUSTOMER_SORT_OPTIONS.some(o => o.key === k) ? k : 'default';
+}
+function setCustomerSort(key) {
+    const opt = CUSTOMER_SORT_OPTIONS.filter(o => o.key === key)[0];
+    if (!opt) return; // 非法值忽略，保持当前排序
+    if (!state._meta) state._meta = {};
+    state._meta.customerSort = opt.key;
+    state._meta.customerSortAt = Date.now();
+    saveData();
+    renderCustomers();
+    logOperation('客户总表排序方式 → ' + opt.label, 'info');
+}
+function customerSortOptionsHTML(selectedKey) {
+    return CUSTOMER_SORT_OPTIONS.map(o =>
+        '<option value="' + o.key + '"' + (o.key === selectedKey ? ' selected' : '') + '>' + o.label + '</option>'
+    ).join('');
+}
+// 名称比较：中文按拼音、英文按字母（localeCompare zh-Hans-CN），空名排最后
+function _cmpCustomerName(a, b) {
+    const an = (a && a.name) || '', bn = (b && b.name) || '';
+    if (!an && !bn) return 0;
+    if (!an) return 1;
+    if (!bn) return -1;
+    return an.localeCompare(bn, 'zh-Hans-CN');
+}
+// 按当前排序键重排客户列表（返回新数组，不改原数组）
+function sortCustomerList(list) {
+    const key = getCustomerSort();
+    const arr = (list || []).slice();
+    const byStatus = (a, b) => {
+        const ak = statusCodeSortKey(a.status), bk = statusCodeSortKey(b.status);
+        if (ak !== bk) return ak < bk ? -1 : 1;
+        return 0;
+    };
+    const byStar = (a, b) => (b.starred ? 1 : 0) - (a.starred ? 1 : 0);
+    const byRecent = (a, b) => {
+        const at = a.last_followup_time ? new Date(a.last_followup_time).getTime() : 0;
+        const bt = b.last_followup_time ? new Date(b.last_followup_time).getTime() : 0;
+        return bt - at;
+    };
+    if (key === 'recent') {
+        arr.sort((a, b) => byRecent(a, b) || byStar(a, b) || _cmpCustomerName(a, b));
+    } else if (key === 'name') {
+        arr.sort((a, b) => _cmpCustomerName(a, b) || byRecent(a, b));
+    } else if (key === 'status') {
+        // 按状态：纯按状态标识字母排序，同状态内按名称（不把关注客户提前）
+        arr.sort((a, b) => byStatus(a, b) || _cmpCustomerName(a, b) || byRecent(a, b));
+    } else if (key === 'starred') {
+        arr.sort((a, b) => byStar(a, b) || byRecent(a, b) || _cmpCustomerName(a, b));
+    } else {
+        // default：与升级前完全一致（状态标识 → 关注置顶 → 最近跟进）
+        arr.sort((a, b) => byStatus(a, b) || byStar(a, b) || byRecent(a, b));
+    }
+    return arr;
+}
+
+// 客户总表统计（桌面统计条与手机端单行统计条共用同一函数，保证两端计数永远一致）
+function computeCustomerStats(custLastMap, customerTodoMap) {
+    return {
+        total: state.customers.length,
+        starred: state.customers.filter(c => c.starred).length,
+        todoCnt: Object.keys(customerTodoMap || {}).length,
+        overdue: state.customers.filter(c => isCustomerOverdue(c, custLastMap || {})).length
+    };
+}
+
 function renderCustomers() {
     // 跨断点（桌面⇄手机）重渲染：仅在断点变化时触发，避免横竖屏切换/缩放导致布局错乱
     if (!window.__custResizeBound) {
@@ -7343,19 +7438,8 @@ function renderCustomers() {
     if (currentFilter._names) {
         filtered = filtered.filter(c => currentFilter._names.has(c.name));
     }
-    // 按状态标识字母先后顺序排序（A<B<C<…<Z，数字在前），同状态按最后跟进时间倒序
-    filtered = filtered.slice().sort((a, b) => {
-        const aKey = statusCodeSortKey(a.status);
-        const bKey = statusCodeSortKey(b.status);
-        if (aKey !== bKey) return aKey < bKey ? -1 : 1;
-        // 同状态内：关注客户始终置顶（starred 优先），其余再按原规则排
-        const aStar = a.starred ? 1 : 0;
-        const bStar = b.starred ? 1 : 0;
-        if (aStar !== bStar) return bStar - aStar;
-        const aTime = a.last_followup_time ? new Date(a.last_followup_time).getTime() : 0;
-        const bTime = b.last_followup_time ? new Date(b.last_followup_time).getTime() : 0;
-        return bTime - aTime;
-    });
+    // 按当前排序键重排（默认=状态标识 → 关注置顶 → 最近跟进，与升级前一致）
+    filtered = sortCustomerList(filtered);
 
     // 构建客户-本周计划关联映射（仅本周，与小程序客户总表一致）：用于琥珀色「计划关联」标签
     const customerPlanMap = {};
@@ -7405,30 +7489,35 @@ function renderCustomers() {
     const _emptyClearBtn = _hasFilter ? '<button type="button" class="empty-clear-btn" onclick="window._crm.clearCustomerFilters()">清除筛选 · 显示全部客户</button>' : '';
 
     // 顶部统计条（桌面）：点击卡片=快捷筛选；计数始终取全量数据
-    const _statTotal = state.customers.length;
-    const _statStarred = state.customers.filter(c => c.starred).length;
-    const _statTodoCnt = Object.keys(customerTodoMap).length;
-    const _statOverdue = state.customers.filter(c => isCustomerOverdue(c, custLastMap)).length;
+    const _stat = computeCustomerStats(custLastMap, customerTodoMap);
     const _statActive = !currentFilter._starred && !currentFilter._withTodo && !currentFilter._overdue;
     const _statBar = `
         <div class="cust-stats">
             <button type="button" class="cust-stat${_statActive ? ' active' : ''}" onclick="window._crm.custStatFilter('all')" title="显示全部客户">
-                <span class="cs-label">全部客户</span><span class="cs-num">${_statTotal}</span>
+                <span class="cs-label">全部客户</span><span class="cs-num">${_stat.total}</span>
             </button>
             <button type="button" class="cust-stat cs-star${currentFilter._starred ? ' active' : ''}" onclick="window._crm.custStatFilter('starred')" title="仅看关注的客户">
-                <span class="cs-label">关注客户</span><span class="cs-num">${_statStarred}</span>
+                <span class="cs-label">关注客户</span><span class="cs-num">${_stat.starred}</span>
             </button>
             <button type="button" class="cust-stat${currentFilter._withTodo ? ' active' : ''}" onclick="window._crm.custStatFilter('withTodo')" title="仅看有进行中待办的客户">
-                <span class="cs-label">有待办客户</span><span class="cs-num">${_statTodoCnt}</span>
+                <span class="cs-label">有待办客户</span><span class="cs-num">${_stat.todoCnt}</span>
             </button>
             <button type="button" class="cust-stat cs-overdue${currentFilter._overdue ? ' active' : ''}" onclick="window._crm.custStatFilter('overdue')" title="仅看超过 7 天未跟进的客户">
-                <span class="cs-label">超期未跟进</span><span class="cs-num">${_statOverdue}</span>
+                <span class="cs-label">超期未跟进</span><span class="cs-num">${_stat.overdue}</span>
             </button>
+        </div>`;
+
+    // 排序方式选择条（桌面，统计条下方右对齐）：切换即保存并重排，随 _meta 跨设备同步
+    const _sortBar = `
+        <div class="cust-sort-bar">
+            <span class="cust-sort-label">排序</span>
+            <select id="customerSortSel" class="cust-sort-sel" title="选择客户排序方式">${customerSortOptionsHTML(getCustomerSort())}</select>
         </div>`;
 
     // 表格布局：状态 | 客户名称 | 待办/计划 | 跟进记录 | 最后跟进时间；列宽可拖拽并本地记忆
     container.innerHTML = `
         ${_statBar}
+        ${_sortBar}
         <div class="customer-table-wrap">
             <table class="customer-table">
                 <colgroup>
@@ -7550,6 +7639,13 @@ function renderCustomers() {
         });
     }
 
+    // 排序方式：切换即写入 _meta（At-LWW 跨端同步）并重排
+    const sortSelect = document.getElementById('customerSortSel');
+    if (sortSelect) {
+        sortSelect.value = getCustomerSort();
+        sortSelect.addEventListener('change', (e) => setCustomerSort(e.target.value));
+    }
+
     // 状态筛选：图标按钮 + 弹出面板（多选，与看板近期重点客户筛选一致）
     renderCustomerStatusFilter();
     const statusBtn = document.getElementById('customerStatusFilterBtn');
@@ -7658,7 +7754,21 @@ function buildCustomersMobileHTML(filtered, custLastMap, customerTodoMap, custom
             </div>`;
     }).join('') : '';
     const emptyHTML = (filtered && filtered.length === 0) ? '<div class="cust-m-empty"><div class="cust-m-empty-icon">🔍</div><div class="cust-m-empty-title">未匹配到合适客户</div><div class="cust-m-empty-sub">当前筛选条件下没有客户</div>' + (clearBtn ? '<div class="cust-m-empty-actions">' + clearBtn + '</div>' : '') + '</div>' : '';
+    // 单行统计条（与桌面同口径同交互）：四等分一段一枚，点击=快捷筛选；只占一行，最大限度留给客户列表
+    const _stat = computeCustomerStats(custLastMap, customerTodoMap);
+    const _statActive = !currentFilter._starred && !currentFilter._withTodo && !currentFilter._overdue;
+    const _statSeg = (type, num, label, extraCls) =>
+        '<button type="button" class="cust-m-stat-seg ' + (extraCls || '') + (type === 'all' ? (_statActive ? ' active' : '') : (currentFilter['_' + type] ? ' active' : '')) + '" data-stat="' + type + '" title="' + label + '">' +
+        '<span class="cust-m-stat-num">' + num + '</span><span class="cust-m-stat-label">' + label + '</span></button>';
+    const statBarHTML =
+        '<div class="cust-m-statbar">' +
+        _statSeg('all', _stat.total, '全部') +
+        _statSeg('starred', _stat.starred, '关注', 'seg-star') +
+        _statSeg('withTodo', _stat.todoCnt, '有待办', 'seg-todo') +
+        _statSeg('overdue', _stat.overdue, '超期', 'seg-overdue') +
+        '</div>';
     return `
+        ${statBarHTML}
         <div class="cust-m-toolbar">
             <div class="cust-m-filter-wrap">
                 <button type="button" class="cust-m-filter-btn" id="mStatusFilterBtn">
@@ -7668,6 +7778,7 @@ function buildCustomersMobileHTML(filtered, custLastMap, customerTodoMap, custom
                 <div class="kf-menu cust-m-filter-pop" id="mStatusFilterPop" style="display:none"></div>
             </div>
             <select id="m-city-filter" class="cust-m-select">${cityOptions}</select>
+            <select id="m-customer-sort" class="cust-m-select cust-m-sort-wrap" title="选择客户排序方式">${customerSortOptionsHTML(getCustomerSort())}</select>
         </div>
         <div class="cust-m-search">
             <span class="cust-m-search-ico">🔍</span>
@@ -7678,7 +7789,7 @@ function buildCustomersMobileHTML(filtered, custLastMap, customerTodoMap, custom
     `;
 }
 
-// 绑定手机端筛选栏（状态多选触发 + 城市下拉 + 名称搜索），复用与桌面一致的 currentFilter
+// 绑定手机端筛选栏（状态多选触发 + 城市下拉 + 名称搜索 + 排序方式 + 单行统计条），复用与桌面一致的 currentFilter
 function bindCustomerFiltersMobile() {
     // 点击页面其它区域关闭状态筛选面板（仅绑定一次）。
     // 关键修复：此前该监听只在桌面分支 buildCustomersPage 中绑定，
@@ -7719,6 +7830,14 @@ function bindCustomerFiltersMobile() {
             statusBtn.classList.toggle('is-open', _custStatusPopMobOpen);
         });
     }
+
+    // 单行统计条：与桌面统计条完全同口径同行为（复用 custStatFilter，含落库与日志）
+    document.querySelectorAll('#customerList .cust-m-stat-seg').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            custStatFilter(btn.dataset.stat);
+        });
+    });
     const citySel = document.getElementById('m-city-filter');
     if (citySel) {
         citySel.value = currentFilter.city || 'all';
@@ -7729,6 +7848,13 @@ function bindCustomerFiltersMobile() {
             delete currentFilter._nameSearch;
             renderCustomers();
         });
+    }
+
+    // 排序方式：与桌面同一 _meta 字段（At-LWW 跨端同步），切换即保存并重排
+    const sortSel = document.getElementById('m-customer-sort');
+    if (sortSel) {
+        sortSel.value = getCustomerSort();
+        sortSel.addEventListener('change', (e) => setCustomerSort(e.target.value));
     }
 
     const searchInput = document.getElementById('m-name-search');
@@ -8364,7 +8490,10 @@ function openCustomerDetail(id) {
         ` : ''}
         <div class="detail-section">
             <div class="detail-section-title" style="display:flex;justify-content:space-between;align-items:center;">
-                <span>跟进历史 (${followups.length})</span>
+                <div class="detail-tl-tabs">
+                    <button type="button" class="detail-tl-tab${_detailTimelineTab === 'followup' ? ' active' : ''}" data-tab="followup" onclick="window._crm.switchDetailTimelineTab('followup')">跟进历史 (${followups.length})</button>
+                    <button type="button" class="detail-tl-tab${_detailTimelineTab === 'timeline' ? ' active' : ''}" data-tab="timeline" onclick="window._crm.switchDetailTimelineTab('timeline')">全景时间线</button>
+                </div>
                 ${followups.length > 0 ? `<a href="javascript:void(0)" onclick="${setRet}window._crm.openFollowupHistory('${safeName}')" style="font-size:12px;font-weight:500;color:var(--primary);text-transform:none;letter-spacing:0;">查看全部 &rsaquo;</a>` : ''}
             </div>
             <div id="detailFuHistoryBox"></div>
@@ -8382,10 +8511,12 @@ function openCustomerDetail(id) {
     document.getElementById('customerModal').classList.add('show');
     // 跟进历史标签筛选：每次打开详情重置为「全部」并渲染 chip 行 + 列表
     _detailFuTag = 'all';
-    renderDetailFollowupHistory();
+    // 视图跟随上次选择（默认「跟进历史」，与现有时并存）
+    if (_detailTimelineTab === 'timeline') renderDetailTimeline(); else renderDetailFollowupHistory();
 }
 
-// 详情页「跟进历史」区块：标签 chip 行 + 按标签筛选的列表（最多 3 条，点查看全部进历史弹窗）
+// 详情页「跟进历史」区块：标签 chip 行 + 按标签筛选的列表（默认条数见 getFuDetailLimit，
+// 可在 设置中心 → 跟进偏好 调整；点查看全部进历史弹窗）
 let _detailFuTag = 'all';
 function renderDetailFollowupHistory() {
     const box = document.getElementById('detailFuHistoryBox');
@@ -8402,6 +8533,10 @@ function renderDetailFollowupHistory() {
     present.sort((a, b) => (defs.indexOf(a) < 0 ? 99 : defs.indexOf(a)) - (defs.indexOf(b) < 0 ? 99 : defs.indexOf(b)));
     const chips = [{ v: 'all', t: '全部', n: all.length }].concat(present.map(t => ({ v: t, t: t, n: all.filter(f => String(f.tag || '').trim() === t).length })));
     const filtered = (_detailFuTag === 'all') ? all : all.filter(f => String(f.tag || '').trim() === _detailFuTag);
+    // 默认显示条数（0 = 全部）：按 _meta.fuDetailLimit，可在跟进偏好里改，跨设备同步
+    const _limit = getFuDetailLimit();
+    const _showAll = _limit <= 0;
+    const _visible = _showAll ? filtered : filtered.slice(0, _limit);
     const setRet = `window._crm._setDetailReturn('${customer.id}');window._crm.closeCustomerModal();`;
     const safeName = customer.name.replace(/'/g, "\\'");
     box.innerHTML = `
@@ -8409,18 +8544,119 @@ function renderDetailFollowupHistory() {
             `<button type="button" class="fu-tag-chip${c.v === _detailFuTag ? ' active' : ''}" onclick="window._crm.filterDetailFu('${escapeHtml(c.v)}')">${escapeHtml(c.t)}(${c.n})</button>`).join('')}</div>` : ''}
         <div class="detail-followup-list">
             ${filtered.length === 0 ? '<div style="color:var(--text-secondary);font-size:13px;padding:8px 0;">' + (_detailFuTag === 'all' ? '暂无跟进记录' : '该标签下暂无跟进记录') + '</div>' :
-                filtered.slice(0, 3).map(f => `
+                _visible.map(f => `
                     <div class="detail-followup-item">
                         <div class="time">${formatDateTime(f.time)} ${fuTagBadgeHtml(f.tag)}</div>
                         <div class="content">${escapeHtml(f.content)}</div>
+                        ${fuAttHtml(f)}
                     </div>
                 `).join('')}
-            ${filtered.length > 3 ? `<div style="text-align:center;padding:8px;"><a href="javascript:void(0)" onclick="${setRet}window._crm.openFollowupHistory('${safeName}')" style="font-size:13px;color:var(--primary);font-weight:500;">查看全部 ${filtered.length} 条记录 &rsaquo;</a></div>` : ''}
+            ${(!_showAll && filtered.length > _limit) ? `<div style="text-align:center;padding:8px;"><a href="javascript:void(0)" onclick="${setRet}window._crm.openFollowupHistory('${safeName}')" style="font-size:13px;color:var(--primary);font-weight:500;">查看全部 ${filtered.length} 条记录 &rsaquo;</a></div>` : ''}
         </div>`;
 }
 function filterDetailFu(tag) {
     _detailFuTag = tag || 'all';
     renderDetailFollowupHistory();
+}
+
+// ==================== 客户详情：全景时间线（跟进/待办/计划/创建/状态变更合并视图） ====================
+// 与「跟进历史」并存：详情页该区块顶部 segmented 切换，默认仍是跟进历史（零回归）。
+// 数据全部来自现有字段，不新增同步载荷；状态变更取自操作日志（仅保留 7 天，尽力而为）。
+let _detailTimelineTab = 'followup';
+const TIMELINE_KINDS = {
+    followup: { label: '跟进', color: '#4f46e5' },
+    todo_add: { label: '待办', color: '#2563eb' },
+    todo_done: { label: '完成', color: '#16a34a' },
+    plan: { label: '计划', color: '#ca8a04' },
+    create: { label: '创建', color: '#6b7280' },
+    status: { label: '状态', color: '#9333ea' }
+};
+function computeCustomerTimeline(customer) {
+    const events = [];
+    function push(kind, time, text, extra) {
+        let ts = null;
+        if (time) { const t = new Date(time); if (!isNaN(t.getTime())) ts = t.getTime(); }
+        events.push(Object.assign({ kind: kind, time: time || '', ts: ts, text: text || '' }, extra || {}));
+    }
+    if (!customer) return { events: [], counts: {} };
+    // 跟进记录
+    state.followups.forEach(f => {
+        if (f.customer !== customer.name) return;
+        push('followup', f.time, f.content || '', { tag: f.tag || '', atts: fuAttachments(f) });
+    });
+    // 待办：创建 + 完成两个事件（墓碑不计）
+    (state.todos || []).forEach(t => {
+        if (t.customerName !== customer.name) return;
+        if (state._tombstones && state._tombstones.todos && state._tombstones.todos[t.id]) return;
+        const due = t.dueDate ? (t.dueTime ? formatDateStr(t.dueDate) + ' ' + t.dueTime : formatDateStr(t.dueDate)) : '';
+        push('todo_add', t.createdAt, t.title || '(无标题)', { due: due });
+        if (t.status === 'completed' && t.completedAt) push('todo_done', t.completedAt, t.title || '(无标题)');
+    });
+    // 本周计划提及：计划项无时间戳，按 weekStart 周一 + 星期几锚定到那一周
+    try {
+        const wp = state.workPlan || {};
+        const monday = wp.weekStart ? (parseISODate(wp.weekStart) || mondayOf(new Date())) : mondayOf(new Date());
+        PLAN_DAYS.forEach(function (d, i) {
+            planToItems(wp.thisWeek && wp.thisWeek[d]).forEach(function (it) {
+                if (!it.text) return;
+                const match = (customer.id && it.customerId === customer.id) || (it.customer === customer.name);
+                if (!match) return;
+                const day = new Date(monday); day.setDate(monday.getDate() + i);
+                push('plan', day.toISOString(), PLAN_DAY_LABELS[d] + ' · ' + it.text);
+            });
+        });
+    } catch (e) {}
+    // 创建客户（无 createdAt 则不产生该事件，避免时间线里出现「时间未知」噪音）
+    if (customer.createdAt) push('create', customer.createdAt, '创建客户「' + (customer.name || '') + '」');
+    // 状态变更：操作日志中该客户的修改记录，取 diff 里的「状态：」段（尽力而为）
+    (state._operationLog || []).forEach(function (e) {
+        if (!e || e.action !== '修改客户「' + customer.name + '」') return;
+        const det = String(e.detail || '');
+        const seg = det.split('；').filter(function (s) { return s.indexOf('状态：') === 0; })[0];
+        if (seg) push('status', e.time, seg);
+    });
+    events.sort(function (a, b) {
+        if (a.ts == null && b.ts == null) return 0;
+        if (a.ts == null) return 1;   // 无时间的排最后
+        if (b.ts == null) return -1;
+        return b.ts - a.ts;           // 新的在上
+    });
+    const counts = {};
+    events.forEach(function (ev) { counts[ev.kind] = (counts[ev.kind] || 0) + 1; });
+    return { events: events, counts: counts };
+}
+function switchDetailTimelineTab(tab) {
+    _detailTimelineTab = (tab === 'timeline') ? 'timeline' : 'followup';
+    if (_detailTimelineTab === 'timeline') renderDetailTimeline(); else renderDetailFollowupHistory();
+    // 同步 tab 按钮态（openCustomerDetail 重绘时会自动带上当前态）
+    document.querySelectorAll('.detail-tl-tab').forEach(function (b) {
+        b.classList.toggle('active', (b.dataset.tab || 'followup') === _detailTimelineTab);
+    });
+}
+function renderDetailTimeline() {
+    const box = document.getElementById('detailFuHistoryBox');
+    if (!box || !currentDetailCustomerId) return;
+    const customer = state.customers.find(c => c.id === currentDetailCustomerId);
+    if (!customer) { box.innerHTML = ''; return; }
+    const tl = computeCustomerTimeline(customer);
+    if (!tl.events.length) {
+        box.innerHTML = '<div class="empty-state"><div class="title">暂无动态</div><div class="desc">跟进 / 待办 / 计划等动态会汇总到这里</div></div>';
+        return;
+    }
+    box.innerHTML = '<div class="detail-timeline">' + tl.events.map(function (ev) {
+        const k = TIMELINE_KINDS[ev.kind] || TIMELINE_KINDS.followup;
+        const timeText = ev.ts != null ? formatDateTime(ev.time) : '时间未知';
+        let extra = '';
+        if (ev.kind === 'todo_add' && ev.due) extra = '<div class="tl-sub">截止 ' + escapeHtml(ev.due) + '</div>';
+        if (ev.kind === 'followup' && ev.tag) extra = '<div class="tl-sub">' + fuTagBadgeHtml(ev.tag) + '</div>';
+        if (ev.kind === 'followup' && ev.atts && ev.atts.length) extra += '<div class="tl-sub">附件 ' + ev.atts.length + ' 个</div>';
+        return '<div class="tl-item">' +
+            '<div class="tl-dot" style="background:' + k.color + '"></div>' +
+            '<div class="tl-body">' +
+                '<div class="tl-head"><span class="tl-kind" style="color:' + k.color + ';background:' + k.color + '1a">' + k.label + '</span><span class="tl-time">' + timeText + '</span></div>' +
+                '<div class="tl-text">' + escapeHtml(ev.text) + '</div>' + extra +
+            '</div></div>';
+    }).join('') + '</div>';
 }
 
 function closeCustomerModal() {
@@ -9479,6 +9715,7 @@ function renderFollowups() {
                     </div>
                     <div class="followup-meta">${fuTagBadgeHtml(f.tag)}<span class="followup-time">${formatDateTime(f.time)}</span></div>
                     <div class="followup-content">${escapeHtml(f.content)}</div>
+                    ${fuAttHtml(f)}
                 </div>
             </div>
         `;
@@ -9548,6 +9785,7 @@ function renderFollowupsByCustomer(container, followups) {
                         </div>
                         <div class="followup-meta"><span class="followup-time">${formatDateTime(f.time)}</span></div>
                         <div class="followup-content">${escapeHtml(f.content)}</div>
+                        ${fuAttHtml(f)}
                     </div>
                 </div>`;
         }).join('');
@@ -9651,6 +9889,15 @@ function openFollowupModal(customerName, id) {
         document.getElementById('followupTime').value = localISO;
     }
 
+    // 附件编辑态：重置后回显（编辑态带出已有附件，新建为空）
+    fuAttReset();
+    _fuAttLoaded = true;
+    if (editingFollowupId) {
+        const f0 = state.followups.find(x => x.id === editingFollowupId);
+        _fuAttSaved = fuAttachments(f0).map(a => Object.assign({}, a));
+    }
+    fuAttRenderList();
+
     document.getElementById('followupModal').classList.add('show');
     autoResizeTextarea(document.getElementById('followupContent'));
     snapshotModal('followupModal');
@@ -9659,52 +9906,51 @@ function openFollowupModal(customerName, id) {
 function closeFollowupModal() {
     document.getElementById('followupModal').classList.remove('show');
     editingFollowupId = null;
+    _fuAttLoaded = false;
+    fuAttReset();
     // 从客户详情进入时，取消/保存后回到客户详情
     maybeReturnToDetail();
 }
 
-function saveFollowup() {
-    if (tooFrequent('saveFollowup')) return;
-    const customer = sanitizeInput(document.getElementById('followupCustomer').value.trim());
-    const content = sanitizeInput(document.getElementById('followupContent').value.trim());
-    const time = document.getElementById('followupTime').value;
-
-    if (!customer) {
-        showToast('请输入客户名称');
-        return;
-    }
-    if (!content) {
-        showToast('请输入跟进内容');
-        return;
-    }
-
+/**
+ * 跟进记录写入核心：完整弹窗（saveFollowup）与手机端「一键记跟进」（saveQuickFollowup）共用，
+ * 保证两端写入行为完全一致（自动建客户、最后跟进重算、变更日志、标签操作日志）。
+ * editId 为空 = 新建；返回 { ok, isEdit, followup }，记录不存在时 { ok:false, missing:true }。
+ * 不含落盘 / 视图刷新 / 关弹窗 / toast，由调用方按各自流程收尾。
+ */
+function commitFollowup(customer, content, savedTime, savedTag, editId) {
+    customer = String(customer || '').trim();
+    content = String(content || '').trim();
+    if (!customer || !content) return { ok: false };
     const now = new Date().toISOString();
-    const savedTime = time ? new Date(time).toISOString() : now;
-    const savedTag = String(_followupTagSel || '').trim();
+    const time = savedTime ? new Date(savedTime).toISOString() : now;
+    const tag = String(savedTag || '').trim();
     let followup;
+    let isEdit = false;
 
-    if (editingFollowupId) {
-        followup = state.followups.find(x => x.id === editingFollowupId);
-        if (!followup) { showToast('未找到该跟进记录'); return; }
+    if (editId) {
+        followup = state.followups.find(x => x.id === editId);
+        if (!followup) return { ok: false, missing: true };
         const prevFollowup = _clone(followup);
         const oldCustomer = followup.customer;
         followup.customer = customer;
         followup.customerId = (state.customers.find(c => c.name === customer) || {}).id || '';
         followup.content = content;
-        followup.time = savedTime;
-        followup.tag = savedTag;
+        followup.time = time;
+        followup.tag = tag;
         followup.updatedAt = now;
         recordChange('update', 'followup', followup, followup.customer, prevFollowup);
         // 客户名变更时，旧客户需重算最后跟进
         if (oldCustomer && oldCustomer !== customer) recomputeCustomerLastFollowup(oldCustomer);
+        isEdit = true;
     } else {
         followup = {
             id: genId('f'),
             customer: customer,
             customerId: (state.customers.find(c => c.name === customer) || {}).id || '',
             content: content,
-            tag: savedTag,
-            time: savedTime,
+            tag: tag,
+            time: time,
             createdAt: now,
             updatedAt: now
         };
@@ -9725,7 +9971,7 @@ function saveFollowup() {
             remark: '',
             customFields: [],
             last_followup: content,
-            last_followup_time: savedTime,
+            last_followup_time: time,
             createdAt: now,
             updatedAt: now
         };
@@ -9735,15 +9981,158 @@ function saveFollowup() {
     // 以该客户全部跟进中最新一条为准重算最后跟进（新增/编辑/改客户均适用）
     recomputeCustomerLastFollowup(customer);
 
-    // 打了跟进标签才记操作日志（避免每条跟进都刷屏）；注意 closeFollowupModal 会清 editingFollowupId，先快照
-    const _wasEdit = !!editingFollowupId;
-    if (savedTag) logOperation('跟进打标：' + customer + '「' + savedTag + '」' + (_wasEdit ? '（编辑）' : ''), 'info');
+    // 打了跟进标签才记操作日志（避免每条跟进都刷屏）
+    if (tag) logOperation('跟进打标：' + customer + '「' + tag + '」' + (isEdit ? '（编辑）' : ''), 'info');
+    return { ok: true, isEdit: isEdit, followup: followup };
+}
+
+function saveFollowup() {
+    if (tooFrequent('saveFollowup')) return;
+    const customer = sanitizeInput(document.getElementById('followupCustomer').value.trim());
+    const content = sanitizeInput(document.getElementById('followupContent').value.trim());
+    const time = document.getElementById('followupTime').value;
+
+    if (!customer) {
+        showToast('请输入客户名称');
+        return;
+    }
+    if (!content) {
+        showToast('请输入跟进内容');
+        return;
+    }
+
+    const _wasEdit = !!editingFollowupId; // closeFollowupModal 会清 editingFollowupId，先快照
+    const r = commitFollowup(customer, content, time, _followupTagSel, editingFollowupId);
+    if (!r.ok) {
+        if (r.missing) showToast('未找到该跟进记录');
+        return;
+    }
+    const followup = r.followup;
+
+    // 附件：按跟进弹窗内的编辑态覆写元数据（二进制在 WebDAV 独立目录，不随主同步上传）。
+    // _fuAttLoaded 守卫保证未走弹窗的调用不会把已有 attachments 清空。
+    if (_fuAttLoaded) {
+        const _keptAtts = _fuAttSaved.concat(_fuAttPending);
+        if (_keptAtts.length) followup.attachments = _keptAtts;
+        else delete followup.attachments;
+        _fuAttRemoved.forEach(function (a) { attDeleteRemote(a); attCacheRemove(a.id); });
+    }
 
     saveData();
     // 先刷新所有跟进视图（即使下方关弹窗/返回详情抛错，列表也已是最新，避免"需刷新才更新"）
     refreshFollowupViews();
     closeFollowupModal();
     showToast(_wasEdit ? '跟进记录已更新' : '跟进记录已添加');
+}
+
+// ==================== 手机端「一键记跟进」（FAB + 底部抽屉） ====================
+// 目标：手机上记跟进除打字外零多余操作——FAB 唤起底部抽屉，最近跟进过的客户直接点选，
+// 填内容 + 点标签即可保存；需要改时间 / 加附件时点「完整记录」走原弹窗。
+// 写入与完整弹窗共用 commitFollowup，两端行为完全一致；FAB 仅移动端显示（CSS 媒体查询控制）。
+var _qfCustSel = '';
+var _qfTagSel = '';
+
+/** 创建 FAB（懒创建，模仿 ensureDashBackCapsule 模式） */
+function ensureQuickFuFab() {
+    if (document.getElementById('quickFuFab')) return;
+    const btn = document.createElement('button');
+    btn.id = 'quickFuFab';
+    btn.className = 'fab quick-fu-fab hidden';
+    btn.type = 'button';
+    btn.title = '记跟进';
+    btn.setAttribute('aria-label', '记跟进');
+    btn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+    btn.addEventListener('click', function () { openQuickFuSheet(); });
+    document.body.appendChild(btn);
+}
+/** 仅跟进记录页显示 FAB（设备形态由 CSS 媒体Query决定：桌面端恒隐藏） */
+function updateQuickFuFab() {
+    ensureQuickFuFab();
+    const el = document.getElementById('quickFuFab');
+    if (el) el.classList.toggle('hidden', currentPage !== 'followups');
+}
+/** 最近有跟进记录的客户（按最近跟进时间倒序，最多 8 个），供抽屉内一键点选 */
+function quickFuRecentCustomers() {
+    const seen = {};
+    const list = [];
+    state.followups.slice().sort(function (a, b) { return new Date(b.time) - new Date(a.time); })
+        .forEach(function (f) {
+            const n = String(f.customer || '').trim();
+            if (!n || seen[n]) return;
+            seen[n] = 1;
+            list.push(n);
+        });
+    return list.slice(0, 8);
+}
+
+function openQuickFuSheet() {
+    _qfCustSel = '';
+    _qfTagSel = '';
+    // 客户 chips：最近跟进过的客户
+    const row = document.getElementById('qfCustRow');
+    const recents = quickFuRecentCustomers();
+    if (row) {
+        row.innerHTML = recents.length
+            ? recents.map(function (n) {
+                return '<button type="button" class="qf-cust-chip" data-cust="' + escapeHtml(n) + '">' + escapeHtml(n) + '</button>';
+            }).join('')
+            : '<span class="qf-empty">暂无跟进记录，直接输入客户名称</span>';
+    }
+    // 客户名 datalist（全部客户，便于输入老客户）
+    const dl = document.getElementById('qfCustList');
+    if (dl) dl.innerHTML = state.customers.map(function (c) { return '<option value="' + escapeHtml(c.name) + '">'; }).join('');
+    const cin = document.getElementById('qfCustomer');
+    if (cin) cin.value = '';
+    const ct = document.getElementById('qfContent');
+    if (ct) ct.value = '';
+    // 标签 chips（复用标签定义；选中态由 pickQuickFuTag 切换）
+    const tr = document.getElementById('qfTagRow');
+    if (tr) {
+        tr.innerHTML = getFollowupTags().map(function (t) {
+            return '<button type="button" class="fu-tag-chip" data-tag="' + escapeHtml(t) + '">' + escapeHtml(t) + '</button>';
+        }).join('');
+    }
+    document.getElementById('quickFuSheet').classList.add('show');
+    document.getElementById('quickFuMask').classList.add('show');
+    setTimeout(function () { if (ct) ct.focus(); }, 260);
+}
+function closeQuickFuSheet() {
+    const sheet = document.getElementById('quickFuSheet');
+    const mask = document.getElementById('quickFuMask');
+    if (sheet) sheet.classList.remove('show');
+    if (mask) mask.classList.remove('show');
+}
+/** 点选最近客户 chip（委托绑定） */
+function pickQuickFuCust(name) {
+    _qfCustSel = String(name || '');
+    const cin = document.getElementById('qfCustomer');
+    if (cin) cin.value = _qfCustSel;
+    document.querySelectorAll('#qfCustRow .qf-cust-chip').forEach(function (c) {
+        c.classList.toggle('active', c.dataset.cust === _qfCustSel);
+    });
+}
+/** 选择标签（再点一次取消） */
+function pickQuickFuTag(tag) {
+    _qfTagSel = (_qfTagSel === tag) ? '' : tag;
+    document.querySelectorAll('#qfTagRow .fu-tag-chip').forEach(function (c) {
+        c.classList.toggle('active', c.dataset.tag === _qfTagSel);
+    });
+}
+/** 抽屉内保存：与完整弹窗同一写入核心，时间为当前 */
+function saveQuickFollowup() {
+    if (tooFrequent('saveQuickFollowup')) return;
+    const cin = document.getElementById('qfCustomer');
+    const ct = document.getElementById('qfContent');
+    const customer = sanitizeInput((cin && cin.value || '').trim());
+    const content = sanitizeInput((ct && ct.value || '').trim());
+    if (!customer) { showToast('请选择或输入客户名称'); if (cin) cin.focus(); return; }
+    if (!content) { showToast('请输入跟进内容'); if (ct) ct.focus(); return; }
+    const r = commitFollowup(customer, content, '', _qfTagSel, null);
+    if (!r.ok) return;
+    saveData();
+    refreshFollowupViews();
+    closeQuickFuSheet();
+    showToast('跟进记录已添加');
 }
 
 function deleteFollowup(id, onDone) {
@@ -9758,6 +10147,9 @@ function deleteFollowup(id, onDone) {
         recordChange('delete', 'followup', id, deletedName);
 
         state.followups = state.followups.filter(f => f.id !== id);
+
+        // 级联删除该跟进的全部云端附件（best-effort）与本机缓存，防止孤儿文件占空间
+        fuAttachments(followup).forEach(function (a) { attDeleteRemote(a); attCacheRemove(a.id); });
         
         // 重新计算客户的最后跟进记录
         const customer = state.customers.find(c => c.name === deletedName);
@@ -9854,6 +10246,7 @@ function stashFollowupDraft() {
     const customer = (document.getElementById('followupCustomer').value || '').trim();
     const content = (document.getElementById('followupContent').value || '').trim();
     const time = document.getElementById('followupTime').value || '';
+    if (_fuAttPending.length) { showToast('有尚未保存的附件，请先保存跟进或移除附件后再存草稿'); return; }
     if (!customer && !content) { showToast('没有可保存的草稿内容'); return; }
     const drafts = loadFollowupDrafts();
     drafts.unshift({ id: genId('d'), customer: customer, content: content, time: time, tag: String(_followupTagSel || '').trim(), savedAt: new Date().toISOString() });
@@ -10025,6 +10418,7 @@ function renderFollowupHistoryList() {
                             </div>
                             <div class="followup-meta"><span class="followup-time">${formatDateTime(f.time)}</span></div>
                             <div class="followup-content">${escapeHtml(f.content)}</div>
+                            ${fuAttHtml(f)}
                         </div>
                     </div>
                 `).join('')}
@@ -10036,7 +10430,25 @@ function filterHistFu(tag) {
     renderFollowupHistoryList();
 }
 
-// ==================== 跟进偏好（标签管理 + 未跟进提醒阈值） ====================
+// ==================== 跟进偏好（标签管理 + 提醒阈值 + 历史显示条数） ====================
+// 客户详情「跟进历史」默认显示条数：3 / 5 / 10 / 0（全部），缺省 3（升级前行为）。
+// 存 _meta.fuDetailLimit + fuDetailLimitAt（At-LWW 跨端同步，与 customerSort 同一模式）。
+var FU_DETAIL_LIMITS = [3, 5, 10, 0];
+function getFuDetailLimit() {
+    const v = state._meta && parseInt(state._meta.fuDetailLimit, 10);
+    return FU_DETAIL_LIMITS.indexOf(v) >= 0 ? v : 3;
+}
+// 写入条数偏好，返回是否较之前有变化（由调用方负责落盘 / 记日志 / 重绘）
+function setFuDetailLimit(v) {
+    const n = parseInt(v, 10);
+    if (FU_DETAIL_LIMITS.indexOf(n) < 0) return false;
+    const changed = getFuDetailLimit() !== n;
+    state._meta = state._meta || {};
+    state._meta.fuDetailLimit = n;
+    state._meta.fuDetailLimitAt = Date.now();
+    return changed;
+}
+function fuDetailLimitLabel(v) { return (parseInt(v, 10) === 0) ? '全部' : (parseInt(v, 10) + ' 条'); }
 function openFollowupPrefs() {
     renderFuPrefTagList();
     renderFuPrefOverdueStatusList();
@@ -10045,6 +10457,8 @@ function openFollowupPrefs() {
     const rEl = document.getElementById('fuRemindRed');
     if (yEl) yEl.value = th.yellow;
     if (rEl) rEl.value = th.red;
+    const dlEl = document.getElementById('fuDetailLimitSel');
+    if (dlEl) dlEl.value = String(getFuDetailLimit());
     document.getElementById('followupPrefsModal').classList.add('show');
 }
 function closeFollowupPrefs() {
@@ -10166,12 +10580,21 @@ function saveFuPrefs() {
     if (!y || y < 1 || y > 365) { showToast('黄色阈值需为 1~365 的整数'); return; }
     if (!m || m < 2 || m > 365) { showToast('红色阈值需为 2~365 的整数'); return; }
     if (m <= y) { showToast('红色阈值需大于黄色阈值'); return; }
+    // 跟进历史默认显示条数（At-LWW 跨端同步）：与阈值共用同一次落盘 / 推送
+    const dlEl = document.getElementById('fuDetailLimitSel');
+    let _limitChanged = false, _prevLimit = getFuDetailLimit();
+    if (dlEl) _limitChanged = setFuDetailLimit(dlEl.value);
     const prev = getFollowupRemind();
     state._meta = state._meta || {};
     state._meta.followupRemind = { yellow: y, red: m };
     saveData(); pushSettingsDebounced();
     if (prev.yellow !== y || prev.red !== m) logOperation('修改未跟进提醒阈值为 黄≥' + y + ' 天 / 红>' + m + ' 天（原 ' + prev.yellow + '/' + prev.red + '）', 'info');
-    showToast('提醒阈值已保存');
+    if (_limitChanged) logOperation('修改客户详情跟进历史默认显示条数为 ' + fuDetailLimitLabel(getFuDetailLimit()) + '（原 ' + fuDetailLimitLabel(_prevLimit) + '）', 'info');
+    showToast('跟进偏好已保存');
+    // 若客户详情弹窗正开着，立即按新条数重绘（否则要等下次打开才生效）；尊重当前视图 tab
+    if (typeof currentDetailCustomerId !== 'undefined' && currentDetailCustomerId) {
+        if (_detailTimelineTab === 'timeline') renderDetailTimeline(); else renderDetailFollowupHistory();
+    }
 }
 
 function closeFollowupHistory() {
@@ -11841,6 +12264,8 @@ function restoreHistory(idx) {
 }
 
 // ==================== 全局搜索 ====================
+// 搜索范围：客户 / 跟进记录 / 待办 三类，分组展示（每组最多 SEARCH_GROUP_LIMIT 条）。
+// 历史：原实现只搜客户，用户常记不清「某条跟进/待办」属于哪个客户 → 搜不到。
 function openSearch() {
     document.getElementById('searchOverlay').classList.add('show');
     document.getElementById('globalSearch').focus();
@@ -11852,6 +12277,8 @@ function closeSearch() {
     document.getElementById('searchOverlay').classList.remove('show');
 }
 
+var SEARCH_GROUP_LIMIT = 8;
+
 function performSearch(query) {
     const container = document.getElementById('searchResults');
     if (!query.trim()) {
@@ -11859,8 +12286,10 @@ function performSearch(query) {
         return;
     }
 
-    const q = query.toLowerCase();
-    const results = state.customers.filter(c => {
+    const q = query.trim().toLowerCase();
+
+    // ① 客户：名称 / 城市 / 备注 / 状态 / 联系方式 / 最后跟进内容
+    const customers = state.customers.filter(c => {
         const sc = getStatusConfig(c.status);
         return (c.name && c.name.toLowerCase().includes(q)) ||
                (c.city && c.city.toLowerCase().includes(q)) ||
@@ -11868,16 +12297,35 @@ function performSearch(query) {
                (sc.name && sc.name.toLowerCase().includes(q)) ||
                (c.contact && c.contact.toLowerCase().includes(q)) ||
                (c.last_followup && c.last_followup.toLowerCase().includes(q));
-    }).slice(0, 20);
+    }).slice(0, SEARCH_GROUP_LIMIT);
 
-    if (results.length === 0) {
-        container.innerHTML = '<div class="empty-state"><div class="title">未找到匹配结果</div></div>';
+    // ② 跟进记录：内容 / 所属客户名 / 标签
+    const followups = state.followups.filter(f => {
+        return (f.content && f.content.toLowerCase().includes(q)) ||
+               (f.customer && f.customer.toLowerCase().includes(q)) ||
+               (f.tag && f.tag.toLowerCase().includes(q));
+    }).sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, SEARCH_GROUP_LIMIT);
+
+    // ③ 待办：标题 / 描述 / 关联客户
+    const todos = state.todos.filter(t => {
+        return (t.title && t.title.toLowerCase().includes(q)) ||
+               (t.desc && t.desc.toLowerCase().includes(q)) ||
+               (t.customerName && t.customerName.toLowerCase().includes(q));
+    }).slice(0, SEARCH_GROUP_LIMIT);
+
+    if (customers.length === 0 && followups.length === 0 && todos.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="title">未找到匹配结果</div><div class="desc">可试试搜索客户名称、跟进内容或待办事项</div></div>';
         return;
     }
 
-    container.innerHTML = results.map(c => {
-        const sc = getStatusConfig(c.status);
-        return `
+    let html = '';
+    const groupTitle = (label, n) => '<div class="search-group-title">' + label + '<span class="search-group-count">' + n + '</span></div>';
+
+    if (customers.length) {
+        html += groupTitle('客户', customers.length);
+        html += customers.map(c => {
+            const sc = getStatusConfig(c.status);
+            return `
             <div class="search-result-item" onclick="window._crm.closeSearch();window._crm.openCustomerDetail('${c.id}')">
                 <div class="name">${highlightText(c.name, query)}</div>
                 <div class="meta">
@@ -11888,9 +12336,38 @@ function performSearch(query) {
                     ${c.city ? ' · ' + highlightText(c.city, query) : ''}
                     ${c.last_followup_time ? ' · ' + formatDate(c.last_followup_time) : ''}
                 </div>
-            </div>
-        `;
-    }).join('');
+            </div>`;
+        }).join('');
+    }
+
+    if (followups.length) {
+        html += groupTitle('跟进记录', followups.length);
+        html += followups.map(f => {
+            const safeName = (f.customer || '').replace(/'/g, "\\'");
+            return `
+            <div class="search-result-item" onclick="window._crm.closeSearch();window._crm.openFollowupHistory('${safeName}')">
+                <div class="name">${highlightText(f.customer || '（未关联客户）', query)}</div>
+                <div class="meta">${fuTagBadgeHtml(f.tag)} ${formatDateTime(f.time)}</div>
+                <div class="search-result-snippet">${highlightText(f.content || '', query)}</div>
+            </div>`;
+        }).join('');
+    }
+
+    if (todos.length) {
+        html += groupTitle('待办', todos.length);
+        html += todos.map(t => {
+            const st = (TODO_STATUS && TODO_STATUS[t.status]) || TODO_STATUS.pending;
+            const safeName = (t.customerName || '').replace(/'/g, "\\'");
+            return `
+            <div class="search-result-item" onclick="window._crm.closeSearch();window._crm.navigateTo('todos');window._crm.openTodoModal('${t.id}')">
+                <div class="name">${highlightText(t.title || '(无标题)', query)}</div>
+                <div class="meta"><span class="todo-status-badge ${st.cssClass}">${st.name}</span>${t.customerName ? ' · ' + highlightText(t.customerName, query) : ''}${t.dueDate ? ' · ' + formatDateStr(t.dueDate) : ''}</div>
+                ${t.desc ? `<div class="search-result-snippet">${highlightText(t.desc, query)}</div>` : ''}
+            </div>`;
+        }).join('');
+    }
+
+    container.innerHTML = html;
 }
 
 // 简单字符串哈希（FNV-1a），用于备份文件完整性校验（非加密用途）
@@ -13043,11 +13520,12 @@ function loadSyncSettings() {
             _etag: s._etag || '',
             _etagWebdav: s._etagWebdav || '',
             _etagGist: s._etagGist || '',
-            // 镜像到 Gist：默认开启（供网页端查看/编辑）；旧数据无此字段时视为开启
-            mirrorGist: (s.mirrorGist === false) ? false : true
+            // 镜像到 Gist：默认关闭。仅当用户在同步设置中显式勾选 / 取消勾选时才落 true / false；
+            // 未设置（新装，或历史版本从未保存过该开关）时保持 undefined，由 gistMirrorEnabled() 按环境兜底
+            mirrorGist: (s.mirrorGist === true) ? true : ((s.mirrorGist === false) ? false : undefined)
         };
     } catch(e) {
-        syncSettings = { provider: 'gist', token: '', gistId: '', filename: 'crm-data.json', _etag: '', _etagWebdav: '', _etagGist: '', mirrorGist: true };
+        syncSettings = { provider: 'gist', token: '', gistId: '', filename: 'crm-data.json', _etag: '', _etagWebdav: '', _etagGist: '', mirrorGist: undefined };
     }
 }
 
@@ -14051,16 +14529,36 @@ function renderStorageBars() {
     }
 }
 
-// 双后端下两个配置面板始终可见；仅更新提示文案与连接状态
+// Gist 面板展开状态：null=尚未初始化（按环境自动决定：Gist 正在使用中 / 纯网页端只有 Gist 可用时展开，否则收起）
+let _gistPanelExpanded = null;
+/** Gist 面板当前是否应可见 */
+function gistPanelShouldShow() {
+    if (_gistPanelExpanded !== null) return _gistPanelExpanded;
+    // 首次进入设置页：已配置 Gist 且镜像开启（正在用 Gist 同步），或当前环境 WebDAV 完全不可用（纯网页端）
+    return (gistConfigured() && gistMirrorEnabled()) || !canUseWebdav();
+}
+/** 手动展开 / 收起 Gist 高级面板 */
+function toggleGistPanel() {
+    _gistPanelExpanded = !gistPanelShouldShow();
+    applySyncProviderUI();
+}
+function gistPanelToggleText() {
+    return (_gistPanelExpanded === true ? '&#9660;' : '&#9654;') + ' 高级：GitHub Gist 镜像设置' +
+        (_gistPanelExpanded === true ? '（点击收起）' : '（默认关闭，供网页端使用）');
+}
+
+// 双后端下两个配置面板可见性：WebDAV 恒可见；Gist 面板默认收起，仅在使用中或用户手动展开时可见
 function applySyncProviderUI() {
     const gp = document.getElementById('gistPanel');
     const wp = document.getElementById('webdavPanel');
-    if (gp) gp.style.display = '';
+    if (gp) gp.style.display = gistPanelShouldShow() ? '' : 'none';
     if (wp) wp.style.display = '';
+    const tg = document.getElementById('gistPanelToggle');
+    if (tg) tg.innerHTML = gistPanelToggleText();
     const tip = document.getElementById('syncProviderTip');
     if (tip) tip.textContent = canUseWebdav()
-        ? 'WebDAV 为主同步；勾选「镜像到 Gist」可让网页端实时同步（网页端仅支持 Gist）。'
-        : '当前环境（网页端）无法使用 WebDAV，已自动改用 Gist 同步；桌面 / 安卓会同时用 WebDAV。';
+        ? '主同步用 WebDAV；「镜像到 Gist」默认关闭，仅需网页端查看/编辑时在下方高级设置中开启。'
+        : '当前环境（网页端）无法使用 WebDAV，已自动改用 Gist 同步；桌面 / 安卓可同时用 WebDAV。';
     const rSub = document.getElementById('remoteUsageSub');
     if (rSub) rSub.textContent = canUseWebdav() ? 'WebDAV 无单文件大小限制' : 'Gist 上限 1MB';
     const bSub = document.getElementById('backupUsageSub');
@@ -14306,9 +14804,11 @@ function updateSyncStatusUI() {
         card.className = 'sync-status-card status-pending';
         icon.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
         title.textContent = '未配置同步';
-        desc.textContent = gistMirrorEnabled()
-            ? '填写 WebDAV（主）与 GitHub Gist（镜像）后可实现桌面 / 安卓 / 网页端三端同步'
-            : '填写 WebDAV 服务器地址、用户名和密码后可实现桌面 / 安卓数据同步';
+        desc.textContent = !canUseWebdav()
+            ? '填写 GitHub Token 和 Gist ID 后可实现网页端数据同步（网页端仅支持 Gist）'
+            : ((gistConfigured() && gistMirrorEnabled())
+                ? '填写 WebDAV（主）与 GitHub Gist（镜像）后可实现桌面 / 安卓 / 网页端三端同步'
+                : '填写 WebDAV 服务器地址、用户名和密码后可实现桌面 / 安卓数据同步');
         return;
     }
 
@@ -14579,8 +15079,17 @@ function canUseWebdav() {
 }
 function webdavConfigured() { return !!(webdavSettings.url && webdavSettings.user && getWebdavPass()); }
 function gistConfigured() { return !!(syncSettings.token && syncSettings.gistId); }
-/** 是否把数据实时镜像到 Gist（供网页端查看/编辑）。默认开启；关闭后仅用 WebDAV。 */
-function gistMirrorEnabled() { return syncSettings.mirrorGist !== false; }
+/**
+ * 是否把数据实时镜像到 Gist（供网页端查看/编辑）。默认关闭（日常同步只用 WebDAV）；
+ * 仅当用户在同步设置中显式勾选「镜像到 Gist」时才开启，代码与配置恒保留，可随时开回。
+ * 兜底：未显式设置时，若 WebDAV 不可用或尚未配置（Gist 是当前唯一可用后端），
+ * 仍返回 true，防止纯网页端 / 只配置了 Gist 的用户同步彻底中断。
+ */
+function gistMirrorEnabled() {
+    if (syncSettings.mirrorGist === true) return true;
+    if (syncSettings.mirrorGist === false) return false;
+    return !(canUseWebdav() && webdavConfigured());
+}
 
 /** 当前实际参与同步的后端列表：WebDAV（主，需可用且已配置）+ Gist（已配置且开启镜像） */
 function activeBackends() {
@@ -14710,6 +15219,415 @@ async function webdavPutText(fileName, content) {
         throw new Error(_webdavErrText(r) + '；URL：' + url);
     }
     return r;
+}
+
+/** 删除远端文件（附件清理用）；404 视为已不存在 */
+async function webdavDelete(fileName) {
+    const url = webdavFileUrl(fileName);
+    const r = await httpRequest('DELETE', url, webdavAuthHeaders(), undefined);
+    if (r.status === 404) return;
+    if (!r.ok) throw new Error(_webdavErrText(r) + '；URL：' + url);
+}
+
+// ==================== 跟进附件（图片 / 文件）：WebDAV 独立目录 + 本地 LRU 缓存 ====================
+// 设计（与主同步文件解耦，三条理由）：
+//  1. 二进制 base64 后体积 +33%，若塞进 crm-data.json 会拖垮每轮全量同步，并让 Gist 很快撞 1MB 上限；
+//  2. 本地存储有配额（约 5MB），几百张图就会写满，连带主数据都存不下；
+//  3. 附件本就该按需懒加载：只有点开某条跟进看附件时才下载，单张失败可单独重试。
+// 因此：附件文件走 WebDAV 独立目录（base64 文本传输，复用 webdavPutText/webdavGetText，桌面/安卓通用），
+// 跟进记录只存附件元数据（随主同步跨端，体积可忽略）；本机用 IndexedDB 做 LRU 缓存并设容量上限，
+// 超限自动淘汰最久未用，防止占满本地空间。纯网页端无 WebDAV，附件功能不可用（有明确提示）。
+var ATT_DIR = 'crm-att';                        // WebDAV 附件目录（相对 WebDAV 根；webdavPutText 会自动建目录）
+var ATT_MAX_BYTES = 8 * 1024 * 1024;            // 单个附件上限 8MB（base64 后约 11MB）
+var ATT_CACHE_LIMITS_MB = [50, 100, 200, 500, 0]; // 本地缓存上限可选值（0 = 不限）
+var ATT_CACHE_DEFAULT_MB = 200;                 // 缓存默认上限 200MB
+var ATT_DB_NAME = 'crm_att_cache';
+var ATT_DB_STORE = 'files';
+// IndexedDB 不可用（jsdom / 隐私模式 / 老旧 WebView）时的内存兜底，保证功能不崩
+var _attMem = {};
+// LRU 单调序号：lastUsedAt 精度只到毫秒，连续操作同 ms 时会平局导致淘汰不确定，用 seq 打破平局
+var _attSeq = 0;
+
+/** 附件功能是否可用：需要 WebDAV 能力且已配置（桌面 / 安卓） */
+function attSupported() { return canUseWebdav() && webdavConfigured(); }
+/** 附件远端路径：独立目录 + 稳定 id（与元数据 id 一致，便于按 id 寻址 / 删除） */
+function attRemotePath(id) { return ATT_DIR + '/' + id + '.bin'; }
+function attIsImage(mime) { return /^image\//i.test(String(mime || '')); }
+/** 跟进记录的附件元数据数组（容错：非数组按空处理） */
+function fuAttachments(f) { return (f && Array.isArray(f.attachments)) ? f.attachments : []; }
+/** 本地缓存容量上限（_meta.attCacheLimitMB，At-LWW 跨端同步；0 = 不限） */
+function attCacheLimitMB() {
+    const v = state._meta && parseInt(state._meta.attCacheLimitMB, 10);
+    return ATT_CACHE_LIMITS_MB.indexOf(v) >= 0 ? v : ATT_CACHE_DEFAULT_MB;
+}
+/** 写入缓存上限，返回是否较之前有变化（调用方负责落盘 / 记日志 / 淘汰） */
+function setAttCacheLimitMB(mb) {
+    const n = parseInt(mb, 10);
+    if (ATT_CACHE_LIMITS_MB.indexOf(n) < 0) return false;
+    const changed = attCacheLimitMB() !== n;
+    state._meta = state._meta || {};
+    state._meta.attCacheLimitMB = n;
+    state._meta.attCacheLimitMBAt = Date.now();
+    return changed;
+}
+function attCacheLimitLabel(mb) { const n = parseInt(mb, 10); return (n === 0) ? '不限' : (n + ' MB'); }
+
+/** 打开附件缓存库；失败 / 环境不支持返回 null（由内存兜底接管） */
+function attDb() {
+    return new Promise(function (resolve) {
+        let done = false;
+        const fin = function (v) { if (!done) { done = true; resolve(v); } };
+        try {
+            if (!window.indexedDB || typeof window.indexedDB.open !== 'function') return fin(null);
+            const req = window.indexedDB.open(ATT_DB_NAME, 1);
+            req.onupgradeneeded = function () {
+                try {
+                    const db = req.result;
+                    if (!db.objectStoreNames.contains(ATT_DB_STORE)) db.createObjectStore(ATT_DB_STORE, { keyPath: 'id' });
+                } catch (e) {}
+            };
+            req.onsuccess = function () { fin(req.result); };
+            req.onerror = function () { fin(null); };
+            setTimeout(function () { fin(null); }, 3000); // 兜底：个别环境事件不触发
+        } catch (e) { fin(null); }
+    });
+}
+function _attMemList() { return Object.keys(_attMem).map(function (k) { return _attMem[k]; }); }
+
+/** 读缓存（未命中返回 null）；命中会刷新 lastUsedAt（LRU） */
+async function attCacheGet(id) {
+    if (!id) return null;
+    const db = await attDb();
+    let rec = null;
+    if (db) {
+        rec = await new Promise(function (resolve) {
+            try {
+                const tx = db.transaction(ATT_DB_STORE, 'readonly');
+                const rq = tx.objectStore(ATT_DB_STORE).get(id);
+                rq.onsuccess = function () { resolve(rq.result || null); };
+                rq.onerror = function () { resolve(null); };
+            } catch (e) { resolve(null); }
+        });
+    } else {
+        rec = _attMem[id] || null;
+    }
+    if (rec) { rec.lastUsedAt = Date.now(); await attCachePut(id, rec, true); }
+    return rec;
+}
+/** 写缓存；quiet=true 为 LRU 刷新（不触发淘汰，避免递归） */
+async function attCachePut(id, rec, quiet) {
+    if (!id) return;
+    const row = { id: id, name: rec.name || '', mime: rec.mime || '', size: rec.size || 0, data: rec.data || '', lastUsedAt: Date.now(), seq: ++_attSeq };
+    const db = await attDb();
+    if (db) {
+        await new Promise(function (resolve) {
+            try {
+                const tx = db.transaction(ATT_DB_STORE, 'readwrite');
+                tx.objectStore(ATT_DB_STORE).put(row);
+                tx.oncomplete = function () { resolve(); };
+                tx.onerror = function () { resolve(); };
+                tx.onabort = function () { resolve(); };
+            } catch (e) { resolve(); }
+        });
+    } else {
+        _attMem[id] = row;
+    }
+    if (!quiet) await attCacheEvictIfNeeded();
+}
+/** 列出全部缓存记录（无库时走内存兜底） */
+async function attCacheList() {
+    const db = await attDb();
+    if (!db) return _attMemList();
+    return await new Promise(function (resolve) {
+        try {
+            const tx = db.transaction(ATT_DB_STORE, 'readonly');
+            const rq = tx.objectStore(ATT_DB_STORE).getAll();
+            rq.onsuccess = function () { resolve(rq.result || []); };
+            rq.onerror = function () { resolve([]); };
+        } catch (e) { resolve([]); }
+    });
+}
+/** 缓存占用：{ count, bytes }（bytes 为 base64 正文字节数近似） */
+async function attCacheUsage() {
+    const list = await attCacheList();
+    let bytes = 0;
+    list.forEach(function (r) { bytes += (r.data ? r.data.length : 0); });
+    return { count: list.length, bytes: bytes };
+}
+/** 删除指定缓存（单个 id 或 id 数组） */
+async function attCacheRemove(ids) {
+    const arr = (Array.isArray(ids) ? ids : [ids]).filter(Boolean);
+    if (!arr.length) return;
+    const db = await attDb();
+    if (!db) { arr.forEach(function (id) { delete _attMem[id]; }); return; }
+    await new Promise(function (resolve) {
+        try {
+            const tx = db.transaction(ATT_DB_STORE, 'readwrite');
+            const st = tx.objectStore(ATT_DB_STORE);
+            arr.forEach(function (id) { st.delete(id); });
+            tx.oncomplete = function () { resolve(); };
+            tx.onerror = function () { resolve(); };
+            tx.onabort = function () { resolve(); };
+        } catch (e) { resolve(); }
+    });
+}
+/** 清空整个缓存（云端文件保留，需要时可重新下载） */
+async function attCacheClear() {
+    const list = await attCacheList();
+    await attCacheRemove(list.map(function (r) { return r.id; }));
+}
+/** 超上限时按 LRU（lastUsedAt 最旧优先）淘汰，返回淘汰数量 */
+async function attCacheEvictIfNeeded() {
+    const limitMB = attCacheLimitMB();
+    if (!limitMB) return 0;
+    const list = await attCacheList();
+    const limit = limitMB * 1024 * 1024;
+    let total = 0;
+    list.forEach(function (r) { total += (r.data ? r.data.length : 0); });
+    if (total <= limit) return 0;
+    // 最旧优先：lastUsedAt 主键，同毫秒平局用 seq（单调递增）打破，保证淘汰确定
+    list.sort(function (a, b) { return (a.lastUsedAt || 0) - (b.lastUsedAt || 0) || (a.seq || 0) - (b.seq || 0); });
+    const drop = [];
+    for (let i = 0; i < list.length && total > limit; i++) {
+        drop.push(list[i].id);
+        total -= (list[i].data ? list[i].data.length : 0);
+    }
+    if (drop.length) await attCacheRemove(drop);
+    return drop.length;
+}
+
+/** 读取 File 为 data URL（含 base64 正文） */
+function attFileToDataUrl(file) {
+    return new Promise(function (resolve, reject) {
+        try {
+            const fr = new FileReader();
+            fr.onload = function () { resolve(String(fr.result || '')); };
+            fr.onerror = function () { reject(new Error('文件读取失败')); };
+            fr.readAsDataURL(file);
+        } catch (e) { reject(e); }
+    });
+}
+/** 上传单个附件到 WebDAV 独立目录，返回附件元数据（不含二进制） */
+async function attUpload(file) {
+    if (!attSupported()) throw new Error('附件功能需要 WebDAV 同步（桌面 / 安卓端）');
+    if (!file) throw new Error('未选择文件');
+    if (file.size > ATT_MAX_BYTES) throw new Error('单个附件不能超过 ' + formatBytes(ATT_MAX_BYTES) + '（当前 ' + formatBytes(file.size) + '）');
+    const dataUrl = await attFileToDataUrl(file);
+    const base64 = String(dataUrl).replace(/^data:[^,]*;base64,/, '');
+    const id = 'att_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+    const att = { id: id, name: file.name || '未命名文件', size: file.size || 0, mime: file.type || '', path: attRemotePath(id), addedAt: new Date().toISOString() };
+    await webdavPutText(att.path, base64);
+    // 上传成功即入本机缓存（立即可看）；跨端设备按需下载
+    await attCachePut(id, { id: id, name: att.name, mime: att.mime, size: att.size, data: dataUrl });
+    return att;
+}
+/** 取附件 data URL：先本地缓存，未命中再从 WebDAV 拉取并写缓存 */
+async function attDataUrl(att) {
+    if (!att || !att.id) throw new Error('附件信息不完整');
+    const hit = await attCacheGet(att.id);
+    if (hit && hit.data) return hit.data;
+    if (!attSupported()) throw new Error('当前离线或未配置 WebDAV，无法下载附件（桌面 / 安卓端可下载）');
+    const txt = await webdavGetText(att.path || attRemotePath(att.id));
+    if (txt == null) throw new Error('云端不存在该附件文件（可能已被清理）');
+    const mime = att.mime || 'application/octet-stream';
+    const dataUrl = 'data:' + mime + ';base64,' + txt;
+    await attCachePut(att.id, { id: att.id, name: att.name, mime: mime, size: att.size || 0, data: dataUrl });
+    return dataUrl;
+}
+/** 删除云端附件文件（best-effort：失败不阻塞本地删除，仅返回结果） */
+async function attDeleteRemote(att) {
+    if (!att || !att.path || !attSupported()) return false;
+    try { await webdavDelete(att.path); return true; } catch (e) { return false; }
+}
+
+// ---------- 附件 UI：跟进弹窗编辑态 ----------
+var _fuAttSaved = [];    // 已存在于记录中的附件元数据（编辑态回显，保存时原样写回）
+var _fuAttPending = [];  // 本次新上传、尚未写入记录的附件元数据
+var _fuAttRemoved = [];  // 本次要移除的已存在附件（完整元数据，用于删云端文件）
+var _fuAttLoaded = false; // 本轮是否走过跟进弹窗（未走过不得覆写 attachments，防误清空）
+
+function fuAttReset() { _fuAttSaved = []; _fuAttPending = []; _fuAttRemoved = []; }
+
+/** 渲染跟进弹窗内的附件列表（已保存项可删，新上传项标「新」） */
+function fuAttRenderList() {
+    const box = document.getElementById('fuAttList');
+    if (!box) return;
+    const tip = document.getElementById('fuAttTip');
+    if (tip) tip.textContent = attSupported()
+        ? '仅桌面 / 安卓端支持：文件存于 WebDAV 独立目录，不占用主同步额度，可多端查看。'
+        : '当前环境（网页端）不支持附件；请在桌面 / 安卓端使用。';
+    const items = _fuAttSaved.map(function (a) { return { att: a, saved: true }; })
+        .concat(_fuAttPending.map(function (a) { return { att: a, saved: false }; }));
+    if (!items.length) { box.innerHTML = '<div class="fu-att-empty">暂无附件</div>'; return; }
+    box.innerHTML = items.map(function (it) {
+        const a = it.att;
+        const isImg = attIsImage(a.mime);
+        return '<div class="fu-att-chip' + (isImg ? ' is-img' : '') + '" data-att="' + escapeHtml(a.id) + '">' +
+            '<span class="fu-att-ico">' + (isImg ? '🖼' : '📎') + '</span>' +
+            '<span class="fu-att-name" title="' + escapeHtml(a.name || '') + '">' + escapeHtml(a.name || '未命名文件') + '</span>' +
+            '<span class="fu-att-size">' + formatBytes(a.size || 0) + '</span>' +
+            (it.saved
+                ? '<button type="button" class="fu-att-del" title="移除该附件" data-del="' + escapeHtml(a.id) + '">×</button>'
+                : '<span class="fu-att-new" title="保存跟进后生效">新</span>') +
+            '</div>';
+    }).join('');
+}
+
+/** 选择文件后逐个上传（串行，避免大文件并发把请求打满） */
+async function fuAttPickFiles(fileList) {
+    if (!attSupported()) { showToast('附件功能仅桌面 / 安卓端可用（需要 WebDAV 同步）'); return; }
+    const files = Array.prototype.slice.call(fileList || []);
+    if (!files.length) return;
+    for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        try {
+            showToast('正在上传「' + f.name + '」…');
+            const att = await attUpload(f);
+            _fuAttPending.push(att);
+            fuAttRenderList();
+            showToast('「' + att.name + '」上传完成');
+        } catch (e) {
+            showToast('「' + f.name + '」上传失败：' + (e.message || e));
+        }
+    }
+}
+
+/** 移除一个附件：已保存项记入待删（保存时删云端 + 缓存），新上传项直接弃用 */
+function fuAttRemove(id) {
+    const idx = _fuAttSaved.findIndex(function (a) { return a.id === id; });
+    if (idx >= 0) {
+        _fuAttRemoved.push(_fuAttSaved[idx]);
+        _fuAttSaved.splice(idx, 1);
+    } else {
+        _fuAttPending = _fuAttPending.filter(function (a) { return a.id !== id; });
+        attCacheRemove(id); // 未写入记录：删本机缓存即可（云端成为孤儿文件，体积小可接受）
+    }
+    fuAttRenderList();
+}
+
+/** 跟进卡片附件条（图片 / 文件 chip，点击打开查看器） */
+function fuAttHtml(f) {
+    const atts = fuAttachments(f);
+    if (!atts.length) return '';
+    return '<div class="fu-att-row">' + atts.map(function (a) {
+        const isImg = attIsImage(a.mime);
+        return '<button type="button" class="fu-att-chip' + (isImg ? ' is-img' : '') + '" title="' + escapeHtml(a.name || '') + '（' + formatBytes(a.size || 0) + '，点击查看）" onclick="event.stopPropagation();window._crm.openAttViewer(\'' + escapeHtml(a.id) + '\', \'' + escapeHtml(f.id) + '\')">' +
+            '<span class="fu-att-ico">' + (isImg ? '🖼' : '📎') + '</span>' +
+            '<span class="fu-att-name">' + escapeHtml(a.name || '未命名文件') + '</span>' +
+            '<span class="fu-att-size">' + formatBytes(a.size || 0) + '</span>' +
+            '</button>';
+    }).join('') + '</div>';
+}
+
+// ---------- 附件查看器（图片全屏 / 文件下载，支持同条记录内多附件切换） ----------
+var _attViewerList = [];
+var _attViewerIdx = 0;
+async function openAttViewer(attId, followupId) {
+    const f = state.followups.find(function (x) { return x.id === followupId; });
+    const atts = fuAttachments(f);
+    if (!atts.length) { showToast('该跟进没有附件'); return; }
+    const idx = atts.findIndex(function (a) { return a.id === attId; });
+    _attViewerList = atts;
+    _attViewerIdx = idx >= 0 ? idx : 0;
+    const modal = document.getElementById('attViewerModal');
+    if (modal) modal.classList.add('show');
+    await attViewerRender();
+}
+async function attViewerRender() {
+    const body = document.getElementById('attViewerBody');
+    const title = document.getElementById('attViewerTitle');
+    if (!body) return;
+    const a = _attViewerList[_attViewerIdx];
+    if (!a) { body.innerHTML = '<div class="empty-state"><div class="title">附件不存在</div></div>'; return; }
+    const multi = _attViewerList.length > 1;
+    if (title) title.textContent = a.name + (multi ? '（' + (_attViewerIdx + 1) + '/' + _attViewerList.length + '）' : '');
+    const prev = document.getElementById('attViewerPrev');
+    const next = document.getElementById('attViewerNext');
+    if (prev) prev.style.display = multi ? '' : 'none';
+    if (next) next.style.display = multi ? '' : 'none';
+    body.innerHTML = '<div class="att-loading">加载中&hellip;</div>';
+    try {
+        const url = await attDataUrl(a);
+        if (attIsImage(a.mime)) {
+            body.innerHTML = '<img class="att-view-img" src="' + url + '" alt="' + escapeHtml(a.name || '') + '">';
+        } else {
+            body.innerHTML = '<div class="att-view-file">' +
+                '<div class="att-view-file-ico">📎</div>' +
+                '<div class="att-view-file-name">' + escapeHtml(a.name || '未命名文件') + '</div>' +
+                '<div class="att-view-file-size">' + formatBytes(a.size || 0) + '</div>' +
+                '<div class="att-view-file-tip">点击「下载 / 打开」保存到本机</div></div>';
+        }
+    } catch (e) {
+        body.innerHTML = '<div class="empty-state"><div class="title">加载失败</div><div class="desc">' + escapeHtml(e.message || String(e)) + '</div></div>';
+    }
+}
+function attViewerStep(d) {
+    if (_attViewerList.length < 2) return;
+    _attViewerIdx = (_attViewerIdx + d + _attViewerList.length) % _attViewerList.length;
+    attViewerRender();
+}
+function attViewerDownload() {
+    const a = _attViewerList[_attViewerIdx];
+    if (!a) return;
+    attDataUrl(a).then(function (url) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = a.name || 'attachment';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast('已开始下载「' + (a.name || '') + '」');
+    }).catch(function (e) { showToast('下载失败：' + (e.message || e)); });
+}
+function closeAttViewer() {
+    const modal = document.getElementById('attViewerModal');
+    if (modal) modal.classList.remove('show');
+    _attViewerList = [];
+    _attViewerIdx = 0;
+}
+
+// ---------- 附件管理（缓存用量 / 容量上限 / 一键清理） ----------
+function openAttManage() {
+    const sel = document.getElementById('attCacheLimitSel');
+    if (sel) {
+        sel.innerHTML = ATT_CACHE_LIMITS_MB.map(function (mb) {
+            return '<option value="' + mb + '"' + (mb === attCacheLimitMB() ? ' selected' : '') + '>' + attCacheLimitLabel(mb) + '</option>';
+        }).join('');
+    }
+    refreshAttUsage();
+    const modal = document.getElementById('attManageModal');
+    if (modal) modal.classList.add('show');
+}
+async function refreshAttUsage() {
+    const text = document.getElementById('attUsageText');
+    const fill = document.getElementById('attUsageFill');
+    const u = await attCacheUsage();
+    const limitMB = attCacheLimitMB();
+    if (text) text.textContent = u.count + ' 个文件 · ' + formatBytes(u.bytes) + (limitMB ? ' / 上限 ' + limitMB + ' MB' : ' / 不限');
+    if (fill) {
+        const pct = limitMB ? Math.min(100, Math.round(u.bytes / (limitMB * 1048576) * 100)) : 0;
+        fill.style.width = pct + '%';
+        fill.style.background = pct >= 85 ? '#EF4444' : (pct >= 70 ? '#F59E0B' : '#10B981');
+    }
+}
+function saveAttManage() {
+    const sel = document.getElementById('attCacheLimitSel');
+    if (sel && setAttCacheLimitMB(sel.value)) {
+        logOperation('修改附件缓存上限：' + attCacheLimitLabel(attCacheLimitMB()), 'info');
+    }
+    saveData();
+    pushSettingsDebounced();
+    showToast('附件设置已保存');
+    attCacheEvictIfNeeded().then(function () { refreshAttUsage(); });
+    const modal = document.getElementById('attManageModal');
+    if (modal) modal.classList.remove('show');
+}
+function clearAttCache() {
+    showConfirm('清空本机附件缓存？云端文件不受影响，之后查看附件会重新下载。', async function () {
+        await attCacheClear();
+        showToast('缓存已清理');
+        refreshAttUsage();
+    }, '清理缓存', '清空', '取消');
 }
 
 /**
@@ -14933,6 +15851,9 @@ function getSyncPayload() {
             followupTags: (state._meta && Array.isArray(state._meta.followupTags)) ? state._meta.followupTags.slice() : [],
             followupTagsAt: (state._meta && state._meta.followupTagsAt) || 0,
             followupRemind: (state._meta && state._meta.followupRemind) || null,
+            // 客户详情「跟进历史」默认显示条数（At 时间戳 LWW，3/5/10/0=全部）
+            fuDetailLimit: (state._meta && state._meta.fuDetailLimit !== undefined) ? parseInt(state._meta.fuDetailLimit, 10) : 3,
+            fuDetailLimitAt: (state._meta && state._meta.fuDetailLimitAt) || 0,
             // 草稿箱（整表 At-LWW）与「按客户折叠」默认态（布尔 At-LWW）跨设备同步
             followupDrafts: (state._meta && Array.isArray(state._meta.followupDrafts)) ? state._meta.followupDrafts.slice() : [],
             followupDraftsAt: (state._meta && state._meta.followupDraftsAt) || 0,
@@ -14940,6 +15861,12 @@ function getSyncPayload() {
             followupCollapseAt: (state._meta && state._meta.followupCollapseAt) || 0,
             customerStatusFilter: (state._meta && Array.isArray(state._meta.customerStatusFilter)) ? state._meta.customerStatusFilter.slice() : [],
             customerStatusFilterAt: (state._meta && state._meta.customerStatusFilterAt) || 0,
+            // 客户总表排序方式（At 时间戳 LWW，与状态筛选同模式跨设备同步）
+            customerSort: (state._meta && state._meta.customerSort) || 'default',
+            customerSortAt: (state._meta && state._meta.customerSortAt) || 0,
+            // 附件本地缓存容量上限（At 时间戳 LWW；0 = 不限），跨设备一致避免两端淘汰策略不同
+            attCacheLimitMB: (state._meta && state._meta.attCacheLimitMB !== undefined) ? parseInt(state._meta.attCacheLimitMB, 10) : ATT_CACHE_DEFAULT_MB,
+            attCacheLimitMBAt: (state._meta && state._meta.attCacheLimitMBAt) || 0,
             // 看板卡片顺序：此前从未进过 payload（注释称三端互通但实际没同步），现补上并按 At 时间戳 LWW
             dashboardOrder: (state._meta && Array.isArray(state._meta.dashboardOrder)) ? state._meta.dashboardOrder.slice() : [],
             dashboardOrderAt: (state._meta && state._meta.dashboardOrderAt) || 0,
@@ -15411,6 +16338,14 @@ function applyRemoteData(remoteData) {
     // 本端修改经由 pushSettingsDebounced 推到云端，故拉取时云端始终为最新
     const _localFilter = Array.isArray(state._meta && state._meta.customerStatusFilter) ? state._meta.customerStatusFilter.slice() : [];
     const _localFilterAt = (state._meta && state._meta.customerStatusFilterAt) || 0;
+    // 客户总表排序方式：同样须在 Object.assign 前取本地快照（字符串 At-LWW）
+    const _localSort = (state._meta && state._meta.customerSort) || 'default';
+    const _localSortAt = (state._meta && state._meta.customerSortAt) || 0;
+    // 跟进历史默认显示条数：同样须在 Object.assign 前取本地快照（数字 At-LWW）
+    const _localFuLimit = (state._meta && state._meta.fuDetailLimit !== undefined) ? parseInt(state._meta.fuDetailLimit, 10) : 3;
+    const _localFuLimitAt = (state._meta && state._meta.fuDetailLimitAt) || 0;
+    const _localAttLimit = (state._meta && state._meta.attCacheLimitMB !== undefined) ? parseInt(state._meta.attCacheLimitMB, 10) : ATT_CACHE_DEFAULT_MB;
+    const _localAttLimitAt = (state._meta && state._meta.attCacheLimitMBAt) || 0;
     // ⚠️ 下方 Object.assign 会用远端 _meta 覆盖本地同名字段。凡需要在覆盖后做「本端 vs 远端」裁决的字段，
     // 必须在此（覆盖前）取本地快照：否则裁决时读到的已是远端值，「本端较新」分支永不生效，
     // 本端刚存的数据（草稿 / 跟进标签 / 折叠偏好 / 看板顺序）会被远端空值静默清掉。
@@ -15460,6 +16395,38 @@ function applyRemoteData(remoteData) {
     else _winnerFilter = (_remoteFilter && _remoteFilter.length) ? _remoteFilter : _localFilter; // 平局取远端（非空）使两端收敛
     state._meta.customerStatusFilter = (_winnerFilter || []).slice();
     state._meta.customerStatusFilterAt = _filterAt;
+    // 客户总表排序方式：字符串 At-LWW（与状态筛选同模式）。
+    // 上方 Object.assign 已把远端 customerSort 写进 state._meta，此处按 At 显式裁决回正确版本，
+    // 否则本端刚选的新排序会被携带旧时间戳的远端值静默覆盖（铁律#9）。
+    const _remoteSort = (remoteData._meta && remoteData._meta.customerSort) || 'default';
+    const _remoteSortAt = (remoteData._meta && remoteData._meta.customerSortAt) || 0;
+    if (_remoteSortAt > _localSortAt) {
+        state._meta.customerSort = CUSTOMER_SORT_OPTIONS.some(o => o.key === _remoteSort) ? _remoteSort : 'default';
+        state._meta.customerSortAt = _remoteSortAt;
+    } else {
+        state._meta.customerSort = CUSTOMER_SORT_OPTIONS.some(o => o.key === _localSort) ? _localSort : 'default';
+        state._meta.customerSortAt = _localSortAt;
+    }
+    // 跟进历史默认显示条数：数字 At-LWW（同上，快照已取在 Object.assign 之前）
+    const _remoteFuLimit = (remoteData._meta && remoteData._meta.fuDetailLimit !== undefined) ? parseInt(remoteData._meta.fuDetailLimit, 10) : 3;
+    const _remoteFuLimitAt = (remoteData._meta && remoteData._meta.fuDetailLimitAt) || 0;
+    if (_remoteFuLimitAt > _localFuLimitAt) {
+        state._meta.fuDetailLimit = (FU_DETAIL_LIMITS.indexOf(_remoteFuLimit) >= 0) ? _remoteFuLimit : 3;
+        state._meta.fuDetailLimitAt = _remoteFuLimitAt;
+    } else {
+        state._meta.fuDetailLimit = (FU_DETAIL_LIMITS.indexOf(_localFuLimit) >= 0) ? _localFuLimit : 3;
+        state._meta.fuDetailLimitAt = _localFuLimitAt;
+    }
+    // 附件本地缓存容量上限：数字 At-LWW（同一模式；0 = 不限）
+    const _remoteAttLimit = (remoteData._meta && remoteData._meta.attCacheLimitMB !== undefined) ? parseInt(remoteData._meta.attCacheLimitMB, 10) : ATT_CACHE_DEFAULT_MB;
+    const _remoteAttLimitAt = (remoteData._meta && remoteData._meta.attCacheLimitMBAt) || 0;
+    if (_remoteAttLimitAt > _localAttLimitAt) {
+        state._meta.attCacheLimitMB = (ATT_CACHE_LIMITS_MB.indexOf(_remoteAttLimit) >= 0) ? _remoteAttLimit : ATT_CACHE_DEFAULT_MB;
+        state._meta.attCacheLimitMBAt = _remoteAttLimitAt;
+    } else {
+        state._meta.attCacheLimitMB = (ATT_CACHE_LIMITS_MB.indexOf(_localAttLimit) >= 0) ? _localAttLimit : ATT_CACHE_DEFAULT_MB;
+        state._meta.attCacheLimitMBAt = _localAttLimitAt;
+    }
     // 看板卡片顺序：本地顺序优先、云端独有卡片追加在后
     const _localOrderSet = {}; _localOrder.forEach(function (x) { _localOrderSet[x] = 1; });
     const _orderUnion = _localOrder.slice();
@@ -16682,6 +17649,80 @@ function bindEvents() {
     document.getElementById('draftFollowupBtn').addEventListener('click', stashFollowupDraft);
     document.getElementById('followupDraftChip').addEventListener('click', toggleFollowupDraftPanel);
 
+    // 跟进附件：添加按钮代指隐藏 file input；列表内删除按钮用委托
+    const _fuAttAdd = document.getElementById('fuAttAddBtn');
+    if (_fuAttAdd && !_fuAttAdd.dataset.bound) {
+        _fuAttAdd.dataset.bound = '1';
+        _fuAttAdd.addEventListener('click', function () {
+            if (!attSupported()) { showToast('附件功能仅桌面 / 安卓端可用（需要 WebDAV 同步）'); return; }
+            const inp = document.getElementById('fuAttInput');
+            if (inp) inp.click();
+        });
+    }
+    const _fuAttInput = document.getElementById('fuAttInput');
+    if (_fuAttInput && !_fuAttInput.dataset.bound) {
+        _fuAttInput.dataset.bound = '1';
+        _fuAttInput.addEventListener('change', function () {
+            fuAttPickFiles(_fuAttInput.files);
+            _fuAttInput.value = ''; // 允许再次选择同一文件
+        });
+    }
+    const _fuAttList = document.getElementById('fuAttList');
+    if (_fuAttList && !_fuAttList.dataset.bound) {
+        _fuAttList.dataset.bound = '1';
+        _fuAttList.addEventListener('click', function (e) {
+            const btn = e.target && e.target.closest ? e.target.closest('[data-del]') : null;
+            if (btn) { e.stopPropagation(); fuAttRemove(btn.getAttribute('data-del')); }
+        });
+    }
+    // 附件查看器
+    const _attVClose = document.getElementById('attViewerClose');
+    if (_attVClose) _attVClose.addEventListener('click', closeAttViewer);
+    const _attVPrev = document.getElementById('attViewerPrev');
+    if (_attVPrev) _attVPrev.addEventListener('click', function () { attViewerStep(-1); });
+    const _attVNext = document.getElementById('attViewerNext');
+    if (_attVNext) _attVNext.addEventListener('click', function () { attViewerStep(1); });
+    const _attVDl = document.getElementById('attViewerDownload');
+    if (_attVDl) _attVDl.addEventListener('click', attViewerDownload);
+    // 附件管理弹窗
+    const _attMClose = document.getElementById('attManageClose');
+    if (_attMClose) _attMClose.addEventListener('click', function () { document.getElementById('attManageModal').classList.remove('show'); });
+    const _attMCancel = document.getElementById('attManageCancel');
+    if (_attMCancel) _attMCancel.addEventListener('click', function () { document.getElementById('attManageModal').classList.remove('show'); });
+    const _attMSave = document.getElementById('attManageSave');
+    if (_attMSave) _attMSave.addEventListener('click', saveAttManage);
+    const _attMClear = document.getElementById('attCacheClearBtn');
+    if (_attMClear) _attMClear.addEventListener('click', clearAttCache);
+
+    // 手机端「一键记跟进」底部抽屉：关闭 / 遮罩 / 完整记录 / 保存；客户与标签 chip 用委托
+    const _qfClose = document.getElementById('quickFuClose');
+    if (_qfClose) _qfClose.addEventListener('click', closeQuickFuSheet);
+    const _qfMask = document.getElementById('quickFuMask');
+    if (_qfMask) _qfMask.addEventListener('click', closeQuickFuSheet);
+    const _qfFull = document.getElementById('quickFuFullBtn');
+    if (_qfFull) _qfFull.addEventListener('click', function () {
+        closeQuickFuSheet();
+        openFollowupModal(document.getElementById('qfCustomer').value || '');
+    });
+    const _qfSave = document.getElementById('quickFuSaveBtn');
+    if (_qfSave) _qfSave.addEventListener('click', saveQuickFollowup);
+    const _qfCustRow = document.getElementById('qfCustRow');
+    if (_qfCustRow && !_qfCustRow.dataset.bound) {
+        _qfCustRow.dataset.bound = '1';
+        _qfCustRow.addEventListener('click', function (e) {
+            const chip = e.target && e.target.closest ? e.target.closest('.qf-cust-chip') : null;
+            if (chip) pickQuickFuCust(chip.dataset.cust);
+        });
+    }
+    const _qfTagRow = document.getElementById('qfTagRow');
+    if (_qfTagRow && !_qfTagRow.dataset.bound) {
+        _qfTagRow.dataset.bound = '1';
+        _qfTagRow.addEventListener('click', function (e) {
+            const chip = e.target && e.target.closest ? e.target.closest('.fu-tag-chip') : null;
+            if (chip) pickQuickFuTag(chip.dataset.tag);
+        });
+    }
+
     // 跟进偏好弹窗（标签管理 + 未跟进提醒阈值）
     const prefsClose = document.getElementById('followupPrefsClose');
     if (prefsClose) prefsClose.addEventListener('click', closeFollowupPrefs);
@@ -16942,6 +17983,12 @@ function bindEvents() {
         _gistTestBtn.dataset.bound = '1';
         _gistTestBtn.addEventListener('click', function () { testConnection(); });
     }
+    // Gist 高级面板：默认收起（日常同步只用 WebDAV），需要网页端同步时可手动展开
+    const _gpToggle = document.getElementById('gistPanelToggle');
+    if (_gpToggle && !_gpToggle.dataset.bound) {
+        _gpToggle.dataset.bound = '1';
+        _gpToggle.addEventListener('click', function () { toggleGistPanel(); });
+    }
     // 镜像到 Gist 开关：改动即时保存（此前只在点「保存」时读取，取消勾选后直接关弹窗不落盘，
     // 重开又回显为开，用户误以为「被自动打开」）
     const _mgChk = document.getElementById('mirrorGistChk');
@@ -16952,6 +17999,8 @@ function bindEvents() {
             saveSyncSettings();
             logOperation('镜像到 Gist：' + (_mgChk.checked ? '开' : '关'), 'info');
             showToast('已' + (_mgChk.checked ? '开启' : '关闭') + '镜像到 Gist');
+            // 勾选开启时自动展开高级面板，便于紧接着填写 Token 与 Gist ID
+            if (_mgChk.checked) { _gistPanelExpanded = true; applySyncProviderUI(); }
         });
     }
     document.getElementById('saveSyncBtn').addEventListener('click', () => {
@@ -17873,6 +18922,8 @@ function init() {
     currentFilter.status = Array.isArray(state._meta.customerStatusFilter) ? state._meta.customerStatusFilter.slice() : [];
     bindEvents();
     bindBackupEvents();
+    // 手机端「一键记跟进」FAB：懒创建元素（显隐由 navigateTo / CSS 媒体查询控制）
+    try { updateQuickFuFab(); } catch (e) {}
     // 桌面端：初始化「应用更新」下载框（仅 window.electronAPI.updater 存在时生效，手机/网页端自动跳过）
     try { setupUpdaterUI(); } catch (e) {}
     // 恢复桌面端侧边栏折叠状态（仅桌面媒体查询生效，手机端无影响）
@@ -17970,12 +19021,61 @@ window._crm = {
     filterHistFu,
     openFollowupPrefs,
     closeFollowupPrefs,
+    saveFuPrefs,
+    // 跟进写入核心 + 手机端一键记跟进（测试辅助）
+    commitFollowup,
+    ensureQuickFuFab,
+    updateQuickFuFab,
+    quickFuRecentCustomers,
+    openQuickFuSheet,
+    closeQuickFuSheet,
+    pickQuickFuCust,
+    pickQuickFuTag,
+    saveQuickFollowup,
+    // 跟进附件（WebDAV 独立目录 + IndexedDB LRU 缓存，测试辅助）
+    attSupported,
+    attRemotePath,
+    attIsImage,
+    fuAttachments,
+    attCacheLimitMB,
+    setAttCacheLimitMB,
+    attCacheLimitLabel,
+    attCacheGet,
+    attCachePut,
+    attCacheList,
+    attCacheUsage,
+    attCacheRemove,
+    attCacheClear,
+    attCacheEvictIfNeeded,
+    attUpload,
+    attDataUrl,
+    attDeleteRemote,
+    fuAttReset,
+    fuAttRenderList,
+    fuAttPickFiles,
+    fuAttRemove,
+    fuAttHtml,
+    openAttViewer,
+    attViewerStep,
+    attViewerDownload,
+    closeAttViewer,
+    openAttManage,
+    saveAttManage,
+    clearAttCache,
+    refreshAttUsage,
+    // 跟进历史默认显示条数（跨端同步，测试辅助）
+    getFuDetailLimit,
+    setFuDetailLimit,
     // 超期预警参与状态（可配置）
     getOverdueStatuses,
     isStatusInOverdueScope,
     setOverdueStatuses,
     renderFuPrefOverdueStatusList,
     renderDashboard,
+    // 跟进趋势图表（近30天柱状图 + 日均参考线，测试辅助）
+    fuDateKey,
+    computeFollowupTrend,
+    renderFollowupTrend,
     fuTagAdd,
     fuTagRename,
     toggleFuCustomer,
@@ -17985,6 +19085,10 @@ window._crm = {
     fuTagDelete,
     editFollowup,
     deleteFollowupFromModal,
+    // 客户详情全景时间线（与跟进历史并存，测试辅助）
+    computeCustomerTimeline,
+    renderDetailTimeline,
+    switchDetailTimelineTab,
     stashFollowupDraft,
     restoreFollowupDraft,
     deleteFollowupDraft,
@@ -17995,7 +19099,21 @@ window._crm = {
     clearCustomerFilters,
     custStatFilter,
     custQuickAction,
+    // 客户总表统计（桌面/手机统计条共用，测试辅助）
+    computeCustomerStats,
+    // 客户总表排序方式（跨端同步，测试辅助）
+    getCustomerSort,
+    setCustomerSort,
+    sortCustomerList,
     openSyncModal,
+    // Gist 镜像默认关闭 + 高级面板默认收起（测试辅助）
+    gistMirrorEnabled,
+    gistPanelShouldShow,
+    toggleGistPanel,
+    loadSyncSettings,
+    saveSyncSettings,
+    applySyncProviderUI,
+    activeBackends,
     openSettingsCenter,
     closeSettingsCenter,
     backToSettings,
