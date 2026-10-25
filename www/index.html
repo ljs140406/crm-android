@@ -673,6 +673,13 @@ textarea { resize: vertical; }
 .fu-trend-xaxis { flex: 0 0 16px; display: flex; gap: 2px; margin-top: 3px; }
 .fu-trend-xlabel { flex: 1 1 0; min-width: 0; text-align: center; font-size: 8px; line-height: 14px; color: var(--text-secondary); overflow: hidden; white-space: nowrap; }
 .fu-trend-xlabel.today { color: #b45309; font-weight: 700; }
+.fu-trend-ctl { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 2px 0 8px; }
+.fu-trend-ctl-label { font-size: 12px; color: var(--text-secondary); }
+.fu-trend-days-input { width: 56px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 6px; background: #fff; font-size: 13px; color: var(--text); text-align: center; }
+.fu-trend-ctl-unit { font-size: 12px; color: var(--text-secondary); }
+.fu-trend-ctl-quick { display: flex; gap: 4px; margin-left: auto; }
+.fu-trend-quick { padding: 3px 10px; border: 1px solid var(--border); border-radius: 999px; background: #fff; font-size: 12px; color: var(--text-secondary); cursor: pointer; line-height: 1.4; }
+.fu-trend-quick.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 .fu-trend-avg {
     position: absolute; left: 0; right: 0; height: 0;
     border-top: 1px dashed #f59e0b; z-index: 2; pointer-events: none;
@@ -1259,8 +1266,10 @@ td.col-followup-content { position: relative; }
 .cust-m-stat-seg.seg-overdue .cust-m-stat-num { color: #DC2626; }
     /* 筛选栏单行：状态 | 城市 | 排序 | 搜索 四件套一行排布（参考上方四等分统计条），
        不再占据三行；每件 flex:1 平分宽度，超长内容各自截断 */
-    .cust-m-toolbar { display: flex; flex-wrap: nowrap; gap: 6px; padding: 10px 12px 8px; align-items: center; }
-    .cust-m-filter-wrap { position: relative; flex: 1.2 1 0; min-width: 0; }
+    .cust-m-toolbar { padding: 10px 12px 8px; }
+    .cust-m-toolbar-row { display: flex; flex-wrap: nowrap; gap: 6px; align-items: center; }
+    .cust-m-toolbar-row + .cust-m-toolbar-row { margin-top: 6px; }
+    .cust-m-filter-wrap { position: relative; flex: 1 1 0; min-width: 0; }
     .cust-m-filter-btn { width: 100%; display: inline-flex; align-items: center; justify-content: space-between; gap: 4px; padding: 9px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fff; font-size: 12.5px; color: #1f2937; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .cust-m-filter-arrow { font-size: 10px; color: var(--gray-400); flex-shrink: 0; transition: transform .15s ease; }
     .cust-m-filter-btn.is-open .cust-m-filter-arrow { transform: rotate(180deg); }
@@ -1286,7 +1295,7 @@ td.col-followup-content { position: relative; }
     /* 排序下拉与状态/城市同行（不再独占一行） */
     .cust-m-sort-wrap { flex: 1 1 0; }
     /* 搜索框并入同一行：图标 + 输入 + 清除按钮，输入框可压缩 */
-    .cust-m-search { flex: 1.3 1 0; min-width: 0; display: flex; align-items: center; gap: 5px; padding: 9px 8px; border: 1px solid var(--primary); border-radius: var(--radius-sm); background: #fff; }
+    .cust-m-search { flex: 1 1 auto; width: 100%; min-width: 0; display: flex; align-items: center; gap: 5px; padding: 9px 10px; border: 1px solid var(--primary); border-radius: var(--radius-sm); background: #fff; }
     .cust-m-search-ico { font-size: 12px; color: var(--primary); flex-shrink: 0; }
     .cust-m-search-input { flex: 1 1 auto; min-width: 0; border: 0; outline: 0; font-size: 13px; background: transparent; color: #1f2937; }
     .cust-m-search-input::placeholder { color: var(--gray-400); }
@@ -4191,6 +4200,16 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                             </div>
                         </div>
                         <div class="card-body" data-page-node-id="Xn4Lp7kRoTgVmQ1yUdCeH5">
+                            <div class="fu-trend-ctl">
+                                <span class="fu-trend-ctl-label">统计</span>
+                                <input type="number" id="fuTrendDaysInput" class="fu-trend-days-input" min="7" max="90" step="1" value="14" inputmode="numeric" title="趋势统计天数（7-90）" aria-label="趋势统计天数" />
+                                <span class="fu-trend-ctl-unit">天内</span>
+                                <span class="fu-trend-ctl-quick">
+                                    <button type="button" class="fu-trend-quick" data-days="7">7天</button>
+                                    <button type="button" class="fu-trend-quick" data-days="14">14天</button>
+                                    <button type="button" class="fu-trend-quick" data-days="30">30天</button>
+                                </span>
+                            </div>
                             <div class="fu-trend" id="fuTrend" data-page-node-id="Jd9Wc2bNhMqXtR6vSyPaK7"></div>
                         </div>
                     </div>
@@ -6895,9 +6914,10 @@ function computeFollowupTrend(days) {
 function renderFollowupTrend() {
     const container = document.getElementById('fuTrend');
     if (!container) return;
-    const t = computeFollowupTrend(30);
+    const _trendDays = getFuTrendDays();
+    const t = computeFollowupTrend(_trendDays);
     if (t.total === 0) {
-        container.innerHTML = '<div class="empty-state"><div class="title">近 30 天暂无跟进</div><div class="desc">记一笔跟进后，这里会显示每日趋势</div></div>';
+        container.innerHTML = '<div class="empty-state"><div class="title">近 ' + _trendDays + ' 天暂无跟进</div><div class="desc">记一笔跟进后，这里会显示每日趋势</div></div>';
         return;
     }
     const avgText = (Math.round(t.avg * 10) / 10).toFixed(1);
@@ -6930,7 +6950,7 @@ function renderFollowupTrend() {
     const _statGo = '<span class="fu-trend-stat-go">›</span>';
     container.innerHTML =
         '<div class="fu-trend-summary">' +
-            '<div class="fu-trend-stat clickable" data-trend-stat="total" onclick="window._crm.openFuTrendRange(\'total\')" title="查看近30天全部跟进明细"><div class="v">' + t.total + '</div><div class="k">近30天跟进' + _statGo + '</div></div>' +
+            '<div class="fu-trend-stat clickable" data-trend-stat="total" onclick="window._crm.openFuTrendRange(\'total\')" title="查看近' + _trendDays + '天全部跟进明细"><div class="v">' + t.total + '</div><div class="k">近' + _trendDays + '天跟进' + _statGo + '</div></div>' +
             '<div class="fu-trend-stat"><div class="v">' + avgText + '</div><div class="k">日均</div></div>' +
             '<div class="fu-trend-stat clickable" data-trend-stat="cust" onclick="window._crm.openFuTrendRange(\'cust\')" title="查看覆盖客户列表"><div class="v">' + t.custCount + '</div><div class="k">覆盖客户' + _statGo + '</div></div>' +
             '<div class="fu-trend-stat clickable" data-trend-stat="days" onclick="window._crm.openFuTrendRange(\'days\')" title="查看有跟进的天数"><div class="v">' + t.activeDays + '</div><div class="k">有跟进天数' + _statGo + '</div></div>' +
@@ -6942,21 +6962,52 @@ function renderFollowupTrend() {
             '</div>' +
             '<div class="fu-trend-xaxis">' + xlabels + '</div>' +
         '</div>' +
-        '<div class="fu-trend-hint">柱高 = 当日跟进条数 · 点击柱子查看当日明细 · 下方标注日期</div>' +
+        '<div class="fu-trend-hint">柱高 = 当日跟进条数 · 点击柱子查看当日明细 · 下方标注日期 · 天数可自定义(7-90)</div>' +
         '<div class="fu-trend-foot"><span>' + t.startKey.slice(5) + '</span><span>今天 ' + t.endKey.slice(5) + '</span></div>';
+    // 天数自定义控件：同步输入框值与快捷项选中态（正在输入时不抢焦点）
+    const _daysInput = document.getElementById('fuTrendDaysInput');
+    if (_daysInput && document.activeElement !== _daysInput) _daysInput.value = String(_trendDays);
+    const _quickBox = document.querySelector('.fu-trend-ctl-quick');
+    if (_quickBox) {
+        Array.prototype.forEach.call(_quickBox.querySelectorAll('.fu-trend-quick'), function (qb) {
+            qb.classList.toggle('active', parseInt(qb.getAttribute('data-days'), 10) === _trendDays);
+        });
+    }
+    // 绑定（仅一次）：输入/快捷项改动 → 存偏好 + 落盘 + 推送 + 重绘
+    if (_daysInput && !_daysInput.dataset.bound) {
+        _daysInput.dataset.bound = '1';
+        _daysInput.addEventListener('change', function () {
+            const changed = setFuTrendDays(_daysInput.value);
+            _daysInput.value = String(getFuTrendDays());
+            if (changed) { saveData(); pushSettingsDebounced(); logOperation('修改跟进趋势统计天数为 ' + getFuTrendDays() + ' 天', 'info'); }
+            renderFollowupTrend();
+        });
+    }
+    if (_quickBox && !_quickBox.dataset.bound) {
+        _quickBox.dataset.bound = '1';
+        _quickBox.addEventListener('click', function (ev) {
+            const btn = (ev.target && ev.target.closest) ? ev.target.closest('.fu-trend-quick') : null;
+            if (!btn) return;
+            const changed = setFuTrendDays(btn.getAttribute('data-days'));
+            if (_daysInput) _daysInput.value = String(getFuTrendDays());
+            if (changed) { saveData(); pushSettingsDebounced(); logOperation('修改跟进趋势统计天数为 ' + getFuTrendDays() + ' 天', 'info'); }
+            renderFollowupTrend();
+        });
+    }
 }
 
 // ==================== 趋势穿透：汇总项区间明细（total/cust/days） ====================
 function openFuTrendRange(kind) {
     const modal = document.getElementById('fuTrendRangeModal');
     if (!modal || !kind) return;
-    const t = computeFollowupTrend(30);
+    const _rangeDays = getFuTrendDays();
+    const t = computeFollowupTrend(_rangeDays);
     const titleEl = document.getElementById('fuTrendRangeTitle');
     const body = document.getElementById('fuTrendRangeBody');
     if (!titleEl || !body) return;
     if (t.total === 0) {
         titleEl.textContent = '趋势明细';
-        body.innerHTML = '<div class="empty-state"><div class="title">近 30 天暂无跟进</div></div>';
+        body.innerHTML = '<div class="empty-state"><div class="title">近 ' + _rangeDays + ' 天暂无跟进</div></div>';
         modal.classList.add('show');
         return;
     }
@@ -6966,7 +7017,7 @@ function openFuTrendRange(kind) {
         const list = valid
             .filter(f => { const k = fuDateKey(f.time); return k >= t.startKey && k <= t.endKey; })
             .sort((a, b) => new Date(b.time) - new Date(a.time));
-        titleEl.textContent = '近30天跟进 · 共 ' + list.length + ' 条';
+        titleEl.textContent = '近' + _rangeDays + '天跟进 · 共 ' + list.length + ' 条';
         body.innerHTML = list.map(f => {
             const time = f.time ? formatDateTime(f.time) : '';
             const tag = String(f.tag || '').trim();
@@ -8070,19 +8121,23 @@ function buildCustomersMobileHTML(filtered, custLastMap, customerTodoMap, custom
     return `
         ${statBarHTML}
         <div class="cust-m-toolbar">
-            <div class="cust-m-filter-wrap">
-                <button type="button" class="cust-m-filter-btn" id="mStatusFilterBtn">
-                    <span id="mStatusFilterLabel">全部状态</span>
-                    <span class="cust-m-filter-arrow">▾</span>
-                </button>
-                <div class="kf-menu cust-m-filter-pop" id="mStatusFilterPop" style="display:none"></div>
+            <div class="cust-m-toolbar-row">
+                <div class="cust-m-filter-wrap">
+                    <button type="button" class="cust-m-filter-btn" id="mStatusFilterBtn">
+                        <span id="mStatusFilterLabel">全部状态</span>
+                        <span class="cust-m-filter-arrow">▾</span>
+                    </button>
+                    <div class="kf-menu cust-m-filter-pop" id="mStatusFilterPop" style="display:none"></div>
+                </div>
+                <select id="m-city-filter" class="cust-m-select">${cityOptions}</select>
+                <select id="m-customer-sort" class="cust-m-select cust-m-sort-wrap" title="选择客户排序方式">${customerSortOptionsHTML(getCustomerSort())}</select>
             </div>
-            <select id="m-city-filter" class="cust-m-select">${cityOptions}</select>
-            <select id="m-customer-sort" class="cust-m-select cust-m-sort-wrap" title="选择客户排序方式">${customerSortOptionsHTML(getCustomerSort())}</select>
-            <div class="cust-m-search">
-                <span class="cust-m-search-ico">🔍</span>
-                <input id="m-name-search" class="cust-m-search-input" type="text" placeholder="搜索客户" value="${escapeAttr(currentFilter._nameSearch || '')}" />
-                <button id="m-name-clear" class="cust-m-search-clear" type="button" title="清除">✕</button>
+            <div class="cust-m-toolbar-row cust-m-toolbar-row-search">
+                <div class="cust-m-search">
+                    <span class="cust-m-search-ico">🔍</span>
+                    <input id="m-name-search" class="cust-m-search-input" type="text" placeholder="搜索客户" value="${escapeAttr(currentFilter._nameSearch || '')}" />
+                    <button id="m-name-clear" class="cust-m-search-clear" type="button" title="清除">✕</button>
+                </div>
             </div>
         </div>
         <div class="cust-m-list">${rowsHTML || emptyHTML}</div>
@@ -10764,6 +10819,25 @@ function setFuDetailLimit(v) {
     return changed;
 }
 function fuDetailLimitLabel(v) { return (parseInt(v, 10) === 0) ? '全部' : (parseInt(v, 10) + ' 条'); }
+// 跟进趋势统计天数：可自定义 7~90 天，默认 14（At-LWW 跨端同步，与 fuDetailLimit 同一模式）
+var FU_TREND_DAYS_DEFAULT = 14, FU_TREND_DAYS_MIN = 7, FU_TREND_DAYS_MAX = 90;
+function clampFuTrendDays(n) {
+    n = parseInt(n, 10);
+    if (isNaN(n)) return FU_TREND_DAYS_DEFAULT;
+    return Math.min(FU_TREND_DAYS_MAX, Math.max(FU_TREND_DAYS_MIN, n));
+}
+function getFuTrendDays() {
+    return clampFuTrendDays(state._meta && state._meta.fuTrendDays);
+}
+// 写入天数偏好，返回是否较之前有变化（调用方负责落盘 / 推送 / 重绘）
+function setFuTrendDays(v) {
+    const n = clampFuTrendDays(v);
+    const changed = getFuTrendDays() !== n;
+    state._meta = state._meta || {};
+    state._meta.fuTrendDays = n;
+    state._meta.fuTrendDaysAt = Date.now();
+    return changed;
+}
 function openFollowupPrefs() {
     renderFuPrefTagList();
     renderFuPrefOverdueStatusList();
@@ -16246,6 +16320,9 @@ function getSyncPayload() {
             // 客户详情「跟进历史」默认显示条数（At 时间戳 LWW，3/5/10/0=全部）
             fuDetailLimit: (state._meta && state._meta.fuDetailLimit !== undefined) ? parseInt(state._meta.fuDetailLimit, 10) : 3,
             fuDetailLimitAt: (state._meta && state._meta.fuDetailLimitAt) || 0,
+            // 跟进趋势统计天数（At 时间戳 LWW，7-90，默认14），跨设备保持一致
+            fuTrendDays: (state._meta && state._meta.fuTrendDays !== undefined) ? parseInt(state._meta.fuTrendDays, 10) : FU_TREND_DAYS_DEFAULT,
+            fuTrendDaysAt: (state._meta && state._meta.fuTrendDaysAt) || 0,
             // 草稿箱（整表 At-LWW）与「按客户折叠」默认态（布尔 At-LWW）跨设备同步
             followupDrafts: (state._meta && Array.isArray(state._meta.followupDrafts)) ? state._meta.followupDrafts.slice() : [],
             followupDraftsAt: (state._meta && state._meta.followupDraftsAt) || 0,
@@ -16736,6 +16813,9 @@ function applyRemoteData(remoteData) {
     // 跟进历史默认显示条数：同样须在 Object.assign 前取本地快照（数字 At-LWW）
     const _localFuLimit = (state._meta && state._meta.fuDetailLimit !== undefined) ? parseInt(state._meta.fuDetailLimit, 10) : 3;
     const _localFuLimitAt = (state._meta && state._meta.fuDetailLimitAt) || 0;
+    // 跟进趋势统计天数：同样须在 Object.assign 前取本地快照（数字 At-LWW）
+    const _localFuTrendDays = (state._meta && state._meta.fuTrendDays !== undefined) ? parseInt(state._meta.fuTrendDays, 10) : FU_TREND_DAYS_DEFAULT;
+    const _localFuTrendDaysAt = (state._meta && state._meta.fuTrendDaysAt) || 0;
     const _localAttLimit = (state._meta && state._meta.attCacheLimitMB !== undefined) ? parseInt(state._meta.attCacheLimitMB, 10) : ATT_CACHE_DEFAULT_MB;
     const _localAttLimitAt = (state._meta && state._meta.attCacheLimitMBAt) || 0;
     // ⚠️ 下方 Object.assign 会用远端 _meta 覆盖本地同名字段。凡需要在覆盖后做「本端 vs 远端」裁决的字段，
@@ -16808,6 +16888,16 @@ function applyRemoteData(remoteData) {
     } else {
         state._meta.fuDetailLimit = (FU_DETAIL_LIMITS.indexOf(_localFuLimit) >= 0) ? _localFuLimit : 3;
         state._meta.fuDetailLimitAt = _localFuLimitAt;
+    }
+    // 跟进趋势统计天数：数字 At-LWW（同上，快照已取在 Object.assign 之前）
+    const _remoteFuTrendDays = (remoteData._meta && remoteData._meta.fuTrendDays !== undefined) ? parseInt(remoteData._meta.fuTrendDays, 10) : FU_TREND_DAYS_DEFAULT;
+    const _remoteFuTrendDaysAt = (remoteData._meta && remoteData._meta.fuTrendDaysAt) || 0;
+    if (_remoteFuTrendDaysAt > _localFuTrendDaysAt) {
+        state._meta.fuTrendDays = clampFuTrendDays(_remoteFuTrendDays);
+        state._meta.fuTrendDaysAt = _remoteFuTrendDaysAt;
+    } else {
+        state._meta.fuTrendDays = clampFuTrendDays(_localFuTrendDays);
+        state._meta.fuTrendDaysAt = _localFuTrendDaysAt;
     }
     // 附件本地缓存容量上限：数字 At-LWW（同一模式；0 = 不限）
     const _remoteAttLimit = (remoteData._meta && remoteData._meta.attCacheLimitMB !== undefined) ? parseInt(remoteData._meta.attCacheLimitMB, 10) : ATT_CACHE_DEFAULT_MB;
@@ -19472,6 +19562,8 @@ window._crm = {
     fuDateKey,
     computeFollowupTrend,
     renderFollowupTrend,
+    getFuTrendDays,
+    setFuTrendDays,
     // 趋势数据穿透：某日跟进明细（测试辅助）
     computeFollowupsOnDay,
     openFuTrendDay,
@@ -19620,6 +19712,10 @@ window._crm = {
 // ---------- 更新日志（历次版本更新内容，桌面/安卓/网页随时可查）----------
 // v=桌面版本号，av=安卓版本号（仅安卓发版的条目 v 留空表示桌面未动），date=发布日期，notes=更新要点（新的在前）
 var RELEASE_NOTES = [
+    { v: '1.1.58', av: '1.1.63', date: '2026-10-25', notes: [
+        '<b>手机端客户页</b>：筛选栏改为两行（状态/城市/排序一行 + 搜索通栏一行），解决窄屏四个控件挤一行、下拉文字被截断的问题',
+        '<b>跟进趋势图表</b>：统计天数可自定义（默认 14 天，范围 7-90，含 7/14/30 快捷键），柱子/X 轴/汇总/穿透全部按所选天数渲染，偏好跨设备同步'
+    ] },
     { v: '1.1.57', av: '1.1.62', date: '2026-10-25', notes: [
         '<b>手机端客户页</b>：统计条补齐样式（白底圆角四等分、选中蓝底白字、关注棕/超期红语义色）；筛选栏搜索框改为蓝色强调；客户页样式改为桌面/移动一致（不再仅窄屏生效）',
         '<b>跟进趋势图表</b>：每根柱子下方新增 X 轴日期标签（月首日/起点标「月/日」，其余标日号，今日高亮），一眼看清哪天对应哪根柱'
