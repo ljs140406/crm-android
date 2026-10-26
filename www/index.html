@@ -11506,15 +11506,46 @@ function _workPlanToPlanEntities(plan, prevDP, prevFI) {
     });
     return { dailyPlans: dp, focusItems: fi };
 }
-function _planEntitiesToWorkPlan(dp, fi, focusPlan) {
+function _planEntitiesToWorkPlan(dp, fi, focusPlan, localWP, remoteWP) {
+    focusPlan = focusPlan || {};
+    // 周锚点字段级 At-LWW：localWP/remoteWP 为合并前两端的 workPlan（调用方传入；缺省回退 focusPlan/空）。
+    // 旧实现只取「整份 workPlan updatedAt 大者」的 focusPlan，导致归档锚点（weekStart/lastArchivedWeek）
+    // 一旦被对侧陈旧整文件覆盖、且本端 updatedAt 不占优就永久丢失 → 手机端 lastArchivedWeek 永远是旧值、
+    // 「还在提示归档」。改为按锚点自身的 *At 时间戳裁决，使归档跨整文件覆盖也能收敛。
+    localWP = localWP || focusPlan;
+    remoteWP = remoteWP || {};
+    function _resolveAnchor(field, atField) {
+        const lv = (localWP[field] != null) ? localWP[field] : '';
+        const rv = (remoteWP[field] != null) ? remoteWP[field] : '';
+        const la = localWP[atField] || '';
+        const ra = remoteWP[atField] || '';
+        const lt = la ? (new Date(la).getTime() || 0) : 0;
+        const rt = ra ? (new Date(ra).getTime() || 0) : 0;
+        let value, at;
+        if (!la && !ra) {
+            // 旧数据无 *At 时间戳：回退到整份 workPlan.updatedAt 比较（与旧逻辑等价，保证升级前已归档数据仍收敛）
+            const lu = new Date(localWP.updatedAt || 0).getTime() || 0;
+            const ru = new Date(remoteWP.updatedAt || 0).getTime() || 0;
+            if (ru > lu) { value = rv || lv || ''; at = remoteWP.updatedAt || ''; }
+            else { value = lv || rv || ''; at = localWP.updatedAt || ''; }
+        } else if (rt > lt) { value = rv || ''; at = ra; }
+        else if (lt > rt) { value = lv || ''; at = la; }
+        else { value = (lv || rv || ''); at = (la || ra || ''); } // 同时间戳：取非空
+        return { value: value, at: at };
+    }
     const wp = {
-        thisWeek: { focus: ((focusPlan && focusPlan.thisWeek && focusPlan.thisWeek.focus) || '').toString() },
-        nextWeek: { focus: ((focusPlan && focusPlan.nextWeek && focusPlan.nextWeek.focus) || '').toString() }
+        thisWeek: { focus: ((focusPlan.thisWeek && focusPlan.thisWeek.focus) || '').toString() },
+        nextWeek: { focus: ((focusPlan.nextWeek && focusPlan.nextWeek.focus) || '').toString() }
     };
-    // 周锚点随「胜出方」workPlan 保留（focusPlan 即裁决出的 workPlan）；否则每次同步重建会丢失 weekStart → 又漂移
-    wp.weekStart = (focusPlan && focusPlan.weekStart) || (state.workPlan && state.workPlan.weekStart) || '';
-    // 归档周记录同样随「胜出方」保留：否则每次同步重建 workPlan 都会丢档，「同周不重复归档」守卫失效
-    wp.lastArchivedWeek = (focusPlan && focusPlan.lastArchivedWeek) || (state.workPlan && state.workPlan.lastArchivedWeek) || '';
+    // 周锚点：字段级 At-LWW（对齐其他模块的 *At 模式），而非整份 workPlan 时间戳裁决。
+    // ⚠️ 必须把「胜出方的 *At 时间戳」一并写回 workPlan，否则下一轮合并时 *At 丢失、退化为旧逻辑。
+    const _ws = _resolveAnchor('weekStart', 'weekStartAt');
+    wp.weekStart = _ws.value;
+    wp.weekStartAt = _ws.at;
+    // 归档周记录：同样按 lastArchivedWeekAt 字段级裁决，保证「同周不重复归档」守卫跨端收敛
+    const _la = _resolveAnchor('lastArchivedWeek', 'lastArchivedWeekAt');
+    wp.lastArchivedWeek = _la.value;
+    wp.lastArchivedWeekAt = _la.at;
     ['thisWeek', 'nextWeek'].forEach(function (p) {
         PLAN_DAYS.forEach(function (d) { wp[p][d] = []; });
         wp[p].focusList = [];
@@ -12647,10 +12678,15 @@ function archivePlan() {
         state.workPlan.nextWeek = { focusList: (nw.focusList || []).map(function (it) { return Object.assign({}, it, { _deleted: true }); }) };
         PLAN_DAYS.forEach(function (d) { state.workPlan.nextWeek[d] = planToItems(nw[d]).map(function (it) { return Object.assign({}, it, { _deleted: true }); }); });
         // 归档 = 把「本周」锚点推进到归档时刻的自然周周一（时间归属由归档决定，而非日历自动翻篇）
-        state.workPlan.weekStart = isoMonday(new Date());
+        const _archMonday = isoMonday(new Date());
+        const _archAt = new Date().toISOString();
+        state.workPlan.weekStart = _archMonday;
+        // 周锚点时间戳：字段级 At-LWW 同步（对齐其他模块的 *At 模式），使归档跨整文件覆盖也能收敛
+        state.workPlan.weekStartAt = _archAt;
         // 记录归档周：供函数开头的「同周不重复归档」守卫使用（同步层随 workPlan 整体传播，
-        // 且 _planEntitiesToWorkPlan 重建时会像 weekStart 一样从胜出方保留该字段）
-        state.workPlan.lastArchivedWeek = isoMonday(new Date());
+        // 且 _planEntitiesToWorkPlan 重建时会按 weekStartAt/lastArchivedWeekAt 字段级裁决保留该字段）
+        state.workPlan.lastArchivedWeek = _archMonday;
+        state.workPlan.lastArchivedWeekAt = _archAt;
 
         // 归档本质是「本周计划」的一次更新：必须 bump 版本号并登记变更，
         // 否则下次同步时远端 workPlan._rev 更高（或 updatedAt 更新）会用旧值覆盖刚归档的结果，造成数据丢失/被同步成错误
@@ -12675,6 +12711,9 @@ function archivePlan() {
         // 不会再新建重复派生项；镜像已由上方 _mirrorPlanEntities() 完成（旧实现漏调，导致 focusItems 与 workPlan 不一致）
         syncReportFocusLinks();
         saveData();
+        // 归档 = 关键单向操作：立即触发一次同步上传，避免依赖下一轮 ~5s 轮询、或用户随即关闭桌面导致归档未上云。
+        // 若已有同步进行中，doAutoSync 内部守卫会跳过，而那个进行中的同步会编码含归档的当前 state 一并上传。
+        if (typeof doAutoSync === 'function') doAutoSync();
         renderPlan();
         renderPlanRelated();
         renderLastWeekRelated();
@@ -16891,7 +16930,8 @@ function applyRemoteData(remoteData) {
     }
     state.dailyPlans = mergedDP;
     state.focusItems = mergedFI;
-    state.workPlan = _planEntitiesToWorkPlan(mergedDP, mergedFI, focusPlan);
+    // 传入合并前本地 workPlan 与云端 workPlan 做锚点字段级 At-LWW（此时 state.workPlan 仍是合并前本地值）
+    state.workPlan = _planEntitiesToWorkPlan(mergedDP, mergedFI, focusPlan, state.workPlan, remoteWorkPlan);
     // 关键：focus 文本版本号沿用「胜出方」的 updatedAt/_rev，禁止每次合并自增（否则旧数据反超）。
     state.workPlan.updatedAt = (focusPlan && focusPlan.updatedAt) || (state.workPlan.updatedAt || '');
     state.workPlan._rev = (focusPlan && focusPlan._rev) || 0;
@@ -19868,6 +19908,9 @@ window._crm = {
 // ---------- 更新日志（历次版本更新内容，桌面/安卓/网页随时可查）----------
 // v=桌面版本号，av=安卓版本号（仅安卓发版的条目 v 留空表示桌面未动），date=发布日期，notes=更新要点（新的在前）
 var RELEASE_NOTES = [
+    { v: '1.1.63', av: '1.1.68', date: '2026-10-26', notes: [
+        '<b>工作计划同步（重要修复）</b>：根治「桌面归档本周后手机端不同步、仍提示归档」——周锚点（归档周 / 本周起点）改为字段级 At-LWW 时间戳裁决，对齐客户状态等其他模块的同步策略；归档后即时触发一次同步上传，避免依赖轮询或被关闭导致归档未上云；整文件竞争覆盖后归档可自动收敛恢复'
+    ] },
     { v: '1.1.62', av: '1.1.67', date: '2026-10-26', notes: [
         '<b>桌面端</b>：根治看板返回胶囊被侧栏遮挡——胶囊位置此前写死在行内样式 left:12px，v1.1.56 起的避让样式因 CSS 优先级不足从未生效；现侧栏展开/收起两种状态胶囊均完整右移让位'
     ] },
