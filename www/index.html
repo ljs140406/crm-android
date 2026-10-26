@@ -725,7 +725,7 @@ textarea { resize: vertical; }
 .fu-trend-day-item .fu-trend-day-meta { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--gray-400); margin-bottom: 4px; }
 .fu-trend-day-item .fu-trend-day-tag {
     padding: 1px 8px; border-radius: 999px; font-size: 11px;
-    background: var(--primary-light); color: var(--primary);
+    background: #EEF2FF; color: #4338CA;
 }
 .fu-trend-day-item .fu-trend-day-content { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
 /* 柱体数值标签：有数据的柱子在柱顶显示条数，不点进去也知道每天多少（bottom 由 JS 按柱高内联设置） */
@@ -2601,6 +2601,8 @@ button.fu-att-chip { cursor: pointer; font-family: inherit; transition: border-c
 button.fu-att-chip:hover { border-color: var(--primary-light); }
 /* 附件查看器 */
 .att-viewer-modal { max-width: 720px; }
+/* 查看器可能从「附件管理」弹窗内打开（如附件总览的「查看」），需压过 .modal-overlay 的 z-index:300，否则被管理弹窗盖住 */
+#attViewerModal { z-index: 320; }
 #attViewerBody { min-height: 220px; display: flex; align-items: center; justify-content: center; }
 .att-view-img { max-width: 100%; max-height: 62vh; border-radius: 8px; display: block; }
 .att-loading { color: var(--text-secondary); font-size: 13px; padding: 40px 0; }
@@ -2637,6 +2639,12 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
 .att-ov-btn.view { color: var(--primary); border-color: var(--primary-light); }
 .att-ov-btn.del { color: #A32D2D; border-color: #F7C1C1; }
 .fu-att-empty { font-size: 13px; color: var(--text-secondary); padding: 10px 12px; }
+/* 附件管理：紧凑缓存区（本地缓存占用 + 上限 + 清理 同区收纳，少占纵向空间） */
+.att-cache-compact { display: flex; flex-direction: column; gap: 8px; }
+.att-cache-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.att-cache-line .att-usage-text { margin-bottom: 0; }
+.att-cache-line .form-tip { flex: 1 1 auto; min-width: 0; text-align: left; }
+.att-cache-label { font-size: 13px; font-weight: 500; color: var(--text); flex: 0 0 auto; }
 .detail-todo-list { display: flex; flex-direction: column; gap: 8px; }
 .detail-todo-item { padding: 12px; background: var(--gray-50); border-radius: 10px; border-left: 2px solid var(--primary-light); cursor: pointer; transition: background .15s; }
 .detail-todo-item:hover { background: var(--primary-bg); }
@@ -3591,6 +3599,8 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
     /* 桌面端「‹ 数据看板」返回胶囊：避让侧边栏（否则 left:12px 落进侧栏区域被遮住，只剩「看板」二字） */
     #dashBackCapsule { left: calc(var(--sidebar-w) + 12px); }
     body.sidebar-collapsed #dashBackCapsule { left: calc(var(--sidebar-collapsed-w) + 12px); }
+    /* 看板返回胶囊显示期间，为胶囊让出一行高度（此前只避让了侧栏横向位置，胶囊仍会盖住统计卡顶部） */
+    body.dash-drill .main-content { padding-top: 44px; }
     .main-content { padding-bottom: 24px; }
     .page { padding: 20px 24px; max-width: 1400px; }
     .stats-cards { grid-template-columns: repeat(4, 1fr); }
@@ -4802,31 +4812,25 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                 <button class="modal-close" id="attManageClose" data-page-node-id="attManageClose">&times;</button>
             </div>
             <div class="modal-body" data-page-node-id="attManageBody">
-                <div class="form-tip" style="margin-bottom:10px;" data-page-node-id="attManageTip">
-                    附件文件存于 WebDAV 独立目录（不占主同步文件额度），仅在本机按需缓存。
-                    超出上限后自动清理最久未使用的缓存文件（云端文件保留，之后查看会重新下载）。
-                </div>
-                <div class="form-group" data-page-node-id="attUsageGroup">
-                    <label data-page-node-id="attUsageLabel">本地缓存占用</label>
-                    <div class="att-usage-text" id="attUsageText" data-page-node-id="attUsageText">计算中&hellip;</div>
-                    <div class="usage-bar" data-page-node-id="attUsageBar"><div class="usage-fill" id="attUsageFill" style="width:0;" data-page-node-id="attUsageFill"></div></div>
-                </div>
-                <div class="form-group" data-page-node-id="attLimitGroup">
-                    <label data-page-node-id="attLimitLabel">缓存容量上限</label>
-                    <select id="attCacheLimitSel" style="width:150px;" data-page-node-id="attCacheLimitSel"></select>
-                    <div class="form-tip" data-page-node-id="attLimitTip">超出上限时自动淘汰最久未使用的文件；该设置随账号跨设备同步。</div>
-                </div>
-                <div class="form-group" data-page-node-id="attClearGroup">
-                    <button class="btn btn-ghost btn-sm" id="attCacheClearBtn" type="button" data-page-node-id="attCacheClearBtn">一键清理缓存</button>
-                    <span class="form-tip" style="display:inline-block;margin-left:8px;" data-page-node-id="attClearTip">仅清本机缓存，云端附件不受影响</span>
-                </div>
-                <div class="att-ov-sep" data-page-node-id="attOverviewSep"></div>
-                <div class="form-group" data-page-node-id="attOverviewGroup">
+                <div class="form-group" style="margin-bottom:10px;" data-page-node-id="attOverviewGroup">
                     <div class="att-ov-head" data-page-node-id="attOverviewHead">
                         <label data-page-node-id="attOverviewLabel">附件总览（按客户）</label>
                         <span class="att-ov-sum" id="attOverviewSum" data-page-node-id="attOverviewSum"></span>
                     </div>
                     <div class="att-ov-body" id="attOverviewBody" data-page-node-id="attOverviewBody"></div>
+                </div>
+                <div class="att-ov-sep" data-page-node-id="attOverviewSep"></div>
+                <div class="att-cache-compact" data-page-node-id="attCacheCompact">
+                    <div class="att-cache-line" data-page-node-id="attCacheLine1">
+                        <span class="att-cache-label" data-page-node-id="attUsageLabel">本地缓存</span>
+                        <span class="att-usage-text" id="attUsageText" data-page-node-id="attUsageText">计算中&hellip;</span>
+                    </div>
+                    <div class="usage-bar" data-page-node-id="attUsageBar"><div class="usage-fill" id="attUsageFill" style="width:0;" data-page-node-id="attUsageFill"></div></div>
+                    <div class="att-cache-line" style="margin-top:2px;" data-page-node-id="attCacheLine2">
+                        <select id="attCacheLimitSel" style="width:150px;" data-page-node-id="attCacheLimitSel"></select>
+                        <button class="btn btn-ghost btn-sm" id="attCacheClearBtn" type="button" data-page-node-id="attCacheClearBtn">清理缓存</button>
+                        <span class="form-tip" data-page-node-id="attLimitTip">超上限自动清最久未用；仅清本机缓存，云端附件不受影响</span>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer" data-page-node-id="attManageFoot">
@@ -6595,6 +6599,8 @@ function updateDashBackCapsule() {
     if (!el) return;
     const show = drillFromDashboard && (currentPage === 'customers' || currentPage === 'todos' || currentPage === 'followups');
     el.classList.toggle('hidden', !show);
+    // 桌面端：胶囊显示期间页面内容整体下移一行，避免胶囊（固定于 header 正下方）压住统计卡等内容
+    document.body.classList.toggle('dash-drill', show);
 }
 
 // ==================== 导航 ====================
@@ -7754,7 +7760,7 @@ function _cmpCustomerName(a, b) {
     return an.localeCompare(bn, 'zh-Hans-CN');
 }
 // 按当前排序键重排客户列表（返回新数组，不改原数组）
-function sortCustomerList(list) {
+function sortCustomerList(list, lastMap) {
     const key = getCustomerSort();
     const arr = (list || []).slice();
     const byStatus = (a, b) => {
@@ -7763,9 +7769,12 @@ function sortCustomerList(list) {
         return 0;
     };
     const byStar = (a, b) => (b.starred ? 1 : 0) - (a.starred ? 1 : 0);
+    // 最近跟进时间：优先用实时 lastMap（与看板/超期判定同源）；last_followup_time 存储字段跨端同步后可能陈旧，只作回退
     const byRecent = (a, b) => {
-        const at = a.last_followup_time ? new Date(a.last_followup_time).getTime() : 0;
-        const bt = b.last_followup_time ? new Date(b.last_followup_time).getTime() : 0;
+        const av = (lastMap && lastMap[a.name]) || a.last_followup_time || '';
+        const bv = (lastMap && lastMap[b.name]) || b.last_followup_time || '';
+        const at = av ? new Date(av).getTime() : 0;
+        const bt = bv ? new Date(bv).getTime() : 0;
         return bt - at;
     };
     if (key === 'recent') {
@@ -7851,8 +7860,8 @@ function renderCustomers() {
     if (currentFilter._names) {
         filtered = filtered.filter(c => currentFilter._names.has(c.name));
     }
-    // 按当前排序键重排（默认=状态标识 → 关注置顶 → 最近跟进，与升级前一致）
-    filtered = sortCustomerList(filtered);
+    // 按当前排序键重排（默认=状态标识 → 关注置顶 → 最近跟进，与升级前一致；传实时 lastMap 保证排序与展示同源）
+    filtered = sortCustomerList(filtered, custLastMap);
 
     // 构建客户-本周计划关联映射（仅本周，与小程序客户总表一致）：用于琥珀色「计划关联」标签
     const customerPlanMap = {};
@@ -9623,6 +9632,7 @@ function saveCustomer() {
 }
 
 function commitSaveCustomer(data) {
+    let _createdCustomerId = null; // 本次新建客户的 id（新建成功后直达该客户详情）
     if (editingCustomerId) {
         // 编辑现有客户
         const customer = state.customers.find(c => c.id === editingCustomerId);
@@ -9672,12 +9682,18 @@ function commitSaveCustomer(data) {
         state.customers.push(newCustomer);
         recordChange('add', 'customer', newCustomer, newCustomer.name);
         showToast('客户已添加');
+        _createdCustomerId = newCustomer.id; // 新建后直达该客户详情，方便继续编辑
     }
 
     saveData();
     closeEditModal();
     renderCustomers();
     if (currentPage === 'dashboard') renderDashboard();
+    if (_createdCustomerId) {
+        const _cid = _createdCustomerId;
+        _createdCustomerId = null;
+        openCustomerDetail(_cid);
+    }
 }
 
 function deleteCustomer() {
