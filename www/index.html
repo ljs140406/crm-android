@@ -120,9 +120,9 @@ textarea { resize: vertical; }
 
 /* ==================== Sync Settings ==================== */
 /* ---- 重构：占用卡片 / 进度条 ---- */
-.usage-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:10px 0; }
+.usage-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:10px 0; }
 .usage-card { background:var(--gray-50); border:1px solid var(--border); border-radius:12px; padding:12px 14px; }
-.usage-card-head { display:block; margin-bottom:4px; }
+.usage-card-head { display:flex; align-items:baseline; justify-content:space-between; gap:6px; margin-bottom:4px; }
 .usage-card-title { display:block; font-size:12px; font-weight:500; color:var(--text-secondary); margin-bottom:2px; }
 .usage-card-value { display:block; font-size:17px; font-weight:700; color:var(--primary); font-variant-numeric:tabular-nums; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .usage-card-value .unit { font-size:12px; font-weight:500; color:var(--text-secondary); margin-left:4px; white-space:nowrap; }
@@ -263,6 +263,47 @@ textarea { resize: vertical; }
 .conflict-value-row .val { flex: 1; font-size: 13px; word-break: break-all; color: var(--text); }
 .conflict-value-row button { font-size: 12px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--gray-300); background: #fff; color: var(--text); }
 .conflict-value-row button.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+/* ==================== 设置中心分区组件（云端同步 / 附件管理重构共用） ==================== */
+.sync-section { margin-bottom: 20px; }
+.sync-section:last-child { margin-bottom: 4px; }
+.sync-section-title { font-size: 12px; font-weight: 700; color: var(--text-secondary); letter-spacing: .06em; padding: 0 0 8px; display: flex; align-items: center; gap: 8px; }
+.sync-section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.sync-section-title .sum { margin-left: auto; font-weight: 600; color: var(--text-secondary); font-size: 11px; letter-spacing: 0; }
+.sync-section-head { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 0 0 8px; }
+.sync-section-head .caret { font-size: 11px; color: var(--text-secondary); transition: transform .15s; }
+.sync-section-head.collapsed .caret { transform: rotate(-90deg); }
+.sync-section-head .badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--gray-100); color: var(--text-secondary); }
+.sync-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+.sync-card-danger { background: linear-gradient(135deg, #FEF2F2 0%, var(--card-bg) 60%); border-color: #FCA5A5; }
+.sync-section-danger .sync-section-title { color: #DC2626; }
+.sync-section-danger .sync-section-title::after { background: #FCA5A5; }
+/* Gist 折叠按钮作为分区头（保留 id 与 JS 绑定的 onclick/toggleGistPanel） */
+.sync-head-toggle { margin: 0 0 10px; width: 100%; justify-content: flex-start; text-align: left; }
+/* 连接状态网格：默认两列，窄屏单列 */
+.conn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* WebDAV / Gist 表单：默认两列，窄屏单列 */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+.form-grid .form-group { margin-bottom: 14px; }
+/* 历史保留单行收纳 */
+.retention-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.retention-row select, .retention-row input { width: auto; }
+.retention-row input[type="number"] { width: 92px; padding: 10px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; outline: none; }
+.retention-row select { padding: 10px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; background: var(--card-bg); color: var(--text); }
+.retention-hint { font-size: 11px; color: var(--text-secondary); margin-top: 8px; }
+/* 同步操作卡内按钮：收敛字号、禁止换行，窄屏不折行 */
+.sync-card .sync-actions { margin: 12px 0; }
+.sync-card .sync-actions:first-child { margin-top: 0; }
+.sync-card .sync-actions .btn { font-size: 13px; padding: 11px 8px; white-space: nowrap; }
+/* 窄屏（移动端）：多列网格回退为单列，与 App 其它模块一致（max-width:768px 隔离） */
+@media (max-width: 768px) {
+  .conn-grid { grid-template-columns: 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+  .form-grid .form-group { margin-bottom: 16px; }
+  .usage-grid { grid-template-columns: 1fr; gap: 12px; }
+  .usage-grid .usage-card { padding: 14px 16px; }
+  .usage-grid .usage-card-value { font-size: 19px; }
+}
 
 /* ==================== Header ==================== */
 .app-header {
@@ -4813,25 +4854,29 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                 <button class="modal-close" id="attManageClose" data-page-node-id="attManageClose">&times;</button>
             </div>
             <div class="modal-body" data-page-node-id="attManageBody">
-                <div class="form-group" style="margin-bottom:10px;" data-page-node-id="attOverviewGroup">
-                    <div class="att-ov-head" data-page-node-id="attOverviewHead">
-                        <label data-page-node-id="attOverviewLabel">附件总览（按客户）</label>
-                        <span class="att-ov-sum" id="attOverviewSum" data-page-node-id="attOverviewSum"></span>
-                    </div>
+                <!-- 附件总览（按客户） -->
+                <div class="sync-section" data-page-node-id="attOverviewGroup">
+                    <div class="sync-section-title" data-page-node-id="attOverviewLabel">附件总览（按客户）<span class="sum" id="attOverviewSum" data-page-node-id="attOverviewSum"></span></div>
+                    <div class="sync-card">
                     <div class="att-ov-body" id="attOverviewBody" data-page-node-id="attOverviewBody"></div>
+                    </div><!-- /sync-card -->
                 </div>
-                <div class="att-ov-sep" data-page-node-id="attOverviewSep"></div>
-                <div class="att-cache-compact" data-page-node-id="attCacheCompact">
-                    <div class="att-cache-line" data-page-node-id="attCacheLine1">
-                        <span class="att-cache-label" data-page-node-id="attUsageLabel">本地缓存</span>
-                        <span class="att-usage-text" id="attUsageText" data-page-node-id="attUsageText">计算中&hellip;</span>
+                <!-- 本地缓存 -->
+                <div class="sync-section" data-page-node-id="attCacheCompact">
+                    <div class="sync-section-title">本地缓存</div>
+                    <div class="sync-card">
+                    <div class="att-cache-compact" data-page-node-id="attCacheCompact">
+                        <div class="att-cache-line" data-page-node-id="attCacheLine1">
+                            <span class="att-usage-text" id="attUsageText" data-page-node-id="attUsageText">计算中&hellip;</span>
+                        </div>
+                        <div class="usage-bar" data-page-node-id="attUsageBar"><div class="usage-fill" id="attUsageFill" style="width:0;" data-page-node-id="attUsageFill"></div></div>
+                        <div class="att-cache-line" style="margin-top:2px;" data-page-node-id="attCacheLine2">
+                            <select id="attCacheLimitSel" style="width:150px;" data-page-node-id="attCacheLimitSel"></select>
+                            <button class="btn btn-ghost btn-sm" id="attCacheClearBtn" type="button" data-page-node-id="attCacheClearBtn">清理缓存</button>
+                            <span class="form-tip" data-page-node-id="attLimitTip">超上限自动清最久未用；仅清本机缓存，云端附件不受影响</span>
+                        </div>
                     </div>
-                    <div class="usage-bar" data-page-node-id="attUsageBar"><div class="usage-fill" id="attUsageFill" style="width:0;" data-page-node-id="attUsageFill"></div></div>
-                    <div class="att-cache-line" style="margin-top:2px;" data-page-node-id="attCacheLine2">
-                        <select id="attCacheLimitSel" style="width:150px;" data-page-node-id="attCacheLimitSel"></select>
-                        <button class="btn btn-ghost btn-sm" id="attCacheClearBtn" type="button" data-page-node-id="attCacheClearBtn">清理缓存</button>
-                        <span class="form-tip" data-page-node-id="attLimitTip">超上限自动清最久未用；仅清本机缓存，云端附件不受影响</span>
-                    </div>
+                    </div><!-- /sync-card -->
                 </div>
             </div>
             <div class="modal-footer" data-page-node-id="attManageFoot">
@@ -5070,8 +5115,9 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                 <button class="modal-close" id="syncModalClose" data-page-node-id="tfx7mfESuY9dGoLAFIColQ">&times;</button>
             </div>
             <div class="modal-body" data-page-node-id="xxrFTaLp0et4XsXhg8GQwN">
-                <div class="form-group" data-page-node-id="FrlDZoSMMxXFcRvX443rvS">
-                    <label data-page-node-id="kZhL0oryNlyt5aUcmnQO2S">同步后端</label>
+                <!-- 同步后端 -->
+                <div class="sync-section" data-page-node-id="FrlDZoSMMxXFcRvX443rvS">
+                    <div class="sync-section-title" data-page-node-id="kZhL0oryNlyt5aUcmnQO2S">同步后端</div>
                     <div class="form-tip" style="margin-bottom:6px;" data-page-node-id="ERXGysa2se8UtLzBCG1bVH">
                         主同步使用 <b data-page-node-id="tAo6fjJOkSrheCBAhJY7nI">WebDAV</b>（桌面 / 安卓），<b>Gist 镜像默认关闭</b>。
                         只有需要在<b data-page-node-id="WmgkivQx7tcHBQpJibE6zL">网页端（浏览器直接打开本应用）</b>实时查看与编辑数据时，才勾选下方「镜像到 Gist」，并在高级设置中填写 Token 与 Gist ID。WebDAV 不可用时自动降级走 Gist。
@@ -5082,7 +5128,11 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                     </label>
                     <div class="form-tip" id="syncProviderTip" data-page-node-id="WQE5A8ppXCIcziHTGFAtgY"></div>
                 </div>
-                <div id="webdavPanel" data-page-node-id="HDfjoEPNkIXKSSMnfGg8Kx">
+                <!-- WebDAV 配置 -->
+                <div class="sync-section" data-page-node-id="secWebdav">
+                    <div class="sync-section-title" data-page-node-id="LbFkEu5Vveb7EJywh6Dnqu">WebDAV 配置</div>
+                    <div class="sync-card">
+                    <div id="webdavPanel" data-page-node-id="HDfjoEPNkIXKSSMnfGg8Kx">
                     <div class="form-group" data-page-node-id="1PlDjiugXQIdbW9fx5kdNI">
                         <label data-page-node-id="LbFkEu5Vveb7EJywh6Dnqu">服务商</label>
                         <select id="webdavPreset" data-page-node-id="EovMR7ESjJCOVitHKRHs9n">
@@ -5092,30 +5142,35 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                         </select>
                         <div class="form-tip" id="webdavPresetTip" data-page-node-id="T6D1cirUCvRj7zqZQmfLEW"></div>
                     </div>
-                    <div class="form-group" data-page-node-id="Wx9YJF6JNq7xqHwl523kHJ">
-                        <label data-page-node-id="x5HEAeJeVZY9ejm1YyIWvt">服务器地址 <span class="required" data-page-node-id="Uz3ER3PDQbgbwveGmELgD1">*</span></label>
-                        <input type="text" id="webdavUrl" placeholder="https://dav.jianguoyun.com/dav/" data-page-node-id="GoH8IXueaMKFIJKV9XLEpA">
-                    </div>
-                    <div class="form-group" data-page-node-id="V8VPMsHKDrZKnFohpqVGxA">
-                        <label data-page-node-id="AS1bFDlwvgcJLK9z2FijJf">用户名 <span class="required" data-page-node-id="RflDbzuvNx1tmCGmuwpcxk">*</span></label>
-                        <input type="text" id="webdavUser" placeholder="坚果云账号邮箱" data-page-node-id="zO1s9aRcqJZt9LLEs0j3nt">
-                    </div>
-                    <div class="form-group" data-page-node-id="JtfyDpx0qLz5BtlwHhKP38">
-                        <label data-page-node-id="sbL5BOovJcvsrZkdmvPPCP">密码 / 应用密码 <span class="required" data-page-node-id="KxG3hhaUMLcyErmhj7vsHN">*</span></label>
-                        <input type="password" id="webdavPass" placeholder="建议用应用密码，不要用登录密码" data-page-node-id="AMMUITmPxerVHADXt0Y10V">
-                        <div class="form-tip" data-page-node-id="2Ku5H2i9VtWhyg3dQZlDNO">密码经系统安全存储加密保存（桌面端），或存于应用私有目录；绝不会随数据上传到云端。</div>
-                    </div>
-                    <div class="form-group" data-page-node-id="uZix1Njgqq3rHctK8AFH3n">
-                        <label data-page-node-id="0e2Qj9IoLwR6OFavbjQdMH">云端文件路径</label>
-                        <input type="text" id="webdavPath" value="crm-data.json" placeholder="crm-data.json" data-page-node-id="bG4A7w5zBip6QmwWvCus9o">
-                        <div class="form-tip" data-page-node-id="GCjkp0E4427GAHG00sFfQl">相对服务器根目录，例如 <code data-page-node-id="ddxxciTPR08ukBu3gcJRSx">CRM/crm-data.json</code>。子目录需先在网盘中建好（或由本应用自动创建）。</div>
-                    </div>
+                        <div class="form-grid">
+                        <div class="form-group" data-page-node-id="Wx9YJF6JNq7xqHwl523kHJ">
+                            <label data-page-node-id="x5HEAeJeVZY9ejm1YyIWvt">服务器地址 <span class="required" data-page-node-id="Uz3ER3PDQbgbwveGmELgD1">*</span></label>
+                            <input type="text" id="webdavUrl" placeholder="https://dav.jianguoyun.com/dav/" data-page-node-id="GoH8IXueaMKFIJKV9XLEpA">
+                        </div>
+                        <div class="form-group" data-page-node-id="V8VPMsHKDrZKnFohpqVGxA">
+                            <label data-page-node-id="AS1bFDlwvgcJLK9z2FijJf">用户名 <span class="required" data-page-node-id="RflDbzuvNx1tmCGmuwpcxk">*</span></label>
+                            <input type="text" id="webdavUser" placeholder="坚果云账号邮箱" data-page-node-id="zO1s9aRcqJZt9LLEs0j3nt">
+                        </div>
+                        <div class="form-group" data-page-node-id="JtfyDpx0qLz5BtlwHhKP38">
+                            <label data-page-node-id="sbL5BOovJcvsrZkdmvPPCP">密码 / 应用密码 <span class="required" data-page-node-id="KxG3hhaUMLcyErmhj7vsHN">*</span></label>
+                            <input type="password" id="webdavPass" placeholder="建议用应用密码，不要用登录密码" data-page-node-id="AMMUITmPxerVHADXt0Y10V">
+                            <div class="form-tip" data-page-node-id="2Ku5H2i9VtWhyg3dQZlDNO">密码经系统安全存储加密保存（桌面端），或存于应用私有目录；绝不会随数据上传到云端。</div>
+                        </div>
+                        <div class="form-group" data-page-node-id="uZix1Njgqq3rHctK8AFH3n">
+                            <label data-page-node-id="0e2Qj9IoLwR6OFavbjQdMH">云端文件路径</label>
+                            <input type="text" id="webdavPath" value="crm-data.json" placeholder="crm-data.json" data-page-node-id="bG4A7w5zBip6QmwWvCus9o">
+                            <div class="form-tip" data-page-node-id="GCjkp0E4427GAHG00sFfQl">相对服务器根目录，例如 <code data-page-node-id="ddxxciTPR08ukBu3gcJRSx">CRM/crm-data.json</code>。子目录需先在网盘中建好（或由本应用自动创建）。</div>
+                        </div>
+                        </div><!-- /form-grid -->
                     <div class="form-group" data-page-node-id="RABDGvv8sdxgU7VVm6xEK3">
                         <button class="btn btn-ghost btn-sm" id="webdavTestBtn" type="button" data-page-node-id="f7KUfXAzTrAEUrNFWIpyQM">测试连接</button>
                         <span class="form-tip" id="webdavTestResult" style="display:inline-block;margin-left:8px;" data-page-node-id="64FFcKwRRkoZvQyBTRHYRh"></span>
                     </div>
                 </div>
-                <div class="conn-status-wrap" id="syncConnWrap" data-page-node-id="dF2AMZFpN8Ou1ozzG00EGf">
+                <!-- 连接状态 -->
+                <div class="sync-section" data-page-node-id="secConn">
+                    <div class="sync-section-title" data-page-node-id="bQUGrjJEBDJXBDCngjzWEe">连接状态</div>
+                    <div class="conn-grid" id="syncConnWrap" data-page-node-id="dF2AMZFpN8Ou1ozzG00EGf">
                     <div class="conn-status-row status-pending" id="connRowWebdav" data-page-node-id="bQUGrjJEBDJXBDCngjzWEe">
                         <div class="conn-status-icon" id="connIconWebdav" data-page-node-id="46NjgKlAwuZmvpbe97BRAU">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="8ZCTukW3r2FIT8Ki4ktVDT"><circle cx="12" cy="12" r="10" data-page-node-id="02ISSAWojyGzqF36u1n0WT"/><line x1="12" y1="8" x2="12" y2="12" data-page-node-id="A6spGzUla7WEPOwlJy6iYy"/><line x1="12" y1="16" x2="12.01" y2="16" data-page-node-id="ICFfL52dCaXsJ89Lebd9V9"/></svg>
@@ -5136,18 +5191,24 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                         </div>
                         <div class="conn-spinner" id="connSpinGist" style="display:none;" data-page-node-id="9TXpd64SgQaftwhhtKet19"></div>
                     </div>
-                </div>
+                    </div><!-- /syncConnWrap -->
+                </div><!-- /sync-section secConn -->
                 <!-- 桌面端：应用更新入口（仅桌面显示，由 setupUpdaterUI 控制显隐） -->
-                <div class="form-group" id="appUpdateRow" style="display:none;margin-top:14px;" data-page-node-id="u9E0WnyKePzvUyrcsBCZGG">
-                    <label data-page-node-id="ac9ohhfgTVgLro1UUjdoVx">应用更新</label>
+                <div class="sync-section" data-page-node-id="secAppUpdate">
+                <div id="appUpdateRow" style="display:none;margin-top:0;" data-page-node-id="u9E0WnyKePzvUyrcsBCZGG">
+                    <div class="sync-section-title" data-page-node-id="ac9ohhfgTVgLro1UUjdoVx">应用更新</div>
                     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;" data-page-node-id="R4w2ayNbtc6a0vExC2wkP1">
                         <button class="btn btn-secondary btn-sm" id="appUpdateBtn" type="button" data-page-node-id="un5fZhjTtyTthY07KVBKDW">检查更新</button>
                         <button class="btn btn-ghost btn-sm" id="appChangelogBtn" type="button" data-page-node-id="appChangelogBtn">更新日志</button>
                         <span class="form-tip" style="margin:0;" data-page-node-id="cXuxDE9BXChCA0eR9MJ3du">桌面版可在线检查并下载新版本</span>
                     </div>
-                </div>
-                <button type="button" class="btn btn-ghost btn-sm" id="gistPanelToggle" style="margin-top:12px;">&#9654; 高级：GitHub Gist 镜像设置（默认关闭，供网页端使用）</button>
-                <div id="gistPanel" data-page-node-id="CySYvmjfIMBl1TNofOMLKR">
+                    </div><!-- /appUpdateRow -->
+                </div><!-- /sync-section secAppUpdate -->
+                <!-- GitHub Gist 镜像（默认折叠） -->
+                <div class="sync-section" data-page-node-id="secGist">
+                    <button type="button" class="btn btn-ghost btn-sm sync-head-toggle" id="gistPanelToggle">&#9654; 高级：GitHub Gist 镜像设置（默认关闭，供网页端使用）</button>
+                    <div id="gistPanel" data-page-node-id="CySYvmjfIMBl1TNofOMLKR">
+                    <div class="sync-card">
                 <div class="sync-status-card" id="syncStatusCard" data-page-node-id="p8kN0KC45HW9m6ZLnNYD9i">
                     <div class="sync-status-icon" id="syncStatusIcon" data-page-node-id="7QigzS6QByD1hCbktQAi4t">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="fk5p73slwBB168IvGylooU"><circle cx="12" cy="12" r="10" data-page-node-id="tAXI3WhzaRdCOjJTmtgPGv"/><line x1="12" y1="8" x2="12" y2="12" data-page-node-id="SMCqwByRngBzsmXUp0pBZU"/><line x1="12" y1="16" x2="12.01" y2="16" data-page-node-id="26dNJmXXAHKFfjrrMwXpFf"/></svg>
@@ -5176,8 +5237,13 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                     <button class="btn btn-ghost btn-sm" id="gistTestBtn" type="button" data-page-node-id="G10TvQ4eVDmdXQdGWwFcmY">测试连接</button>
                     <span class="form-tip" id="gistTestResult" style="display:inline-block;margin-left:8px;" data-page-node-id="08pjs4WqkoS9y55fs9pYs5"></span>
                 </div>
+                    </div><!-- /sync-card -->
                 </div><!-- /gistPanel -->
-                <div class="usage-grid" data-page-node-id="xeUBsPdwDjkZ3LQuil1Zir">
+                <!-- 存储占用 -->
+                <div class="sync-section" data-page-node-id="secUsage">
+                    <div class="sync-section-title" data-page-node-id="j7WgH9AZVBziywAThHDaba">存储占用</div>
+                    <div class="sync-card">
+                    <div class="usage-grid" data-page-node-id="xeUBsPdwDjkZ3LQuil1Zir">
                     <div class="usage-card" data-page-node-id="j7WgH9AZVBziywAThHDaba">
                         <div class="usage-card-head" data-page-node-id="j3VcTEukD9fYy1JcgDZ21X"><span class="usage-card-title" data-page-node-id="uVPx8AvawjkHuSP223qqcf">本地数据占用</span><span class="usage-card-value" id="syncLocalSize" data-page-node-id="RkBqbJg2TSREs0xe0ZBGeL">--</span></div>
                         <div class="usage-bar" data-page-node-id="buDe6LT6DGDDCaefREELfO"><div class="usage-fill" id="localUsageFill" style="width:0;" data-page-node-id="wWXCKYFvXXVPEkm0mLK09a"></div></div>
@@ -5195,9 +5261,13 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                     </div>
                 </div>
                 <div class="usage-note" data-page-node-id="QXj40Eup9pMYRdBaTYg0qG">本地存储现已与云端一致采用 Gzip 压缩（GZ1: 格式），两者均为压缩后大小、可直接对比。本地略大于云端属正常：本地额外包含界面/设置等本机字段，云端仅存同步数据。此前本地为未压缩 JSON，故显示远大于云端。</div>
-                <div class="usage-card" style="margin-top:10px;" data-page-node-id="5cJCfJjcYJxy5MaVe5MUDi">
-                    <div class="usage-card-head" data-page-node-id="96DLwidHH5Ejf6mMwm3uAs"><span class="usage-card-title" data-page-node-id="o3yqUO8w6WLKDnDJMyLkUQ">历史记录保留策略</span></div>
-                    <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;" data-page-node-id="klYxwU3QwmMum9eqFaLyCb">
+                    </div><!-- /sync-card -->
+                </div><!-- /sync-section secUsage -->
+                <!-- 历史记录保留策略 -->
+                <div class="sync-section" data-page-node-id="secRetention">
+                    <div class="sync-section-title" data-page-node-id="o3yqUO8w6WLKDnDJMyLkUQ">历史记录保留策略</div>
+                    <div class="sync-card">
+                    <div class="retention-row" data-page-node-id="klYxwU3QwmMum9eqFaLyCb">
                         <select id="historyRetentionMode" data-page-node-id="uZFtH6Idx9FaCg7HPXOED4">
                             <option value="count" data-page-node-id="yB9EqnE91VdyumFFPZTxjK">按条数</option>
                             <option value="days" data-page-node-id="KrYvuqlFfA9AxSOgOkC4fx">按天数</option>
@@ -5206,16 +5276,21 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                         <input type="number" id="historyRetentionLimit" min="100" max="100000" step="100" value="2000" style="width:90px;" data-page-node-id="50BNjGdWJzz5Tu1DGZHF4B" />
                         <button class="btn btn-sm btn-primary" id="historyRetentionApply" data-page-node-id="HkdK2oSTFG56baxK9kycOf">应用</button>
                         <span class="usage-card-sub" id="historyRetentionHint" data-page-node-id="BJXGs3zzYxF96CpsU8Izva"></span>
-                    </div>
-                </div>
-                <div class="sync-actions" data-page-node-id="ZKN3O2mPgOosNjqyLgq4me">
+                    </div><!-- /retention-row -->
+                    </div><!-- /sync-card -->
+                </div><!-- /sync-section secRetention -->
+                <!-- 同步操作 -->
+                <div class="sync-section sync-section-danger">
+                    <div class="sync-section-title">同步操作</div>
+                    <div class="sync-card sync-card-danger">
+                    <div class="sync-actions" data-page-node-id="ZKN3O2mPgOosNjqyLgq4me">
                     <button class="btn btn-secondary" id="syncPullBtn" data-page-node-id="rTijWdKXbiNINX0cfu2dCs">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="tjNTNlu2qITV2kemzklQFI"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" data-page-node-id="IecD3D5Lz5ZuUlfAzCPG33"/><polyline points="17 8 12 3 7 8" data-page-node-id="DVNLeQfeEz0244RfJ7xQSX"/><line x1="12" y1="3" x2="12" y2="15" data-page-node-id="LzxiMjpdfJE1syhusM3pMU"/></svg>
                         从云端拉取
                     </button>
                     <button class="btn btn-warning" id="syncPushBtn" data-page-node-id="EJ8V5OFgVicr4k3l3iTsfe">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="s4SwvQOO5L5cQLVPiCs4uR"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" data-page-node-id="XeY8Ymgr1Bd8KhgfaQr4bL"/><polyline points="7 10 12 15 17 10" data-page-node-id="8Eo5LcNiJWOIyhbwQWFtPw"/><line x1="12" y1="15" x2="12" y2="3" data-page-node-id="wt292GSKT18dqEYNeIrhDD"/></svg>
-                        强制上传到云端
+                        强制上传
                     </button>
                 </div>
                 <div class="sync-actions" style="grid-template-columns: 1fr 1fr; margin-top: 0;" data-page-node-id="RbmWFRiaoUnfOvLrr4qLxg">
@@ -5225,9 +5300,11 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                     </button>
                     <button class="btn btn-secondary" id="clearCloudBtn" data-page-node-id="6uTEJGQkUqRLshcGUQwFXV">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="m0LiPdpduap3C6XTGB9F6k"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" data-page-node-id="e99QBNEOAkcqRLRnnuTUXO"/><polyline points="4 14 8 14 8 18" data-page-node-id="rccsxclB4VzFagvzBwWG1c"/><polyline points="20 10 16 10 16 6" data-page-node-id="exkNjxEaAnD0EDgQT38yXv"/></svg>
-                        清理云端过期数据
+                        清理云端过期
                     </button>
                 </div>
+                    </div><!-- /sync-card -->
+                </div><!-- /sync-section sync-section-danger -->
 
 
 
@@ -11533,9 +11610,36 @@ function _planEntitiesToWorkPlan(dp, fi, focusPlan, localWP, remoteWP) {
         else { value = (lv || rv || ''); at = (la || ra || ''); } // 同时间戳：取非空
         return { value: value, at: at };
     }
+    // focus 文本块字段级 At-LWW（与 weekStart/lastArchivedWeek 同一套机制）：
+    // 旧实现用整份 workPlan.updatedAt 裁决 focus，而 workPlan.updatedAt 在「任何一次计划保存」
+    // （含 focusList/每日项编辑、拉取端自动同步重存）都会被抬升 → 拉取端只要比编辑端那次 focus 编辑更晚做过
+    // 任何计划保存，stale 的 focus 文本就凭全局时间戳反超新内容（表现：编辑端改了本周重点，拉取端还是旧值）。
+    // 改为 focus 文本块自己的 focusAt 时间戳裁决：focus 文本的「最后修改」不再被其它计划项的保存污染。
+    // 无 focusAt 的旧数据（两端都缺）回退全局 updatedAt 比较，保证升级前数据仍收敛；混合状态（一端有、一端缺）
+    // 由「有 focusAt 的一方获胜」规则兜底，绝不让缺时间戳的旧值反超新值。
+    function _resolveFocus(period) {
+        const l = (localWP[period] || {}), r = (remoteWP[period] || {});
+        const lv = (l.focus != null) ? l.focus : '';
+        const rv = (r.focus != null) ? r.focus : '';
+        const la = l.focusAt || '', ra = r.focusAt || '';
+        const lt = la ? (new Date(la).getTime() || 0) : 0;
+        const rt = ra ? (new Date(ra).getTime() || 0) : 0;
+        let value, at;
+        if (!la && !ra) {
+            const lu = new Date(localWP.updatedAt || 0).getTime() || 0;
+            const ru = new Date(remoteWP.updatedAt || 0).getTime() || 0;
+            if (ru > lu) { value = rv || lv || ''; at = remoteWP.updatedAt || ''; }
+            else { value = lv || rv || ''; at = localWP.updatedAt || ''; }
+        } else if (rt > lt) { value = rv || ''; at = ra; }
+        else if (lt > rt) { value = lv || ''; at = la; }
+        else { value = (lv || rv || ''); at = (la || ra || ''); }
+        return { value: value, at: at };
+    }
+    const _fThis = _resolveFocus('thisWeek');
+    const _fNext = _resolveFocus('nextWeek');
     const wp = {
-        thisWeek: { focus: ((focusPlan.thisWeek && focusPlan.thisWeek.focus) || '').toString() },
-        nextWeek: { focus: ((focusPlan.nextWeek && focusPlan.nextWeek.focus) || '').toString() }
+        thisWeek: { focus: (_fThis.value || '').toString(), focusAt: _fThis.at },
+        nextWeek: { focus: (_fNext.value || '').toString(), focusAt: _fNext.at }
     };
     // 周锚点：字段级 At-LWW（对齐其他模块的 *At 模式），而非整份 workPlan 时间戳裁决。
     // ⚠️ 必须把「胜出方的 *At 时间戳」一并写回 workPlan，否则下一轮合并时 *At 丢失、退化为旧逻辑。
@@ -11565,9 +11669,16 @@ function _planEntitiesToWorkPlan(dp, fi, focusPlan, localWP, remoteWP) {
     });
     return wp;
 }
+// focus 文本块「上一次落盘/加载时的内容」快照：用于 savePlan 判定 focus 是否真被改过，
+// 仅在真正变化时 bump focusAt（避免 focusAt 被任何计划保存污染，重蹈全局 updatedAt 的覆辙）。
+var _focusSnap = { thisWeek: '', nextWeek: '' };
 // 保持 dailyPlans / focusItems 镜像与 workPlan 同步（每次 workPlan 落盘或加载后调用）
 function _mirrorPlanEntities() {
     if (!state.workPlan) state.workPlan = { thisWeek: { focus: '' }, nextWeek: { focus: '' } };
+    if (!state.workPlan.thisWeek) state.workPlan.thisWeek = { focus: '' };
+    if (!state.workPlan.nextWeek) state.workPlan.nextWeek = { focus: '' };
+    _focusSnap.thisWeek = (state.workPlan.thisWeek.focus || '').toString();
+    _focusSnap.nextWeek = (state.workPlan.nextWeek.focus || '').toString();
     const pe = _workPlanToPlanEntities(state.workPlan);
     state.dailyPlans = pe.dailyPlans;
     state.focusItems = pe.focusItems;
@@ -12553,6 +12664,13 @@ function savePlan(silent) {
         PLAN_DAYS.forEach(function (d) {
             wp[p][d] = planToItems(wp[p][d]);
         });
+    });
+    // focus 文本块：仅当本次保存相对上一次落盘/加载，focus 文本「真被改过」才 bump 独立时间戳 focusAt。
+    // 这样 focus 文本的「最后修改时间」不会被 focusList/每日项的保存抬高，修复「编辑端改了本周重点、
+    // 拉取端因更晚做过别的计划保存而用全局 updatedAt 反超、显示旧值」的同步 bug。
+    ['thisWeek', 'nextWeek'].forEach(function (p) {
+        const cur = (wp[p].focus || '').toString();
+        if (cur !== _focusSnap[p]) wp[p].focusAt = new Date().toISOString();
     });
     wp.updatedAt = new Date().toISOString();
     wp._rev = (wp._rev || 0) + 1;
@@ -16914,10 +17032,11 @@ function applyRemoteData(remoteData) {
         mergedDP = state.dailyPlans;
         mergedFI = state.focusItems;
     }
-    // 每周重点文本（focus）：本地有 pending 时保留本地，否则按「内容更新时间」裁决。
-    // ⚠️ 旧实现用 workPlan._rev 比较，而 _rev 在每次合并都被 +1 自增 → 变成「合并次数计数器」，
-    // 导致「合并次数更多的设备」凭空获得更高 _rev，把对端较新的 focus 文本覆盖成旧值（“更新后旧数据回来”）。
-    // 这里改用内容更新时间 updatedAt 做 LWW（savePlan/归档等真实改动才会 bump），与下方不再自增 _rev 配套。
+    // 每周重点文本（focus）的裁决已下沉到 _planEntitiesToWorkPlan 内部、按「focus 文本块自己的 focusAt
+    // 时间戳」做字段级 At-LWW（与 weekStart/lastArchivedWeek 同套机制）。focus 文本仅在被真正编辑时（savePlan
+    // 比对 _focusSnap 发现内容变化）才 bump focusAt，因此不再被 focusList/每日项的保存污染——彻底修复
+    // 「编辑端改了本周重点、拉取端因更晚做过别的计划保存而用全局 updatedAt 反超、显示旧值」。
+    // 此处 focusPlan 仅用于承载整份 workPlan 的 updatedAt/_rev（向后兼容字段），focus 文本取值不再依赖它。
     let focusPlan;
     if (_hasUnsavedPlan) {
         focusPlan = state.workPlan;
