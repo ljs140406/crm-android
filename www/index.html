@@ -2615,6 +2615,28 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
     .fu-att-chip { font-size: 12px; padding: 6px 8px; }
     .att-view-img { max-height: 55vh; }
 }
+/* 附件总览（按客户统一查看 / 管理） */
+.att-ov-sep { height: 1px; background: var(--border); margin: 4px 0 2px; opacity: .6; }
+.att-ov-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.att-ov-head label { font-size: 14px; font-weight: 500; color: var(--text); }
+.att-ov-sum { font-size: 12px; color: var(--text-secondary); }
+.att-ov-body { display: flex; flex-direction: column; gap: 8px; }
+.att-ov-group { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.att-ov-group-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--gray-50); cursor: pointer; -webkit-user-select: none; user-select: none; }
+.att-ov-caret { font-size: 11px; color: var(--text-secondary); width: 12px; text-align: center; flex: 0 0 auto; }
+.att-ov-cust { font-weight: 500; font-size: 13px; color: var(--text); flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.att-ov-meta { margin-left: auto; font-size: 12px; color: var(--text-secondary); flex: 0 0 auto; }
+.att-ov-row { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--border); }
+.att-ov-tag { flex: 0 0 auto; font-size: 10px; line-height: 1; padding: 2px 6px; border-radius: 4px; }
+.att-ov-tag.is-img { color: var(--primary); background: #DBEAFE; }
+.att-ov-tag.is-file { color: var(--text-secondary); background: var(--gray-100); }
+.att-ov-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--text); text-align: left; }
+.att-ov-date { flex: 0 0 auto; font-size: 11px; color: var(--text-secondary); }
+.att-ov-size { flex: 0 0 auto; font-size: 11px; color: var(--text-secondary); }
+.att-ov-btn { flex: 0 0 auto; border: 1px solid var(--border); background: transparent; border-radius: var(--radius-sm); font-size: 12px; padding: 4px 8px; cursor: pointer; font-family: inherit; }
+.att-ov-btn.view { color: var(--primary); border-color: var(--primary-light); }
+.att-ov-btn.del { color: #A32D2D; border-color: #F7C1C1; }
+.fu-att-empty { font-size: 13px; color: var(--text-secondary); padding: 10px 12px; }
 .detail-todo-list { display: flex; flex-direction: column; gap: 8px; }
 .detail-todo-item { padding: 12px; background: var(--gray-50); border-radius: 10px; border-left: 2px solid var(--primary-light); cursor: pointer; transition: background .15s; }
 .detail-todo-item:hover { background: var(--primary-bg); }
@@ -4797,6 +4819,14 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                 <div class="form-group" data-page-node-id="attClearGroup">
                     <button class="btn btn-ghost btn-sm" id="attCacheClearBtn" type="button" data-page-node-id="attCacheClearBtn">一键清理缓存</button>
                     <span class="form-tip" style="display:inline-block;margin-left:8px;" data-page-node-id="attClearTip">仅清本机缓存，云端附件不受影响</span>
+                </div>
+                <div class="att-ov-sep" data-page-node-id="attOverviewSep"></div>
+                <div class="form-group" data-page-node-id="attOverviewGroup">
+                    <div class="att-ov-head" data-page-node-id="attOverviewHead">
+                        <label data-page-node-id="attOverviewLabel">附件总览（按客户）</label>
+                        <span class="att-ov-sum" id="attOverviewSum" data-page-node-id="attOverviewSum"></span>
+                    </div>
+                    <div class="att-ov-body" id="attOverviewBody" data-page-node-id="attOverviewBody"></div>
                 </div>
             </div>
             <div class="modal-footer" data-page-node-id="attManageFoot">
@@ -15280,7 +15310,7 @@ function closeImportExportModal() { const m = document.getElementById('importExp
 function openSettingsCenter() { const m = document.getElementById('settingsCenterModal'); if (m) m.classList.add('show'); }
 function closeSettingsCenter() { const m = document.getElementById('settingsCenterModal'); if (m) m.classList.remove('show'); }
 function backToSettings() {
-    ['syncModal','manualBackupModal','syncLogModal','operationLogModal','importExportModal','dynModal'].forEach(function(id){ var m = document.getElementById(id); if (m) m.classList.remove('show'); });
+    ['syncModal','manualBackupModal','syncLogModal','operationLogModal','importExportModal','dynModal','attManageModal'].forEach(function(id){ var m = document.getElementById(id); if (m) m.classList.remove('show'); });
     openSettingsCenter();
 }
 
@@ -16085,6 +16115,7 @@ function openAttManage() {
         }).join('');
     }
     refreshAttUsage();
+    renderAttOverview();
     const modal = document.getElementById('attManageModal');
     if (modal) modal.classList.add('show');
 }
@@ -16118,6 +16149,90 @@ function clearAttCache() {
         showToast('缓存已清理');
         refreshAttUsage();
     }, '清理缓存', '清空', '取消');
+}
+
+// ---------- 附件总览（按客户统一查看 / 管理） ----------
+var _attOvExpanded = {};
+function renderAttOverview() {
+    const body = document.getElementById('attOverviewBody');
+    const sum = document.getElementById('attOverviewSum');
+    if (!body) return;
+    const groups = {};
+    (state.followups || []).forEach(function (f) {
+        const atts = fuAttachments(f);
+        if (!atts.length) return;
+        const key = f.customer || '（未关联客户）';
+        if (!groups[key]) groups[key] = { atts: [], bytes: 0, count: 0 };
+        atts.forEach(function (a) {
+            groups[key].atts.push({ att: a, followupId: f.id, followupTime: f.time });
+            groups[key].bytes += (a.size || 0);
+            groups[key].count += 1;
+        });
+    });
+    const keys = Object.keys(groups);
+    let totalCount = 0, totalBytes = 0;
+    keys.forEach(function (k) { totalCount += groups[k].count; totalBytes += groups[k].bytes; });
+    if (sum) sum.textContent = keys.length + ' 个客户 · ' + totalCount + ' 个文件 · ' + formatBytes(totalBytes);
+    if (!keys.length) { body.innerHTML = '<div class="fu-att-empty">暂无附件</div>'; return; }
+    keys.sort(function (a, b) { return groups[b].count - groups[a].count || a.localeCompare(b, 'zh'); });
+    body.innerHTML = keys.map(function (k) {
+        const g = groups[k];
+        const expanded = !!_attOvExpanded[k];
+        const rows = expanded ? g.atts.map(function (it) {
+            const a = it.att;
+            const isImg = attIsImage(a.mime);
+            const date = it.followupTime ? formatDate(it.followupTime) : '';
+            return '<div class="att-ov-row">' +
+                '<span class="att-ov-tag ' + (isImg ? 'is-img' : 'is-file') + '">' + (isImg ? 'IMG' : 'FILE') + '</span>' +
+                '<span class="att-ov-name" title="' + escapeHtml(a.name || '') + '">' + escapeHtml(a.name || '未命名文件') + '</span>' +
+                '<span class="att-ov-date">' + escapeHtml(date) + '</span>' +
+                '<span class="att-ov-size">' + formatBytes(a.size || 0) + '</span>' +
+                '<button type="button" class="att-ov-btn view" data-view="' + escapeHtml(a.id) + '" data-fu="' + escapeHtml(it.followupId) + '">查看</button>' +
+                '<button type="button" class="att-ov-btn del" data-del="' + escapeHtml(a.id) + '" data-fu="' + escapeHtml(it.followupId) + '">删除</button>' +
+              '</div>';
+        }).join('') : '';
+        return '<div class="att-ov-group">' +
+            '<div class="att-ov-group-head" data-cust="' + escapeHtml(k) + '">' +
+              '<span class="att-ov-caret">' + (expanded ? '▾' : '▸') + '</span>' +
+              '<span class="att-ov-cust">' + escapeHtml(k) + '</span>' +
+              '<span class="att-ov-meta">' + g.count + ' 个附件 · ' + formatBytes(g.bytes) + '</span>' +
+            '</div>' + rows + '</div>';
+    }).join('');
+    body.onclick = function (e) {
+        const t = e.target;
+        const head = t.closest ? t.closest('.att-ov-group-head') : null;
+        if (head) {
+            const cust = head.getAttribute('data-cust');
+            _attOvExpanded[cust] = !_attOvExpanded[cust];
+            renderAttOverview();
+            return;
+        }
+        const viewBtn = t.closest ? t.closest('[data-view]') : null;
+        if (viewBtn) { attOverviewView(viewBtn.getAttribute('data-view'), viewBtn.getAttribute('data-fu')); return; }
+        const delBtn = t.closest ? t.closest('[data-del]') : null;
+        if (delBtn) { attOverviewDelete(delBtn.getAttribute('data-del'), delBtn.getAttribute('data-fu')); return; }
+    };
+}
+function attOverviewView(attId, followupId) {
+    openAttViewer(attId, followupId);
+}
+function attOverviewDelete(attId, followupId) {
+    const f = state.followups.find(function (x) { return x.id === followupId; });
+    if (!f) { showToast('找不到对应跟进记录'); return; }
+    const att = (fuAttachments(f) || []).find(function (a) { return a.id === attId; });
+    if (!att) { showToast('找不到该附件'); return; }
+    showConfirm('删除附件「' + (att.name || '未命名文件') + '」？将从云端与本机缓存移除，且无法恢复。', function () {
+        f.attachments = fuAttachments(f).filter(function (a) { return a.id !== attId; });
+        if (!f.attachments.length) delete f.attachments;
+        attDeleteRemote(att);
+        attCacheRemove(att.id);
+        saveData();
+        pushSettingsDebounced();
+        logOperation('删除附件：' + (att.name || ''), 'info');
+        renderAttOverview();
+        refreshAttUsage();
+        showToast('附件已删除');
+    }, '删除附件', '删除', '取消');
 }
 
 /**
