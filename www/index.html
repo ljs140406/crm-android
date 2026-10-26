@@ -3596,9 +3596,10 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
     body.sidebar-collapsed .nav-item span { display: none; }
     body.sidebar-collapsed .sidebar-footer { display: none; }
     body.sidebar-collapsed .nav-item.active::before { display: none; }
-    /* 桌面端「‹ 数据看板」返回胶囊：避让侧边栏（否则 left:12px 落进侧栏区域被遮住，只剩「看板」二字） */
-    #dashBackCapsule { left: calc(var(--sidebar-w) + 12px); }
-    body.sidebar-collapsed #dashBackCapsule { left: calc(var(--sidebar-collapsed-w) + 12px); }
+    /* 桌面端「‹ 数据看板」返回胶囊：避让侧边栏（否则 left:12px 落进侧栏区域被遮住，只剩「看板」二字）。
+       ⚠️ 胶囊位置是 JS 行内样式（left:12px），此处必须 !important 才能覆盖，否则规则永不生效（v1.1.56~v1.1.61 均因此失效） */
+    #dashBackCapsule { left: calc(var(--sidebar-w) + 12px) !important; }
+    body.sidebar-collapsed #dashBackCapsule { left: calc(var(--sidebar-collapsed-w) + 12px) !important; }
     /* 看板返回胶囊显示期间，为胶囊让出一行高度（此前只避让了侧栏横向位置，胶囊仍会盖住统计卡顶部） */
     body.dash-drill .main-content { padding-top: 44px; }
     .main-content { padding-bottom: 24px; }
@@ -19867,6 +19868,22 @@ window._crm = {
 // ---------- 更新日志（历次版本更新内容，桌面/安卓/网页随时可查）----------
 // v=桌面版本号，av=安卓版本号（仅安卓发版的条目 v 留空表示桌面未动），date=发布日期，notes=更新要点（新的在前）
 var RELEASE_NOTES = [
+    { v: '1.1.62', av: '1.1.67', date: '2026-10-26', notes: [
+        '<b>桌面端</b>：根治看板返回胶囊被侧栏遮挡——胶囊位置此前写死在行内样式 left:12px，v1.1.56 起的避让样式因 CSS 优先级不足从未生效；现侧栏展开/收起两种状态胶囊均完整右移让位'
+    ] },
+    { v: '1.1.61', av: '1.1.66', date: '2026-10-26', notes: [
+        '<b>客户总表</b>：「关注优先 / 最近跟进」排序改用与看板一致的实时跟进时间，修复跨端同步后排序不准',
+        '<b>跟进趋势</b>：日详情跟进标签改浅底深字（原靛蓝底配靛蓝字看不清）；新建客户保存后直达该客户详情页',
+        '<b>附件管理</b>：「附件总览（按客户）」移到首屏、缓存设置压缩为紧凑区块；点「查看」的附件查看器不再被管理弹窗遮挡'
+    ] },
+    { v: '1.1.60', av: '1.1.65', date: '2026-10-26', notes: [
+        '<b>附件管理</b>：新增「附件总览（按客户）」——按客户聚合全部跟进附件，客户组可展开，支持查看/删除，顶部汇总客户数/文件数/总大小',
+        '<b>设置中心</b>：修复从附件管理返回设置中心时被其遮挡'
+    ] },
+    { v: '1.1.59', av: '1.1.64', date: '2026-10-25', notes: [
+        '<b>跟进趋势图表</b>：汇总卡与柱状图全面美化（圆角柱、柔和投影、今日琥珀微光、日均线虚线+标签、坐标轴放大）',
+        '<b>桌面端客户总表</b>：新增统一筛选工具栏（状态多选 / 城市 / 排序 / 名称搜索通栏），与手机端体验一致'
+    ] },
     { v: '1.1.58', av: '1.1.63', date: '2026-10-25', notes: [
         '<b>手机端客户页</b>：筛选栏改为两行（状态/城市/排序一行 + 搜索通栏一行），解决窄屏四个控件挤一行、下拉文字被截断的问题',
         '<b>跟进趋势图表</b>：统计天数可自定义（默认 14 天，范围 7-90，含 7/14/30 快捷键），柱子/X 轴/汇总/穿透全部按所选天数渲染，偏好跨设备同步'
