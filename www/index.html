@@ -5821,12 +5821,12 @@ function _entId(prefix) {
 }
 // 取某周期/某天的每日计划（用于渲染与读写，统一入口）
 function dailyPlansFor(week, day) {
-    const w = (week === 'this' || week === 'next') ? week : (week === 'thisWeek' ? 'this' : 'next');
-    return (state.dailyPlans || []).filter(function (x) { return x.week === w && x.day === day; });
+    const w = planPeriodToAbsWeek(week);
+    return (state.dailyPlans || []).filter(function (x) { return planPeriodToAbsWeek(x.week) === w && x.day === day; });
 }
 function focusItemsFor(week) {
-    const w = (week === 'this' || week === 'next') ? week : (week === 'thisWeek' ? 'this' : 'next');
-    return (state.focusItems || []).filter(function (x) { return x.week === w; });
+    const w = planPeriodToAbsWeek(week);
+    return (state.focusItems || []).filter(function (x) { return planPeriodToAbsWeek(x.week) === w; });
 }
 
 // 设备唯一标识，用于同步冲突时 tie-break（避免依赖本地时钟）
@@ -6490,6 +6490,32 @@ function getWeekNumber(d) {
 function mondayOf(date) { const d = new Date(date); const day = d.getDay() || 7; d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - day + 1); return d; }
 function isoMonday(date) { const d = mondayOf(date); const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const dd = String(d.getDate()).padStart(2, '0'); return y + '-' + m + '-' + dd; }
 function parseISODate(s) { if (!s) return null; const p = String(s).split('-'); if (p.length !== 3) return null; const y = +p[0], m = +p[1] - 1, d = +p[2]; if (!y || m < 0 || m > 11 || d < 1 || d > 31) return null; return new Date(y, m, d); }
+// 绝对周一 + N 天 → ISO 日期（计划实体 week 字段改为绝对周后，next 槽 = weekStart + 7）
+function addDaysISO(iso, n) { const t = parseISODate(iso); if (!t) return iso; t.setDate(t.getDate() + (n || 0)); const y = t.getFullYear(); const m = String(t.getMonth() + 1).padStart(2, '0'); const dd = String(t.getDate()).padStart(2, '0'); return y + '-' + m + '-' + dd; }
+// 计划周期（'this'/'next' 或绝对周一）→ 绝对周一（用于筛选/槽位解析，根治相对周导致的跨端槽位错位）
+// weekStartOverride：显式传入锚点（派生远端旧结构 / 归档时用到），缺省回退 state.workPlan.weekStart。
+function planPeriodToAbsWeek(period, weekStartOverride) {
+    const ws = weekStartOverride || (state.workPlan && state.workPlan.weekStart) || isoMonday(new Date());
+    if (period === 'this' || period === 'thisWeek') return ws;
+    if (period === 'next' || period === 'nextWeek') return addDaysISO(ws, 7);
+    return period; // 已是绝对周一
+}
+function normPlanEntityWeek(w) {
+    if (w === 'this' || w === 'thisWeek') return planPeriodToAbsWeek('this');
+    if (w === 'next' || w === 'nextWeek') return planPeriodToAbsWeek('next');
+    return w;
+}
+// 计划实体绝对周 → 槽位（thisWeek/nextWeek），按 weekStart 解析；历史/异常周归类到最近槽，绝不丢弃
+function planWeekToSlot(ew, weekStart) {
+    const ws = weekStart || isoMonday(new Date());
+    if (!ew || ew === 'this' || ew === 'thisWeek') return 'thisWeek';
+    if (ew === 'next' || ew === 'nextWeek') return 'nextWeek';
+    if (ew === ws) return 'thisWeek';
+    if (ew === addDaysISO(ws, 7)) return 'nextWeek';
+    const t = parseISODate(ew), w = parseISODate(ws);
+    if (t && w) { const diff = Math.round((t.getTime() - w.getTime()) / 86400000); return (diff >= 7 || diff < 0) ? 'nextWeek' : 'thisWeek'; }
+    return 'thisWeek';
+}
 function isThisWeek(dateStr) {
     if (!dateStr) return false;
     const d = new Date(dateStr);
@@ -11516,16 +11542,43 @@ function normalizeFocusListWeb(list, legacyFocus) {
 // 这样渲染层零改动，又达到「手机改周一、桌面改周二 两端都保留；同一天同位置双端都改才报冲突」的语义。
 function _planItemId(wkey, day, idx) { return 'dp_' + wkey + '_' + day + '_' + idx; }
 function _focusId(wkey, idx) { return 'fc_' + wkey + '_' + idx; }
+// 重点项稳定 id：与每日计划同理，绝对周 + 内容哈希，保证相对/绝对两种表示算出同一 id（避免重复项）。
+function _focusStableId(absWeek, text, completed, starred) {
+    const s = (absWeek || '') + '|' + (text || '') + '|' + (completed ? 1 : 0) + '|' + (starred ? 1 : 0);
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = (h * 0x01000193) >>> 0; }
+    return 'fc_' + absWeek + '_h' + h.toString(36) + 'z';
+}
 // 旧版每日计划 id 为下标式 dp_{wkey}_{day}_{N}（铁律#16 违例：删除/重镜像时邻居前移会撞 id）。
 // 此正则用于识别并淘汰旧版下标 id（新稳定 id 含 'h..z' 后缀、_entId 随机 id 含字母，均不匹配）。
 function _isLegacyPlanId(id) { return /^dp_(this|next)_(mon|tue|wed|thu|fri|sat|sun)_\d+$/.test(id || ''); }
-// 迁移用：对「无 id 的旧项」按 (周,天,内容) 生成确定性内容哈希 id。
+// 迁移用：对「无 id 的旧项」按 (绝对周,天,内容) 生成确定性内容哈希 id。
 // 关键：多端从同一云端数据迁移会算出一致 id（不依赖随机），避免随机 id 跨端不一致产生重复项。
-function _planItemStableId(wkey, day, text, customer, customerId) {
-    const s = (wkey || '') + '|' + (day || '') + '|' + (text || '') + '|' + (customer || '') + '|' + (customerId || '');
+// week 字段统一归一为绝对周一（planPeriodToAbsWeek），使「相对 this/next」与「绝对周一」两种来源算出同一 id。
+function _planItemStableId(wkey, day, text, customer, customerId, weekStart) {
+    const wk = planPeriodToAbsWeek(wkey, weekStart);
+    const s = wk + '|' + (day || '') + '|' + (text || '') + '|' + (customer || '') + '|' + (customerId || '');
     let h = 0x811c9dc5;
     for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = (h * 0x01000193) >>> 0; }
-    return 'dp_' + wkey + '_' + day + '_h' + h.toString(36) + 'z';
+    return 'dp_' + wk + '_' + day + '_h' + h.toString(36) + 'z';
+}
+// 把仍携带相对周（'this'/'next'）的计划实体归一为绝对周一：既改 week 字段，也把相对/下标 id 重算为绝对稳定 id，
+// 与 _workPlanToPlanEntities 派生口径一致，避免「相对 id 与绝对 id 并存」产生重复项或跨端槽位错位。绝对周实体原样返回。
+function _normalizePlanEntityWeeks(arr, isFocus) {
+    if (!Array.isArray(arr)) return arr;
+    const _rel = { 'this': 1, 'next': 1, 'thisWeek': 1, 'nextWeek': 1 };
+    const _ws = (state.workPlan && state.workPlan.weekStart) || isoMonday(new Date());
+    return arr.map(function (it) {
+        if (!it || !_rel[it.week]) return it; // 已是绝对周
+        const absWeek = planPeriodToAbsWeek(it.week, _ws);
+        if (isFocus) {
+            let newId = it.id;
+            if (/^fc_(this|next)(_\d+)?$/.test(it.id || '')) newId = _focusStableId(absWeek, it.text, it.completed, it.starred);
+            return Object.assign({}, it, { week: absWeek, id: newId });
+        }
+        const newId = _planItemStableId(absWeek, it.day, it.text, it.customer, it.customerId, _ws);
+        return Object.assign({}, it, { week: absWeek, id: newId });
+    });
 }
 function _workPlanToPlanEntities(plan, prevDP, prevFI) {
     plan = plan || {};
@@ -11553,9 +11606,15 @@ function _workPlanToPlanEntities(plan, prevDP, prevFI) {
     ['thisWeek', 'nextWeek'].forEach(function (p) {
         const wk = plan[p]; if (!wk) return;
         const wkey = (p === 'thisWeek') ? 'this' : 'next';
+        // 绝对周：本周槽 = weekStart，下周槽 = weekStart + 7。原计划实体 week 用相对 'this'/'next'，
+        // 导致同一内容在两端的槽位随各自 weekStart 漂移、合并整对象胜出后整包覆盖 week → 跨端槽位错位。
+        // 改为按槽位写出绝对周一，槽位解析统一由 weekStart 决定（planWeekToSlot），两端一致。
+        const _absWeek = (p === 'thisWeek')
+            ? (plan.weekStart || isoMonday(new Date()))
+            : addDaysISO(plan.weekStart || isoMonday(new Date()), 7);
         PLAN_DAYS.forEach(function (d) {
             planToItems(wk[d]).forEach(function (it, idx) {
-                const iid = (it.id && !_isLegacyPlanId(it.id)) ? it.id : _planItemStableId(wkey, d, it.text, it.customer, it.customerId);
+                const iid = (it.id && !_isLegacyPlanId(it.id)) ? it.id : _planItemStableId(_absWeek, d, it.text, it.customer, it.customerId);
                 // 清空内容（此前有内容、现在为空）当作软删除处理：使「清空/删除每日计划内容」跨端真正移除，
                 // 避免旧逻辑把空项直接丢出同步层 → 对端保留旧文字「一同步就回来」。全新空项（prev 也无内容，
                 // 如刚添加的待填项）仍跳过，避免误删未填写项。注：此处只改每日计划项（dailyPlans），
@@ -11566,7 +11625,7 @@ function _workPlanToPlanEntities(plan, prevDP, prevFI) {
                 if (!it.text && !it.customer && !it.customerId && !it._deleted && !_isCleared) return;
                 // 稳定 id：优先沿用项自身 id（迁移后均为内容哈希 id；新增项为 _entId 随机 id）；
                 // 旧版下标式 id（dp_*_N）在此重算为内容哈希 id，避免跨端因随机 id 不一致产生重复项（铁律#16）。
-                const _cur = { id: iid, week: wkey, day: d, text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString(), _deleted: !!(it._deleted) || _isCleared };
+                const _cur = { id: iid, week: _absWeek, day: d, text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString(), _deleted: !!(it._deleted) || _isCleared };
                 dp.push(Object.assign(_cur, _stamp(iid, _prevDP, _cur, _dpKey)));
             });
         });
@@ -11577,7 +11636,7 @@ function _workPlanToPlanEntities(plan, prevDP, prevFI) {
             // 保留空项：刚点「添加一项重点」时尚未输入文字，若在此过滤，同步层就看不到它；
             // 而 applyRemoteData 用 focusItems 重建 workPlan，该新增项会凭空消失（用户「添加后找不到」）。
             // 代价是未填写的空项会同步到其他设备——这与「确实新增了一项」的语义一致，可接受。
-            const _f = { id: (it.id || _focusId(wkey, idx)), week: wkey, text: (it.text || '').toString(), completed: !!(it.completed), starred: !!(it.starred), src: (it.src || 'manual'), customerId: (it.customerId || '').toString(), _deleted: !!(it._deleted) };
+            const _f = { id: (it.id || _focusId(_absWeek, idx)), week: _absWeek, text: (it.text || '').toString(), completed: !!(it.completed), starred: !!(it.starred), src: (it.src || 'manual'), customerId: (it.customerId || '').toString(), _deleted: !!(it._deleted) };
             fi.push(Object.assign(_f, _stamp(_f.id, _prevFI, _f, _fiKey)));
         });
     });
@@ -11657,14 +11716,15 @@ function _planEntitiesToWorkPlan(dp, fi, focusPlan, localWP, remoteWP) {
     (dp || []).forEach(function (it) {
         // 跳过旧版下标式 id：迁移期云端可能残留 dp_*_N，重建 workPlan 时丢弃，避免再次派生出下标 id 形成死循环/重复
         if (_isLegacyPlanId(it.id)) return;
-        const p = (it.week === 'next') ? 'nextWeek' : 'thisWeek';
+        // 槽位按「实体绝对周 → 当前 weekStart」解析：绝对周实体稳定收敛；历史/异常相对周也按 weekStart 归一，绝不丢弃
+        const p = planWeekToSlot(it.week, wp.weekStart);
         const d = it.day;
         if (!wp[p][d]) wp[p][d] = [];
-        const _iid = it.id || _entId('dp_' + ((it.week === 'next') ? 'next' : 'this') + '_' + (it.day || '') + '_');
+        const _iid = it.id || _entId('dp_' + p + '_' + (it.day || '') + '_');
         wp[p][d].push({ id: _iid, text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString(), _deleted: !!(it._deleted) });
     });
     (fi || []).forEach(function (it) {
-        const p = (it.week === 'next') ? 'nextWeek' : 'thisWeek';
+        const p = planWeekToSlot(it.week, wp.weekStart);
         wp[p].focusList.push({ id: (it.id || ''), text: (it.text || '').toString(), completed: !!(it.completed), starred: !!(it.starred), src: (it.src || 'manual'), customerId: (it.customerId || '').toString(), _deleted: !!(it._deleted) });
     });
     return wp;
@@ -12816,6 +12876,13 @@ function archivePlan() {
         // 下次拉取（applyRemoteData 用 dailyPlans 整体重建 workPlan）或 saveData 触发的自动同步会把下周内容复活
         // → 「归档后下周计划还在」「删除项经同步复现」。补调用后同步层与 workPlan 一致，下周被彻底清空。
         _mirrorPlanEntities();
+        // 归档删除墓碑抬升时间戳：使「归档产生的删除」成为较新权威动作，经 unionMerge「一删一活→纯粹按
+        // updatedAt 时间裁决」能跨端传播，避免墓碑沿用旧 createdAt（可能早于对端活跃副本的编辑时间）被反超、
+        // 导致归档后在其它设备复活（用户确认方案：归档时墓碑抬升时间戳+按时间裁决使其跨端传播）。
+        // 仅作用于 _deleted 实体；按 id 取合并前快照的 _stamp 会因内容未变而沿用此处抬升后的 updatedAt，
+        // 故后续 saveData 触发的再次镜像也不会把它冲掉。
+        state.dailyPlans.forEach(function (it) { if (it && it._deleted) it.updatedAt = _archAt; });
+        state.focusItems.forEach(function (it) { if (it && it._deleted) it.updatedAt = _archAt; });
         // 归档=清空下周：清除 dp_next_* 墓碑，避免旧下周删除墓碑误伤归档后重新填写的下周内容
         // （归档已把下周内容前向复活到本周并整体软删除清空，下周槽 id 将复用，旧墓碑会屏蔽新填写项）
         if (state._tombstones && state._tombstones.dailyPlans) {
@@ -16507,11 +16574,15 @@ function _derivePlanEntities(remote) {
         ['thisWeek', 'nextWeek'].forEach(function (p) {
             const wk = srcPlan[p]; if (!wk) return;
             const wkey = (p === 'thisWeek') ? 'this' : 'next';
+            // 派生也写绝对周：与运行时镜像口径一致，避免相对周 id 在跨端槽位错位
+            const _absWeek = (p === 'thisWeek')
+                ? (srcPlan.weekStart || isoMonday(new Date()))
+                : addDaysISO(srcPlan.weekStart || isoMonday(new Date()), 7);
             PLAN_DAYS.forEach(function (d) {
                 planToItems(wk[d]).forEach(function (it, idx) {
                     if (!it.text && !it.customer && !it.customerId) return;
                     // 旧端兼容派生：同样用内容哈希稳定 id（而非下标），与迁移/新增保持一致，避免下标 id 撞墓碑
-                    dpOut.push({ id: _planItemStableId(wkey, d, it.text, it.customer, it.customerId), week: wkey, day: d, text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString(), _rev: 1, updatedAt: '' });
+                    dpOut.push({ id: _planItemStableId(_absWeek, d, it.text, it.customer, it.customerId, srcPlan.weekStart), week: _absWeek, day: d, text: (it.text || '').toString(), customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString(), _rev: 1, updatedAt: '' });
                 });
             });
             // 注意：必须在规范化 workPlan 之前读取原始 focusList，否则会被上一行清掉
@@ -16519,7 +16590,7 @@ function _derivePlanEntities(remote) {
             if (typeof fl === 'string') fl = normalizeFocusListWeb(null, fl);
             (fl || []).forEach(function (it, idx) {
                 if (!it || !it.text) return;
-                fiOut.push({ id: _focusId(wkey, idx), week: wkey, text: (it.text || '').toString(), completed: !!(it.completed), starred: !!(it.starred), _rev: 1, updatedAt: '' });
+                fiOut.push({ id: _focusId(_absWeek, idx), week: _absWeek, text: (it.text || '').toString(), completed: !!(it.completed), starred: !!(it.starred), _rev: 1, updatedAt: '' });
             });
         });
         remote.dailyPlans = dpOut;
@@ -16947,29 +17018,24 @@ function applyRemoteData(remoteData) {
                     // 本地有未同步的修改 → 用本地版本
                     result.push(_clone(local));
                 } else {
-                    // 删除权威：本端已软删除的项，不被对端活动副本（即使 _rev 更高）复活。
-                    // 修复「删除/清空每日计划内容后，一同步就回来」：对端编辑次数更多(rev更高)时，
-                    // 旧逻辑无条件采用远端活动副本，把本端已做的删除覆盖掉。删除是单调权威变更，应保留。
-                    if (local._deleted && !remote._deleted) {
-                        result.push(_clone(local));
-                        return;
-                    }
-                    // 无 pending 变更 → 先比较 _rev（避免依赖设备时钟），再用 updatedAt 作平局决胜
-                    const localRev = local._rev || 0;
-                    const remoteRev = remote._rev || 0;
-                    if (localRev > remoteRev) {
-                        result.push(_clone(local));
-                    } else if (remoteRev > localRev) {
-                        result.push(_clone(remote));
+                    const localDel = !!local._deleted, remoteDel = !!remote._deleted;
+                    if (localDel !== remoteDel) {
+                        // 一删一活：纯粹按 updatedAt 时间戳裁决（谁新谁赢），rev 不参与——
+                        // 既保证「归档产生的删除（updatedAt 被 _mirrorPlanEntities 抬升）能跨端传播」，
+                        // 也允许「删除后于对端重新编辑（对端活跃副本更新）被同步复活」。
+                        // 时间戳相等时确定性优先「删除态」（归档/清空是较新权威动作），且两端对称收敛，杜绝永久发散。
+                        const _lu = new Date(local.updatedAt || 0).getTime() || 0;
+                        const _ru = new Date(remote.updatedAt || 0).getTime() || 0;
+                        const _win = (_lu > _ru) ? local : (_ru > _lu ? remote : (localDel ? local : remote));
+                        result.push(_clone(_win));
                     } else {
-                        // _rev 平局时「删除态优先」：删除是权威的单调变更。v1.1.50 迁移会把 _rev 重置为 1
-                        // （旧下标 id 与新内容哈希 id 不匹配 → _stamp 找不到 prev），被删项(rev1) 会在对端被
-                        // 活动旧副本(rev1) 凭 updatedAt 平局/本端较新反超而复活——「删了下周内容一同步又回来」根因。
-                        // 仅在 _rev 相等时生效：一端编辑会 bump _rev 走上面 rev 比较的正常 LWW，不受影响；
-                        // 两端同删/同活仍走 updatedAt 决胜。
-                        const localDel = !!local._deleted, remoteDel = !!remote._deleted;
-                        if (localDel !== remoteDel) {
-                            result.push(_clone(localDel ? local : remote));
+                        // 双方同删 / 同活：先比较 _rev（避免依赖设备时钟），再用 updatedAt 作平局决胜
+                        const localRev = local._rev || 0;
+                        const remoteRev = remote._rev || 0;
+                        if (localRev > remoteRev) {
+                            result.push(_clone(local));
+                        } else if (remoteRev > localRev) {
+                            result.push(_clone(remote));
                         } else {
                             const localUpdated = local.updatedAt || local.completedAt || local.createdAt || '1970-01-01T00:00:00Z';
                             const remoteUpdated = remote.updatedAt || remote.completedAt || remote.createdAt || '1970-01-01T00:00:00Z';
@@ -17003,6 +17069,10 @@ function applyRemoteData(remoteData) {
     // 每日计划 / 重点客户：独立列表实体，逐条并集合并（按 id；墓碑过滤；无 pending 时按 _rev → updatedAt 决胜）
     state.dailyPlans = unionMerge(state.dailyPlans || [], remoteDailyPlans, 'dailyPlan', tsMapDP);
     state.focusItems = unionMerge(state.focusItems || [], remoteFocusItems, 'focus', tsMapFI);
+    // 归一：远端可能仍传来相对周实体（未升级端 / 旧云数据），统一转绝对周 + 绝对稳定 id，
+    // 与本地派生口径一致，避免重复项与槽位错位（下一步 _planEntitiesToWorkPlan/_mirrorPlanEntities 依赖绝对周）。
+    state.dailyPlans = _normalizePlanEntityWeeks(state.dailyPlans, false);
+    state.focusItems = _normalizePlanEntityWeeks(state.focusItems, true);
     // Gist 拉回的旧结构数据（无 customerId）合并后立即补齐外键（幂等，随下方 saveData 落盘）
     backfillCustomerIds();
 
@@ -17016,8 +17086,15 @@ function applyRemoteData(remoteData) {
     const hasPendingPlan = pendingLocal.some(c => c.entity === 'plan');
     // 派生镜像的 prev 必须用「合并前快照」：state.* 此刻已被第一轮合并替换为云端内容
     const localPE = _workPlanToPlanEntities(state.workPlan, _dpBefore, _fiBefore);
-    const _hasUnsavedPlan = JSON.stringify(localPE.dailyPlans) !== JSON.stringify(_dpBefore)
-        || JSON.stringify(localPE.focusItems) !== JSON.stringify(_fiBefore);
+    // ⚠️ _hasUnsavedPlan 比较必须对「相对/绝对周」格式无关：本地 workPlan（相对槽位）经 _workPlanToPlanEntities
+    // 派生出的实体是绝对周，而本地 dailyPlans 可能仍是相对周（旧数据 / 刚加载尚未归一），二者 week 字段表示不同
+    // 却在 JSON 比较中判为「不一致」→ 误判存在未保存改动 → 丢弃本次云端合并、回退到本地陈旧 workPlan 派生数据，
+    // 导致多端不收敛（实测：一端归档的删除墓碑无法传播到另一端）。先统一归一为绝对周再比，仅真实内容差异（文本/
+    // 客户/删除态）才触发 _hasUnsavedPlan，杜绝格式差异引发的假阳性。
+    const _dpBeforeNorm = _normalizePlanEntityWeeks(_dpBefore || [], false);
+    const _fiBeforeNorm = _normalizePlanEntityWeeks(_fiBefore || [], true);
+    const _hasUnsavedPlan = JSON.stringify(localPE.dailyPlans) !== JSON.stringify(_dpBeforeNorm)
+        || JSON.stringify(localPE.focusItems) !== JSON.stringify(_fiBeforeNorm);
     let mergedDP, mergedFI;
     // ⚠️ 不再用 hasPendingPlan（粗粒度 plan:current 标记）做「留本地」裁决：
     // savePlan 每次保存都记一条 synced:false 的 plan:current，只有推送成功才被 markChangesSynced 标成已同步；
@@ -18077,10 +18154,10 @@ function buildConflictRecords(local, remote) {
     });
     // 每日计划 / 重点客户：逐条字段级冲突（按 id），与 report 同粒度，避免整表二选一丢数据
     records.push.apply(records, _buildItemConflicts(state.dailyPlans, remote.dailyPlans, 'dailyPlan',
-        function (l) { return '每日计划：' + (l.week === 'next' ? '下周' : '本周') + '·' + (PLAN_DAY_LABELS[l.day] || l.day) + (l.text ? '（' + _truncate(l.text, 12) + '）' : '（空）'); },
+        function (l) { return '每日计划：' + (planWeekToSlot(l.week, (state.workPlan || {}).weekStart) === 'nextWeek' ? '下周' : '本周') + '·' + (PLAN_DAY_LABELS[l.day] || l.day) + (l.text ? '（' + _truncate(l.text, 12) + '）' : '（空）'); },
         (DIFF_FIELDS.dailyPlan || []).filter(function (f) { return f !== 'updatedAt'; })));
     records.push.apply(records, _buildItemConflicts(state.focusItems, remote.focusItems, 'focus',
-        function (l) { return '重点客户：' + (l.week === 'next' ? '下周' : '本周') + (l.text ? '（' + _truncate(l.text, 12) + '）' : '（空）'); },
+        function (l) { return '重点客户：' + (planWeekToSlot(l.week, (state.workPlan || {}).weekStart) === 'nextWeek' ? '下周' : '本周') + (l.text ? '（' + _truncate(l.text, 12) + '）' : '（空）'); },
         (DIFF_FIELDS.focus || []).filter(function (f) { return f !== 'updatedAt'; })));
 
     // 看板卡片顺序 / 客户状态筛选：现已改为按元素并集合并（见 applyRemoteData），
