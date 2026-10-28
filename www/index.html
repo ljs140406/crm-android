@@ -6118,8 +6118,10 @@ function loadData() {
             // 作为下方 _mirrorPlanEntities 的 prev 以保留每条 _rev/updatedAt。否则每次启动 dailyPlans 都被
             // 从 workPlan 重建且 prev 为空 → _stamp 找不到 prev → _rev 重置为 1、updatedAt 重置为 now →
             // LWW 平局本端赢，表现为「删除的每日计划项在另一设备拉取时复活 / 编辑有时不回传」。
-            state.dailyPlans = Array.isArray(data.dailyPlans) ? data.dailyPlans : [];
-            state.focusItems = Array.isArray(data.focusItems) ? data.focusItems : [];
+            // ⚠️ 读回即规范化（id 唯一）：历史数据里同一 id 可能有多条（归档/跨周搬移残留），
+            // _indexBy 会静默丢掉重复项 → 该条对合并逻辑完全不可见 → 永远裁决不了。先归并为唯一一条。
+            state.dailyPlans = _normalizePlanEntities(Array.isArray(data.dailyPlans) ? data.dailyPlans : [], false);
+            state.focusItems = _normalizePlanEntities(Array.isArray(data.focusItems) ? data.focusItems : [], true);
             _mirrorPlanEntities();
             state.history = Array.isArray(data.history) ? data.history : [];
             state.reportCustomers = Array.isArray(data.reportCustomers) ? data.reportCustomers : [];
@@ -6190,8 +6192,10 @@ function loadData() {
             // 作为下方 _mirrorPlanEntities 的 prev 以保留每条 _rev/updatedAt。否则每次启动 dailyPlans 都被
             // 从 workPlan 重建且 prev 为空 → _stamp 找不到 prev → _rev 重置为 1、updatedAt 重置为 now →
             // LWW 平局本端赢，表现为「删除的每日计划项在另一设备拉取时复活 / 编辑有时不回传」。
-            state.dailyPlans = Array.isArray(data.dailyPlans) ? data.dailyPlans : [];
-            state.focusItems = Array.isArray(data.focusItems) ? data.focusItems : [];
+            // ⚠️ 读回即规范化（id 唯一）：历史数据里同一 id 可能有多条（归档/跨周搬移残留），
+            // _indexBy 会静默丢掉重复项 → 该条对合并逻辑完全不可见 → 永远裁决不了。先归并为唯一一条。
+            state.dailyPlans = _normalizePlanEntities(Array.isArray(data.dailyPlans) ? data.dailyPlans : [], false);
+            state.focusItems = _normalizePlanEntities(Array.isArray(data.focusItems) ? data.focusItems : [], true);
             _mirrorPlanEntities();
             state.history = Array.isArray(data.history) ? data.history : [];
             state.reportCustomers = Array.isArray(data.reportCustomers) ? data.reportCustomers : [];
@@ -11587,6 +11591,84 @@ function _normalizePlanEntityWeeks(arr, isFocus) {
         return Object.assign({}, it, { week: absWeek, id: newId });
     });
 }
+// ===== 计划实体规范化 + 内容指纹（多端收敛 / 终止乒乓的核心工具）=====
+// 背景：三个互相关联的根因（均已实测复现，不是推测）：
+//  ① 重复 id：归档把「下周」条目搬走时旧槽位仍残留同 id 的存活副本 → 同一端数组里同 id 出现两条。
+//     _indexBy 建 Map 时静默丢掉重复项 → 一半数据对合并逻辑完全不可见 → 永远裁决不了；
+//     重新派生镜像时 prev 取到错误副本 → 内容指纹对不上 → _rev/updatedAt 每轮被 bump。
+//  ② 顺序敏感比较：_hasUnsavedPlan / 变更检测用 JSON.stringify 比数组 → 存储顺序与派生顺序不同
+//     就误判「有未保存改动」→ 丢弃云端合并 → 保留本地陈旧数据 → 永不收敛。
+//  ③ 设备态字段：state.workPlan._deviceId 每轮被写成 DEVICE_ID → 与云端另一端的 id 必然不同
+//     → 整表 JSON 比较恒为真 → 每轮都记一条变更 → 有 pending 就上传 → 云端 ETag 一直变 → 无限乒乓。
+// 对策：实体统一去重（id 唯一）+ 所有比较改用「按 id 的内容指纹」（顺序无关、时间戳噪声无关）。
+// 指纹只覆盖业务内容：id/week/day/text/customer/customerId/completed/starred/src/_deleted。
+function _planEntityContentKey(it) {
+    if (!it) return '';
+    return [it.id || '', it.week || '', it.day || '', (it.text || '').toString(),
+        (it.customer || '').toString(), (it.customerId || '').toString(),
+        it.completed ? '1' : '0', it.starred ? '1' : '0', it.src || '',
+        it._deleted ? '1' : '0'].join('\u0001');
+}
+// 实体数组内容指纹：逐条内容键排序后拼接（顺序无关、时间戳无关）
+function _planEntitiesFingerprint(arr) {
+    return (arr || []).map(_planEntityContentKey).sort().join('\u0002');
+}
+// workPlan 内容指纹：只取内容，不取 _rev/_deviceId/updatedAt/focusAt 等设备态与时间戳字段。
+// （focusAt / weekStartAt / lastArchivedWeekAt 由合并期字段级 LWW 裁决，不应作为「有没有变化」的判据，
+//   否则两端时间戳不同即被误判成有变更 → 再次引发乒乓。）
+function _workPlanContentFingerprint(wp) {
+    if (!wp) return '';
+    const c = { weekStart: wp.weekStart || '', lastArchivedWeek: wp.lastArchivedWeek || '' };
+    ['thisWeek', 'nextWeek'].forEach(function (p) {
+        const w = wp[p] || {};
+        const o = { focus: (w.focus || '').toString(), days: {}, focusList: [] };
+        PLAN_DAYS.forEach(function (d) {
+            o.days[d] = (w[d] || []).map(function (it) {
+                return [it.id || '', (it.text || '').toString(), (it.customer || '').toString(),
+                    (it.customerId || '').toString(), it._deleted ? '1' : '0'].join('\u0001');
+            }).join('\u0002');
+        });
+        o.focusList = (w.focusList || []).map(function (it) {
+            return [it.id || '', (it.text || '').toString(), it.completed ? '1' : '0',
+                it.starred ? '1' : '0', it.src || 'manual', (it.customerId || '').toString(),
+                it._deleted ? '1' : '0'].join('\u0001');
+        }).join('\u0002');
+        c[p] = o;
+    });
+    return JSON.stringify(c);
+}
+// 实体数组按 id 归并为唯一一条并稳定排序 → 两端产出的数组逐字节一致（幂等，终止乒乓的前提）
+function _normalizePlanEntities(arr, isFocus) {
+    const normed = _normalizePlanEntityWeeks(arr || [], isFocus);
+    const m = {}; const ids = [];
+    (normed || []).forEach(function (it) {
+        if (!it) return;
+        const id = it.id;
+        if (!id) return;                    // 无 id 的异常项不进同步层
+        const cur = m[id];
+        if (!cur) { m[id] = it; ids.push(id); return; }
+        const curDel = !!cur._deleted, itDel = !!it._deleted;
+        let win;
+        if (curDel !== itDel) {
+            // 一删一活：默认墓碑胜（归档语义——这条已被归档/删除，旧槽位残留的存活副本只是残影）；
+            // 例外：存活方带 addedAt 且晚于墓碑时间 → 视为「删完又加回来」，存活方胜（铁律#14）。
+            const alive = curDel ? it : cur, tomb = curDel ? cur : it;
+            const tAt = new Date((tomb && (tomb.updatedAt || tomb.createdAt)) || 0).getTime() || 0;
+            const aAt = new Date((alive && (alive.addedAt || alive.updatedAt || alive.createdAt)) || 0).getTime() || 0;
+            win = (alive.addedAt && aAt > tAt) ? alive : tomb;
+        } else {
+            const ct = new Date(cur.updatedAt || 0).getTime() || 0;
+            const itT = new Date(it.updatedAt || 0).getTime() || 0;
+            win = (itT > ct) ? it : cur;
+        }
+        m[id] = win;
+    });
+    // ⚠️ 保持原有顺序，**不要排序**：实体数组的顺序 = 用户在计划页看到的条目顺序，
+    // 排序会让同一天内的条目位置变化（实测：归档测试里「删除第 0 项」命中了另一条，连锁失败）。
+    // 顺序一致性由「顺序无关的内容指纹」保证（_planEntitiesFingerprint 内部会排序比对），
+    // 因此不需要靠物理排序来实现两端一致。
+    return ids.map(function (id) { return m[id]; });
+}
 function _workPlanToPlanEntities(plan, prevDP, prevFI) {
     plan = plan || {};
     const dp = [], fi = [];
@@ -11647,7 +11729,9 @@ function _workPlanToPlanEntities(plan, prevDP, prevFI) {
             fi.push(Object.assign(_f, _stamp(_f.id, _prevFI, _f, _fiKey)));
         });
     });
-    return { dailyPlans: dp, focusItems: fi };
+    // ⚠️ 输出必须去重（id 唯一）：归档/跨周搬移会在旧槽位留下同 id 的存活副本；
+    // 重复 id 会被 _indexBy 静默丢弃（后写覆盖前写）→ 该条对合并逻辑完全不可见 → 永远裁决不了。
+    return { dailyPlans: _normalizePlanEntities(dp, false), focusItems: _normalizePlanEntities(fi, true) };
 }
 function _planEntitiesToWorkPlan(dp, fi, focusPlan, localWP, remoteWP) {
     focusPlan = focusPlan || {};
@@ -16689,6 +16773,41 @@ async function pushToAllBackends(content) {
     }
 }
 
+// 上传用的 workPlan 规范化副本：剔除设备态字段（_rev/_deviceId），保留内容与有意义的 At 时间戳
+// （focusAt / weekStartAt / lastArchivedWeekAt —— 它们由合并期字段级 LWW 裁决，两端最终一致）。
+// 目的：让两端在**内容一致**时产出逐字节相同的 payload → 云端 ETag 稳定 → 终止乒乓。
+function _canonicalWorkPlanForSync(wp) {
+    if (!wp) return { thisWeek: { focus: '' }, nextWeek: { focus: '' } };
+    const out = {
+        weekStart: wp.weekStart || '',
+        weekStartAt: wp.weekStartAt || '',
+        lastArchivedWeek: wp.lastArchivedWeek || '',
+        lastArchivedWeekAt: wp.lastArchivedWeekAt || '',
+        updatedAt: wp.updatedAt || ''
+    };
+    ['thisWeek', 'nextWeek'].forEach(function (p) {
+        const w = wp[p] || {};
+        const o = { focus: (w.focus || '').toString(), focusAt: w.focusAt || '', focusList: [] };
+        PLAN_DAYS.forEach(function (d) {
+            o[d] = (w[d] || []).map(function (it) {
+                return {
+                    id: it.id || '', text: (it.text || '').toString(),
+                    customer: (it.customer || '').toString(), customerId: (it.customerId || '').toString(),
+                    _deleted: !!it._deleted
+                };
+            });
+        });
+        o.focusList = (w.focusList || []).map(function (it) {
+            return {
+                id: it.id || '', text: (it.text || '').toString(), completed: !!it.completed,
+                starred: !!it.starred, src: it.src || 'manual',
+                customerId: (it.customerId || '').toString(), _deleted: !!it._deleted
+            };
+        });
+        out[p] = o;
+    });
+    return out;
+}
 function getSyncPayload() {
     cleanTombstones();
     cleanupChangeLog();
@@ -16744,9 +16863,13 @@ function getSyncPayload() {
         customers: state.customers,
         followups: state.followups,
         todos: state.todos,
-        workPlan: state.workPlan,
-        dailyPlans: state.dailyPlans || [],
-        focusItems: state.focusItems || [],
+        // ⚠️ 计划部分必须输出「规范化」结果：
+        //   · workPlan 剔除设备态字段（_rev/_deviceId）→ 两端在内容一致时产出逐字节相同的 payload
+        //     → 云端 ETag 稳定 → 不再每轮都判「云端有更新」→ 终止无限乒乓。
+        //   · dailyPlans/focusItems 去重（id 唯一）+ 稳定排序 → 同上，且杜绝重复 id 造成的隐形丢数据。
+        workPlan: _canonicalWorkPlanForSync(state.workPlan),
+        dailyPlans: _normalizePlanEntities(state.dailyPlans || [], false),
+        focusItems: _normalizePlanEntities(state.focusItems || [], true),
         history: state.history,
         statuses: state.statuses,
         reportCustomers: state.reportCustomers,
@@ -16964,7 +17087,12 @@ function applyRemoteData(remoteData) {
     if (JSON.stringify(remoteStatuses || []) !== JSON.stringify(state.statuses || [])) {
         changes.push({ id: 'statuses', entity: 'status', type: 'update', name: '状态列表', data: null, prev: null });
     }
-    if (JSON.stringify(remoteWorkPlan) !== JSON.stringify(state.workPlan)) {
+    // ⚠️ 变更检测必须用「内容指纹」而非整表 JSON.stringify：
+    //   workPlan 里含 _deviceId / _rev / updatedAt 等设备态字段，而 state.workPlan._deviceId 每轮都被
+    //   改写成本机 DEVICE_ID（见下方 _planEntitiesToWorkPlan 之后），与云端另一端的值必然不同
+    //   → 整表比较恒为真 → 每轮都记一条「修改计划「工作计划」」→ 有 pending 就上传 → 云端 ETag 一直变
+    //   → 两端无限乒乓（实测操作日志连续 10 条「修改计划「工作计划」」）。指纹只取业务内容，跨端可比。
+    if (_workPlanContentFingerprint(remoteWorkPlan) !== _workPlanContentFingerprint(state.workPlan)) {
         changes.push({ id: 'workPlan', entity: 'plan', type: 'update', name: '工作计划', data: null, prev: null });
     }
     // 近期汇报客户：差异也要计入 changes，否则 doAutoSync 不会 refreshCurrentPage，
@@ -16973,10 +17101,10 @@ function applyRemoteData(remoteData) {
         changes.push({ id: 'reportCustomers', entity: 'report', type: 'update', name: '近期汇报客户', data: null, prev: null });
     }
     // 每日计划 / 重点客户：差异计入 changes（同汇报客户，确保拉取后计划页重绘）
-    if (JSON.stringify(remoteData.dailyPlans || []) !== JSON.stringify(state.dailyPlans || [])) {
+    if (_planEntitiesFingerprint(remoteData.dailyPlans || []) !== _planEntitiesFingerprint(state.dailyPlans || [])) {
         changes.push({ id: 'dailyPlans', entity: 'dailyPlan', type: 'update', name: '每日计划', data: null, prev: null });
     }
-    if (JSON.stringify(remoteData.focusItems || []) !== JSON.stringify(state.focusItems || [])) {
+    if (_planEntitiesFingerprint(remoteData.focusItems || []) !== _planEntitiesFingerprint(state.focusItems || [])) {
         changes.push({ id: 'focusItems', entity: 'focus', type: 'update', name: '重点客户', data: null, prev: null });
     }
 
@@ -16993,35 +17121,11 @@ function applyRemoteData(remoteData) {
     //   3. 仅远端有 → 添加远端（另一端新增并已同步）
     //   4. 双方都有 → 若本地有 pending 变更(add/update)则用本地版本，否则用远端版本
     //   5. 本地有 pending delete → 跳过（等 push 时通过墓碑传播删除）
-    function unionMerge(localArr, remoteArr, entityName, tsMap, pruneOrphans) {
-        // 「孤儿」判定所需的上次成功同步时刻（仅计划项 pruneOrphans 时启用）
-        const _lastSyncTs = (state._meta && state._meta.lastSyncedAt)
-            ? (new Date(state._meta.lastSyncedAt).getTime() || 0) : 0;
-        // 本地「新鲜」= 上次成功同步之后仍被改过 → 属于尚未 push 的本地新增/修改，必须保留
-        function _isFreshLocal(e) {
-            if (!_lastSyncTs) return true;   // 从未成功同步过 → 保守保留，避免误删
-            const t = new Date((e && (e.updatedAt || e.completedAt || e.createdAt)) || 0).getTime() || 0;
-            return t > _lastSyncTs;
-        }
-        // 「远端权威覆盖了哪些周」+「远端各周的最新 updatedAt」：计划项 pruneOrphans 时用于判定本机孤儿。
-        // 同时记录每州最新时间戳，使孤儿判定改用「相对新旧」而非依赖本机 lastSyncedAt——
-        // 旧实现里一旦 lastSyncedAt 为空/缺失，_isFreshLocal 永远返回 true，清理形同虚设，
-        // 这正是「改了多次仍不收敛」的根因级死锁（手机端很可能从未成功写过 lastSyncedAt）。
-        const _remoteWeeks = pruneOrphans ? (function () {
-            const s = Object.create(null);
-            const m = Object.create(null);
-            const _ws0 = (state.workPlan && state.workPlan.weekStart) || '';
-            (remoteArr || []).forEach(function (r) {
-                if (!r) return;
-                const wk = String(r.week);
-                s[wk] = true;
-                try { const aw = planPeriodToAbsWeek(r.week, _ws0); if (aw) s[aw] = true; } catch (e) {}
-                const t = new Date((r && (r.updatedAt || r.completedAt || r.createdAt)) || 0).getTime() || 0;
-                if (t > (m[wk] || 0)) m[wk] = t;
-                try { const aw = planPeriodToAbsWeek(r.week, _ws0); if (aw && t > (m[aw] || 0)) m[aw] = t; } catch (e2) {}
-            });
-            return { weeks: s, max: m };
-        })() : null;
+    function unionMerge(localArr, remoteArr, entityName, tsMap) {
+        // ⚠️ 删除语义：只由「墓碑」驱动（远端墓碑 → 删除；本地独有 → 保留），**绝不按推测物理丢弃本地条目**。
+        // 历史教训：v1.1.67 曾加入「孤儿清理」（本地独有 + 时间较旧 + 该周被远端覆盖 → 丢弃），
+        // 结果把电脑端合法条目当游离副本物理删除（周五「华为云活动」云端与本地双双消失、且无墓碑 → 不可恢复）。
+        // 计划项 id 历史上会因归档/跨周搬移而分裂，物理丢弃等于丢用户数据，绝不能再做。
         const lMap = _indexBy(localArr, 'id');
         const rMap = _indexBy(remoteArr, 'id');
         const allIds = new Set([...Object.keys(lMap), ...Object.keys(rMap)]);
@@ -17042,32 +17146,11 @@ function applyRemoteData(remoteData) {
             if (pending && pending.type === 'delete') return; // pending delete → 跳过
 
             if (!remote && local) {
-                // 仅本地有：默认保留（可能因另一端 sync bug 丢失，或本地新增尚未 push）。
-                // ⚠️ 计划项（派生镜像，pruneOrphans=true）例外：若该条在「上次成功同步之后」从未被改动，
-                // 说明权威云端已经不存在它——要么被対端删除，要么因「相对周→绝对周」转换时两端 weekStart
-                // 不一致而被分到别的槽/id 成了孤儿。继续保留会让本机永远多出一堆対端没有的条目、
-                // 两端永不收敛（这正是「电脑端改了计划，手机端仍是另一套」久治不愈的原因）。此时丢弃，
-                // 向云端（已确认=电脑端）收敛；真正的新增（同步后改过）由 _isFreshLocal 保住。
-                if (pruneOrphans) {
-                    // 孤儿判定（不再依赖 lastSyncedAt，改用「相对新旧 + 待同步改动」双判据，彻底摆脱
-                    // 「从未成功同步→_isFreshLocal 永远返回 true→永不清理」的死锁，这是「改了多次仍不收敛」的根因）：
-                    // ① 若本项有未同步的本地改动（pending add/update）→ 是用户在手机端刚新增/编辑的真实内容，
-                    //    保留（本次同步后由 push 上传），绝误删；
-                    // ② 否则，若本项所在周已被远端权威覆盖，且本项 updatedAt 严格早于远端同周最新数据（或无时间戳）
-                    //    → 判定为历史游离副本（两端 weekStart 不一致导致同内容被拆到不同 id），丢弃向云端（=电脑端）收敛。
-                    const hasPending = pending && (pending.type === 'add' || pending.type === 'update');
-                    if (!hasPending) {
-                        const _ws0 = (state.workPlan && state.workPlan.weekStart) || '';
-                        let _lw = String((local && local.week != null) ? local.week : '');
-                        try { const _abs = planPeriodToAbsWeek(local.week, _ws0); if (_abs) _lw = _abs; } catch (e2) {}
-                        const _covered = _remoteWeeks && (_remoteWeeks.weeks[_lw] || _remoteWeeks.weeks[String(local && local.week)]);
-                        if (_covered) {
-                            const _remoteMax = (_remoteWeeks && _remoteWeeks.max && (_remoteWeeks.max[_lw] || _remoteWeeks.max[String(local && local.week)])) || 0;
-                            const _lu = new Date((local && (local.updatedAt || local.completedAt || local.createdAt)) || 0).getTime() || 0;
-                            if (_remoteMax && _lu < _remoteMax) return;
-                        }
-                    }
-                }
+                // 仅本地有：保留。
+                // ⚠️ 绝不能按「时间较旧 / 该周已被远端覆盖」之类的推测物理丢弃本地条目：
+                //   计划项 id 历史上会因归档/跨周搬移而分裂成两套，推测性丢弃等于删用户数据
+                //   （v1.1.67 的「孤儿清理」就是这么把电脑端周五「华为云活动」删掉的，且无墓碑 → 不可恢复）。
+                //   删除只由墓碑驱动（见上方 tsMap 分支），这是数据安全的底线。
                 result.push(_clone(local));
             } else if (remote && !local) {
                 // 仅远端有：添加
@@ -17079,15 +17162,39 @@ function applyRemoteData(remoteData) {
                     result.push(_clone(local));
                 } else {
                     const localDel = !!local._deleted, remoteDel = !!remote._deleted;
+                    // 空文本占位项 vs 有内容项：两侧都存活时，**有内容的一方无条件胜出**。
+                    // 理由：计划模块里「删除/清空」的正确表达是软删除（_deleted:true），不是空文本；
+                    // 存活的空文本 = 「新建了但还没填」的占位项（实测手机端把「进行一次方案汇报。」抹成空并同步回来）。
+                    // 不能按 updatedAt 判：派生镜像会反复 bump 时间戳，手机端的空占位时间戳反而更新 → 会盖掉真实内容。
+                    if (!localDel && !remoteDel) {
+                        const lt = (local.text || '').toString(), rt = (remote.text || '').toString();
+                        if (lt !== rt && (!lt || !rt)) {
+                            result.push(_clone(lt ? local : remote));
+                            return;
+                        }
+                    }
                     if (localDel !== remoteDel) {
-                        // 一删一活：纯粹按 updatedAt 时间戳裁决（谁新谁赢），rev 不参与——
-                        // 既保证「归档产生的删除（updatedAt 被 _mirrorPlanEntities 抬升）能跨端传播」，
-                        // 也允许「删除后于对端重新编辑（对端活跃副本更新）被同步复活」。
-                        // 时间戳相等时确定性优先「删除态」（归档/清空是较新权威动作），且两端对称收敛，杜绝永久发散。
-                        const _lu = new Date(local.updatedAt || 0).getTime() || 0;
-                        const _ru = new Date(remote.updatedAt || 0).getTime() || 0;
-                        const _win = (_lu > _ru) ? local : (_ru > _lu ? remote : (localDel ? local : remote));
-                        result.push(_clone(_win));
+                        // 一删一活。
+                        // ⚠️ 计划类实体（每日计划 / 重点）改为「墓碑优先」：删除/归档是权威动作，必须能跨端传播。
+                        // 旧实现按 updatedAt 让存活方胜（理由是「对端重新编辑可复活」）——但派生镜像每次重新派生
+                        // 都会 bump 时间戳，存活方时间戳几乎总是更大 → 删除永远传播不过去 →
+                        // 对端已归档的条目在另一端反复复活 → 两端永不收敛（实测：手机端周一/周二/周三一直挂着
+                        // 电脑端早已归档的「下周计划」）。改为墓碑优先后删除能落地，且两端对称收敛。
+                        // 例外（铁律#14）：存活方带 addedAt 且晚于墓碑时间 → 视为「删完又加回来」，存活方胜。
+                        if (entityName === 'dailyPlan' || entityName === 'focus') {
+                            const _alive = localDel ? remote : local;
+                            const _tomb = localDel ? local : remote;
+                            const _tAt = new Date((_tomb && (_tomb.updatedAt || _tomb.createdAt)) || 0).getTime() || 0;
+                            const _aAt = new Date((_alive && (_alive.addedAt || _alive.updatedAt || _alive.createdAt)) || 0).getTime() || 0;
+                            result.push(_clone((_alive.addedAt && _aAt > _tAt) ? _alive : _tomb));
+                        } else {
+                            // 其它实体类型（客户/跟进/待办/历史）维持原语义：按 updatedAt 裁决，
+                            // 时间戳相等时确定性优先删除态。
+                            const _lu = new Date(local.updatedAt || 0).getTime() || 0;
+                            const _ru = new Date(remote.updatedAt || 0).getTime() || 0;
+                            const _win = (_lu > _ru) ? local : (_ru > _lu ? remote : (localDel ? local : remote));
+                            result.push(_clone(_win));
+                        }
                     } else {
                         // 双方同删 / 同活：先比较 _rev（避免依赖设备时钟），再用 updatedAt 作平局决胜
                         const localRev = local._rev || 0;
@@ -17129,12 +17236,12 @@ function applyRemoteData(remoteData) {
     // 每日计划 / 重点客户：独立列表实体，逐条并集合并（按 id；墓碑过滤；无 pending 时按 _rev → updatedAt 决胜）
     // 第 5 参 pruneOrphans=true：计划项是 workPlan 的派生镜像，权威以云端为准，
     // 「本地独有且自上次同步后从未改动」的条目一律视为孤儿丢弃（详见 unionMerge 注释）。
-    state.dailyPlans = unionMerge(state.dailyPlans || [], remoteDailyPlans, 'dailyPlan', tsMapDP, true);
-    state.focusItems = unionMerge(state.focusItems || [], remoteFocusItems, 'focus', tsMapFI, true);
+    state.dailyPlans = unionMerge(state.dailyPlans || [], remoteDailyPlans, 'dailyPlan', tsMapDP);
+    state.focusItems = unionMerge(state.focusItems || [], remoteFocusItems, 'focus', tsMapFI);
     // 归一：远端可能仍传来相对周实体（未升级端 / 旧云数据），统一转绝对周 + 绝对稳定 id，
     // 与本地派生口径一致，避免重复项与槽位错位（下一步 _planEntitiesToWorkPlan/_mirrorPlanEntities 依赖绝对周）。
-    state.dailyPlans = _normalizePlanEntityWeeks(state.dailyPlans, false);
-    state.focusItems = _normalizePlanEntityWeeks(state.focusItems, true);
+    state.dailyPlans = _normalizePlanEntities(state.dailyPlans, false);
+    state.focusItems = _normalizePlanEntities(state.focusItems, true);
     // Gist 拉回的旧结构数据（无 customerId）合并后立即补齐外键（幂等，随下方 saveData 落盘）
     backfillCustomerIds();
 
@@ -17148,15 +17255,16 @@ function applyRemoteData(remoteData) {
     const hasPendingPlan = pendingLocal.some(c => c.entity === 'plan');
     // 派生镜像的 prev 必须用「合并前快照」：state.* 此刻已被第一轮合并替换为云端内容
     const localPE = _workPlanToPlanEntities(state.workPlan, _dpBefore, _fiBefore);
-    // ⚠️ _hasUnsavedPlan 比较必须对「相对/绝对周」格式无关：本地 workPlan（相对槽位）经 _workPlanToPlanEntities
-    // 派生出的实体是绝对周，而本地 dailyPlans 可能仍是相对周（旧数据 / 刚加载尚未归一），二者 week 字段表示不同
-    // 却在 JSON 比较中判为「不一致」→ 误判存在未保存改动 → 丢弃本次云端合并、回退到本地陈旧 workPlan 派生数据，
-    // 导致多端不收敛（实测：一端归档的删除墓碑无法传播到另一端）。先统一归一为绝对周再比，仅真实内容差异（文本/
-    // 客户/删除态）才触发 _hasUnsavedPlan，杜绝格式差异引发的假阳性。
-    const _dpBeforeNorm = _normalizePlanEntityWeeks(_dpBefore || [], false);
-    const _fiBeforeNorm = _normalizePlanEntityWeeks(_fiBefore || [], true);
-    const _hasUnsavedPlan = JSON.stringify(localPE.dailyPlans) !== JSON.stringify(_dpBeforeNorm)
-        || JSON.stringify(localPE.focusItems) !== JSON.stringify(_fiBeforeNorm);
+    // ⚠️ _hasUnsavedPlan 必须用「内容指纹」比较，绝不能用 JSON.stringify 比数组：
+    //   ① 顺序敏感：存储态 dailyPlans 的顺序（按 id 排序）与从 workPlan 派生的顺序（按天/按槽位）不同
+    //      → JSON.stringify 必然不等 → 误判「有未保存改动」→ **丢弃本次云端合并** → 回退本地陈旧 workPlan
+    //      → 拉取端永远看不到对端的新内容（多端永不收敛的直接原因）。
+    //   ② 时间戳噪声：_rev/updatedAt 在重新派生时会被刷新，内容未变也会判为「不等」。
+    //   指纹按 id 排序、只取业务内容（文本/客户/天/周/删除态/完成态），两端同内容必同指纹。
+    const _dpBeforeNorm = _normalizePlanEntities(_dpBefore || [], false);
+    const _fiBeforeNorm = _normalizePlanEntities(_fiBefore || [], true);
+    const _hasUnsavedPlan = _planEntitiesFingerprint(localPE.dailyPlans) !== _planEntitiesFingerprint(_dpBeforeNorm)
+        || _planEntitiesFingerprint(localPE.focusItems) !== _planEntitiesFingerprint(_fiBeforeNorm);
     let mergedDP, mergedFI;
     // ⚠️ 不再用 hasPendingPlan（粗粒度 plan:current 标记）做「留本地」裁决：
     // savePlan 每次保存都记一条 synced:false 的 plan:current，只有推送成功才被 markChangesSynced 标成已同步；
