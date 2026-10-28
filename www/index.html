@@ -11576,7 +11576,14 @@ function _normalizePlanEntityWeeks(arr, isFocus) {
             if (/^fc_(this|next)(_\d+)?$/.test(it.id || '')) newId = _focusStableId(absWeek, it.text, it.completed, it.starred);
             return Object.assign({}, it, { week: absWeek, id: newId });
         }
-        const newId = _planItemStableId(absWeek, it.day, it.text, it.customer, it.customerId, _ws);
+        // ⚠️ 绝不把派生出的绝对周烘进 id（唯一例外：旧版「下标式 id」必须迁移，否则邻居前移会撞 id）。
+        // 原因（多端发散根因之一）：归一化锚点 _ws 取的是「本设备自己的 weekStart」，而 weekStart 每周归档会推进；
+        // 两端若在 weekStart 不一致的时刻做这次一次性转换，会算出不同的 absWeek，再把 absWeek 写进 id，
+        // 就把同一个逻辑条目永久拆成两条互不相干的 id → unionMerge 按 id 匹配不上 → 永不合并、也无法修复。
+        let newId = it.id;
+        if (_isLegacyPlanId(it.id)) {
+            newId = _planItemStableId(absWeek, it.day, it.text, it.customer, it.customerId, _ws);
+        }
         return Object.assign({}, it, { week: absWeek, id: newId });
     });
 }
@@ -16986,7 +16993,27 @@ function applyRemoteData(remoteData) {
     //   3. 仅远端有 → 添加远端（另一端新增并已同步）
     //   4. 双方都有 → 若本地有 pending 变更(add/update)则用本地版本，否则用远端版本
     //   5. 本地有 pending delete → 跳过（等 push 时通过墓碑传播删除）
-    function unionMerge(localArr, remoteArr, entityName, tsMap) {
+    function unionMerge(localArr, remoteArr, entityName, tsMap, pruneOrphans) {
+        // 「孤儿」判定所需的上次成功同步时刻（仅计划项 pruneOrphans 时启用）
+        const _lastSyncTs = (state._meta && state._meta.lastSyncedAt)
+            ? (new Date(state._meta.lastSyncedAt).getTime() || 0) : 0;
+        // 本地「新鲜」= 上次成功同步之后仍被改过 → 属于尚未 push 的本地新增/修改，必须保留
+        function _isFreshLocal(e) {
+            if (!_lastSyncTs) return true;   // 从未成功同步过 → 保守保留，避免误删
+            const t = new Date((e && (e.updatedAt || e.completedAt || e.createdAt)) || 0).getTime() || 0;
+            return t > _lastSyncTs;
+        }
+        // 「远端权威覆盖了哪些周」：计划项 pruneOrphans 时用于判定本机孤儿
+        const _remoteWeeks = pruneOrphans ? (function () {
+            const s = Object.create(null);
+            const _ws0 = (state.workPlan && state.workPlan.weekStart) || '';
+            (remoteArr || []).forEach(function (r) {
+                if (!r) return;
+                s[String(r.week)] = true;
+                try { s[planPeriodToAbsWeek(r.week, _ws0)] = true; } catch (e) {}
+            });
+            return s;
+        })() : null;
         const lMap = _indexBy(localArr, 'id');
         const rMap = _indexBy(remoteArr, 'id');
         const allIds = new Set([...Object.keys(lMap), ...Object.keys(rMap)]);
@@ -17007,7 +17034,22 @@ function applyRemoteData(remoteData) {
             if (pending && pending.type === 'delete') return; // pending delete → 跳过
 
             if (!remote && local) {
-                // 仅本地有：保留（可能因另一端 sync bug 丢失，或本地新增尚未 push）
+                // 仅本地有：默认保留（可能因另一端 sync bug 丢失，或本地新增尚未 push）。
+                // ⚠️ 计划项（派生镜像，pruneOrphans=true）例外：若该条在「上次成功同步之后」从未被改动，
+                // 说明权威云端已经不存在它——要么被対端删除，要么因「相对周→绝对周」转换时两端 weekStart
+                // 不一致而被分到别的槽/id 成了孤儿。继续保留会让本机永远多出一堆対端没有的条目、
+                // 两端永不收敛（这正是「电脑端改了计划，手机端仍是另一套」久治不愈的原因）。此时丢弃，
+                // 向云端（已确认=电脑端）收敛；真正的新增（同步后改过）由 _isFreshLocal 保住。
+                if (pruneOrphans) {
+                    // 双条件同时成立才判为「孤儿」，避免过度删除：
+                    // ① 自上次成功同步后从未改动 → 不是本机待 push 的新增/修改；
+                    // ② 该条所在周已被远端权威覆盖 → 云端有这一周的权威数据，本机这条只是游离副本
+                    //    （典型成因：相对周→绝对周转换时两端 weekStart 不一致，同内容被拆到不同槽/id）。
+                    const _ws0 = (state.workPlan && state.workPlan.weekStart) || '';
+                    let _lw = String((local && local.week != null) ? local.week : '');
+                    try { const _abs = planPeriodToAbsWeek(local.week, _ws0); if (_abs) _lw = _abs; } catch (e2) {}
+                    if (!_isFreshLocal(local) && !!_remoteWeeks[_lw]) return;
+                }
                 result.push(_clone(local));
             } else if (remote && !local) {
                 // 仅远端有：添加
@@ -17067,8 +17109,10 @@ function applyRemoteData(remoteData) {
     const _dpBefore = state.dailyPlans || [];
     const _fiBefore = state.focusItems || [];
     // 每日计划 / 重点客户：独立列表实体，逐条并集合并（按 id；墓碑过滤；无 pending 时按 _rev → updatedAt 决胜）
-    state.dailyPlans = unionMerge(state.dailyPlans || [], remoteDailyPlans, 'dailyPlan', tsMapDP);
-    state.focusItems = unionMerge(state.focusItems || [], remoteFocusItems, 'focus', tsMapFI);
+    // 第 5 参 pruneOrphans=true：计划项是 workPlan 的派生镜像，权威以云端为准，
+    // 「本地独有且自上次同步后从未改动」的条目一律视为孤儿丢弃（详见 unionMerge 注释）。
+    state.dailyPlans = unionMerge(state.dailyPlans || [], remoteDailyPlans, 'dailyPlan', tsMapDP, true);
+    state.focusItems = unionMerge(state.focusItems || [], remoteFocusItems, 'focus', tsMapFI, true);
     // 归一：远端可能仍传来相对周实体（未升级端 / 旧云数据），统一转绝对周 + 绝对稳定 id，
     // 与本地派生口径一致，避免重复项与槽位错位（下一步 _planEntitiesToWorkPlan/_mirrorPlanEntities 依赖绝对周）。
     state.dailyPlans = _normalizePlanEntityWeeks(state.dailyPlans, false);
