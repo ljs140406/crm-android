@@ -17003,16 +17003,24 @@ function applyRemoteData(remoteData) {
             const t = new Date((e && (e.updatedAt || e.completedAt || e.createdAt)) || 0).getTime() || 0;
             return t > _lastSyncTs;
         }
-        // 「远端权威覆盖了哪些周」：计划项 pruneOrphans 时用于判定本机孤儿
+        // 「远端权威覆盖了哪些周」+「远端各周的最新 updatedAt」：计划项 pruneOrphans 时用于判定本机孤儿。
+        // 同时记录每州最新时间戳，使孤儿判定改用「相对新旧」而非依赖本机 lastSyncedAt——
+        // 旧实现里一旦 lastSyncedAt 为空/缺失，_isFreshLocal 永远返回 true，清理形同虚设，
+        // 这正是「改了多次仍不收敛」的根因级死锁（手机端很可能从未成功写过 lastSyncedAt）。
         const _remoteWeeks = pruneOrphans ? (function () {
             const s = Object.create(null);
+            const m = Object.create(null);
             const _ws0 = (state.workPlan && state.workPlan.weekStart) || '';
             (remoteArr || []).forEach(function (r) {
                 if (!r) return;
-                s[String(r.week)] = true;
-                try { s[planPeriodToAbsWeek(r.week, _ws0)] = true; } catch (e) {}
+                const wk = String(r.week);
+                s[wk] = true;
+                try { const aw = planPeriodToAbsWeek(r.week, _ws0); if (aw) s[aw] = true; } catch (e) {}
+                const t = new Date((r && (r.updatedAt || r.completedAt || r.createdAt)) || 0).getTime() || 0;
+                if (t > (m[wk] || 0)) m[wk] = t;
+                try { const aw = planPeriodToAbsWeek(r.week, _ws0); if (aw && t > (m[aw] || 0)) m[aw] = t; } catch (e2) {}
             });
-            return s;
+            return { weeks: s, max: m };
         })() : null;
         const lMap = _indexBy(localArr, 'id');
         const rMap = _indexBy(remoteArr, 'id');
@@ -17041,14 +17049,24 @@ function applyRemoteData(remoteData) {
                 // 两端永不收敛（这正是「电脑端改了计划，手机端仍是另一套」久治不愈的原因）。此时丢弃，
                 // 向云端（已确认=电脑端）收敛；真正的新增（同步后改过）由 _isFreshLocal 保住。
                 if (pruneOrphans) {
-                    // 双条件同时成立才判为「孤儿」，避免过度删除：
-                    // ① 自上次成功同步后从未改动 → 不是本机待 push 的新增/修改；
-                    // ② 该条所在周已被远端权威覆盖 → 云端有这一周的权威数据，本机这条只是游离副本
-                    //    （典型成因：相对周→绝对周转换时两端 weekStart 不一致，同内容被拆到不同槽/id）。
-                    const _ws0 = (state.workPlan && state.workPlan.weekStart) || '';
-                    let _lw = String((local && local.week != null) ? local.week : '');
-                    try { const _abs = planPeriodToAbsWeek(local.week, _ws0); if (_abs) _lw = _abs; } catch (e2) {}
-                    if (!_isFreshLocal(local) && !!_remoteWeeks[_lw]) return;
+                    // 孤儿判定（不再依赖 lastSyncedAt，改用「相对新旧 + 待同步改动」双判据，彻底摆脱
+                    // 「从未成功同步→_isFreshLocal 永远返回 true→永不清理」的死锁，这是「改了多次仍不收敛」的根因）：
+                    // ① 若本项有未同步的本地改动（pending add/update）→ 是用户在手机端刚新增/编辑的真实内容，
+                    //    保留（本次同步后由 push 上传），绝误删；
+                    // ② 否则，若本项所在周已被远端权威覆盖，且本项 updatedAt 严格早于远端同周最新数据（或无时间戳）
+                    //    → 判定为历史游离副本（两端 weekStart 不一致导致同内容被拆到不同 id），丢弃向云端（=电脑端）收敛。
+                    const hasPending = pending && (pending.type === 'add' || pending.type === 'update');
+                    if (!hasPending) {
+                        const _ws0 = (state.workPlan && state.workPlan.weekStart) || '';
+                        let _lw = String((local && local.week != null) ? local.week : '');
+                        try { const _abs = planPeriodToAbsWeek(local.week, _ws0); if (_abs) _lw = _abs; } catch (e2) {}
+                        const _covered = _remoteWeeks && (_remoteWeeks.weeks[_lw] || _remoteWeeks.weeks[String(local && local.week)]);
+                        if (_covered) {
+                            const _remoteMax = (_remoteWeeks && _remoteWeeks.max && (_remoteWeeks.max[_lw] || _remoteWeeks.max[String(local && local.week)])) || 0;
+                            const _lu = new Date((local && (local.updatedAt || local.completedAt || local.createdAt)) || 0).getTime() || 0;
+                            if (_remoteMax && _lu < _remoteMax) return;
+                        }
+                    }
                 }
                 result.push(_clone(local));
             } else if (remote && !local) {
