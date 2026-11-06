@@ -3776,6 +3776,30 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
 .fu-pref-del { flex: 0 0 auto; background: none; border: none; color: #EF4444; font-size: 13px; cursor: pointer; padding: 4px 6px; }
 .fu-pref-add { display: flex; gap: 8px; margin-top: 8px; }
 .fu-pref-add input { flex: 1 1 auto; min-width: 0; }
+/* 标签管理：多行标签之间 / 列表与新建之间补细分隔，避免所有内容糊在一片白底上 */
+#todoTagManageList .fu-pref-row { padding: 9px 0; }
+#todoTagManageList .fu-pref-row + .fu-pref-row { border-top: 1px solid var(--border); }
+#todoTagManageModal .fu-pref-add { margin-top: 10px; padding-top: 12px; border-top: 1px dashed var(--border); }
+
+/* 桌面端全局更新浮条：固定在窗口右下角，与所在页面/弹窗无关，下载进度始终可见 */
+.upd-global { position: fixed; right: 18px; bottom: 18px; z-index: 3000; width: 340px;
+    max-width: calc(100vw - 36px); display: none; align-items: flex-start; gap: 12px;
+    padding: 12px 14px; background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow-lg); }
+.upd-global.show { display: flex; }
+.upd-global-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--primary); flex: 0 0 auto; margin-top: 5px; }
+.upd-global.ready .upd-global-dot { background: var(--success); }
+.upd-global.error .upd-global-dot { background: var(--danger); }
+.upd-global-main { flex: 1 1 auto; min-width: 0; }
+.upd-global-title { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.4; word-break: break-all; }
+.upd-global-sub { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+.upd-global-track { height: 6px; border-radius: 999px; background: var(--gray-100); overflow: hidden; margin-top: 9px; }
+.upd-global-fill { height: 100%; width: 0%; border-radius: 999px; background: var(--primary); transition: width .25s ease; }
+.upd-global-actions { display: flex; flex-direction: column; gap: 6px; flex: 0 0 auto; align-items: flex-end; }
+.upd-global-close { background: none; border: none; color: var(--text-secondary); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px; }
+@media (max-width: 768px) {
+    .upd-global { left: 12px; right: 12px; bottom: 12px; width: auto; max-width: none; }
+}
 /* 超期预警参与状态（多选） */
 .fu-pref-status-opt { display: flex; align-items: center; gap: 6px; padding: 5px 0; font-size: 13px; cursor: pointer; }
 .fu-pref-status-opt input { flex: 0 0 auto; }
@@ -5024,16 +5048,19 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                 <button class="modal-close" onclick="window._crm.closeTodoTagManage()">&times;</button>
             </div>
             <div class="modal-body">
-                <div class="form-group">
-                    <label>待办标签（支持新建、改名、删除、合并）</label>
-                    <div id="todoTagManageList"></div>
-                    <div class="fu-pref-add">
-                        <input type="text" id="todoTagNewName" maxlength="24" placeholder="新标签名（最多 24 字）" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-                        <button class="btn btn-sm btn-primary" onclick="window._crm.addTodoTagByName()">添加</button>
+                <!-- 两个功能模块各包一层项目既有的 usage-card（浅灰底+边框+圆角），边界清晰，不另造样式体系 -->
+                <div class="usage-card" style="margin-bottom:14px;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label>待办标签（支持新建、改名、删除、合并）</label>
+                        <div id="todoTagManageList"></div>
+                        <div class="fu-pref-add">
+                            <input type="text" id="todoTagNewName" maxlength="24" placeholder="新标签名（最多 24 字）" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                            <button class="btn btn-sm btn-primary" onclick="window._crm.addTodoTagByName()">添加</button>
+                        </div>
+                        <div style="color:var(--text-secondary);font-size:12px;margin-top:4px;">重命名或删除会同步更新所有关联待办，待办本身保留。</div>
                     </div>
-                    <div style="color:var(--text-secondary);font-size:12px;margin-top:4px;">重命名或删除会同步更新所有关联待办，待办本身保留。</div>
                 </div>
-                <div class="form-group" id="todoTagMergeBox">
+                <div class="usage-card form-group" id="todoTagMergeBox" style="margin-bottom:0;">
                     <label>合并标签</label>
                     <div class="fu-pref-row">
                         <select id="todoTagMergeFrom" style="flex:1 1 auto;min-width:0;"></select>
@@ -20506,7 +20533,7 @@ function init() {
     // 手机端「一键记跟进」FAB：懒创建元素（显隐由 navigateTo / CSS 媒体查询控制）
     try { updateQuickFuFab(); } catch (e) {}
     // 桌面端：初始化「应用更新」下载框（仅 window.electronAPI.updater 存在时生效，手机/网页端自动跳过）
-    try { setupUpdaterUI(); } catch (e) {}
+    try { setupUpdaterUI(); } catch (e) { console.error('[updater] 初始化失败', e); }
     // 恢复桌面端侧边栏折叠状态（仅桌面媒体查询生效，手机端无影响）
     try {
         if (CRMStore.getItem('crm_sidebar_collapsed') === '1') {
@@ -21040,6 +21067,13 @@ function closeChangelog() {
 }
 
 // ---------- 桌面端自动更新进度框（仅桌面端 window.electronAPI.updater 存在时生效）----------
+// ---------- 桌面端自动更新进度（仅桌面端 window.electronAPI.updater 存在时生效）----------
+// v1.1.79 根治「下载进度看不到」：
+//   旧实现的常驻状态行藏在 syncModal（设置弹窗，默认隐藏）里，用户根本看不到；
+//   而能自动弹出的 updateModal 只靠三个一次性 IPC 事件，事件一旦丢失就永远不显示；
+//   getState() 又只在页面加载时拉一次，那时主进程还没开始检查（1.5s 后），拉到的是 idle。
+//   现在：① 新增与页面/弹窗完全无关的全局浮条，任何界面都能看到；
+//         ② 每秒主动拉一次主进程权威状态快照，不依赖任何事件推送是否送达。
 function setupUpdaterUI() {
     if (!(window.electronAPI && window.electronAPI.updater)) return;
     var u = window.electronAPI.updater;
@@ -21052,29 +21086,50 @@ function setupUpdaterUI() {
     var laterBtn = document.getElementById('updateLaterBtn');
     var closeBtn = document.getElementById('updateCloseBtn');
     var updateRow = document.getElementById('appUpdateRow');
-    // 常驻状态行（下载进度始终可见，不依赖一次性弹框）
     var statusWrap = document.getElementById('appUpdateStatusWrap');
     var statusText = document.getElementById('appUpdateStatus');
     var statusInstallBtn = document.getElementById('appUpdateInstallBtn');
+    var hud = document.getElementById('globalUpdateBar');
+    // ⚠️ 本页所有弹窗 markup 都落在 #syncModal（.modal-overlay）容器内，body 末尾未闭合，
+    //    HTML 解析器会把末尾的普通 div 一并塞进去；父级 opacity:0 / visibility:hidden /
+    //    pointer-events:none 会让浮条在实机上完全不可见（jsdom 只看 class 发现不了）。
+    //    运行时重挂到 body，确保浮条与任何页面/弹窗容器彻底解耦。
+    if (hud && hud.parentElement !== document.body) document.body.appendChild(hud);
+    var hudTitle = document.getElementById('gubTitle');
+    var hudSub = document.getElementById('gubSub');
+    var hudTrack = document.getElementById('gubTrack');
+    var hudBar = document.getElementById('gubBar');
+    var hudInstall = document.getElementById('gubInstall');
+    var hudClose = document.getElementById('gubClose');
     if (updateRow) updateRow.style.display = '';
+
+    var lastVersion = '';
+    var lastStatus = '';
+    var dismissedFor = '';
+
     function show() { if (modal) modal.classList.add('show'); }
     function hide() { if (modal) modal.classList.remove('show'); }
     function setPct(p) { var n = Math.max(0, Math.min(100, Math.round(p || 0))); if (bar) bar.style.width = n + '%'; if (pct) pct.textContent = n + '%'; }
     function mb(v) { return (v ? (v / 1048576).toFixed(1) : '0'); }
-    // ---- 常驻状态行：任何时刻都能看到更新处于什么阶段 ----
     function setStatus(text, showInstall) {
         if (!statusWrap) return;
         statusWrap.style.display = text ? 'flex' : 'none';
         if (statusText) statusText.textContent = text || '';
         if (statusInstallBtn) statusInstallBtn.style.display = showInstall ? '' : 'none';
     }
-    if (installBtn) installBtn.onclick = function () { try { u.install(); } catch (e) {} };
-    if (statusInstallBtn) statusInstallBtn.onclick = function () { try { u.install(); } catch (e) {} };
+    function doInstall() { try { u.install(); } catch (e) {} }
+    if (installBtn) installBtn.onclick = doInstall;
+    if (statusInstallBtn) statusInstallBtn.onclick = doInstall;
+    if (hudInstall) hudInstall.onclick = doInstall;
     if (laterBtn) laterBtn.onclick = hide;
-    // 关闭只收起弹框，状态行继续显示（进度/就绪状态不会失联）
     if (closeBtn) closeBtn.onclick = hide;
+    if (hudClose) hudClose.onclick = function () {
+        dismissedFor = lastStatus;
+        if (hud) hud.classList.remove('show');
+    };
+    if (hudTitle) { hudTitle.style.cursor = 'pointer'; hudTitle.onclick = show; }
 
-    // ---- 统一状态渲染：事件与状态快照共用同一套渲染，保证表现一致 ----
+    // ---- 设置页状态行（保留，作为设置中心的静态回显）----
     function renderState(st) {
         if (!st) return;
         var s = st.status || 'idle';
@@ -21095,76 +21150,106 @@ function setupUpdaterUI() {
         }
     }
 
+    // ---- 全局浮条：唯一「主动可见」的进度展示，与所在页面/弹窗完全无关 ----
+    function renderHud(st) {
+        if (!hud) return;
+        var s = st.status || 'idle';
+        if (s !== 'available' && s !== 'downloading' && s !== 'ready' && s !== 'error') {
+            hud.classList.remove('show'); return;
+        }
+        if (dismissedFor === s) return;   // 同一状态下用户收起后不再反复弹出
+        hud.classList.add('show');
+        hud.classList.toggle('ready', s === 'ready');
+        hud.classList.toggle('error', s === 'error');
+        var v = st.version || '';
+        var p = Math.max(0, Math.min(100, Math.round(st.percent || 0)));
+        if (s === 'available') {
+            if (hudTitle) hudTitle.textContent = '发现新版本 v' + (v || '?');
+            if (hudSub) hudSub.textContent = '正在准备下载…';
+            if (hudTrack) hudTrack.style.display = 'none';
+        } else if (s === 'downloading') {
+            if (hudTitle) hudTitle.textContent = '正在下载 v' + (v || '?') + ' · ' + p + '%';
+            if (hudSub) hudSub.textContent = mb(st.transferred) + ' / ' + (st.total ? mb(st.total) : '?') + ' MB';
+            if (hudTrack) hudTrack.style.display = '';
+            if (hudBar) hudBar.style.width = p + '%';
+        } else if (s === 'ready') {
+            if (hudTitle) hudTitle.textContent = '新版本 v' + (v || '?') + ' 已下载完成';
+            if (hudSub) hudSub.textContent = '点击「立即重启安装」即可升级';
+            if (hudTrack) hudTrack.style.display = '';
+            if (hudBar) hudBar.style.width = '100%';
+        } else {
+            if (hudTitle) hudTitle.textContent = '检查更新失败';
+            if (hudSub) hudSub.textContent = st.error || '未知错误';
+            if (hudTrack) hudTrack.style.display = 'none';
+        }
+        if (hudInstall) hudInstall.style.display = (s === 'ready') ? '' : 'none';
+    }
+
+    // ---- 统一入口：事件 / 主进程推送 / 轮询快照 都走这里 ----
+    function applyUpdateState(st) {
+        if (!st) return;
+        var s = st.status || 'idle';
+        if (st.version) lastVersion = st.version;
+        st = Object.assign({}, st, { version: st.version || lastVersion });
+        if (s !== lastStatus) { lastStatus = s; dismissedFor = ''; }
+        renderState(st);
+        renderHud(st);
+        // 同步详情弹框内容（不自动弹出，避免反复打断；浮条才是主展示位）
+        if (s === 'available' || s === 'downloading') {
+            if (title) title.textContent = '发现新版本 v' + (st.version || '?');
+            if (sub) sub.textContent = '正在下载更新包… ' + mb(st.transferred) + ' / ' + (st.total ? mb(st.total) : '?') + ' MB';
+            setPct(st.percent || 0);
+            if (installBtn) installBtn.style.display = 'none';
+            if (laterBtn) laterBtn.style.display = 'none';
+        } else if (s === 'ready') {
+            if (title) title.textContent = '更新就绪 v' + (st.version || '?');
+            if (sub) sub.textContent = '下载完成，重启应用即可完成更新。';
+            setPct(100);
+            if (installBtn) installBtn.style.display = '';
+            if (laterBtn) laterBtn.style.display = '';
+        }
+    }
+
     u.onAvailable(function (info) {
-        show();
-        title.textContent = '发现新版本 v' + ((info && info.version) || '?');
-        sub.textContent = '正在下载更新包…';
-        setPct(0);
-        if (installBtn) installBtn.style.display = 'none';
-        if (laterBtn) laterBtn.style.display = 'none';
-        renderState({ status: 'available', version: (info && info.version) || '' });
+        applyUpdateState({ status: 'available', version: (info && info.version) || '', percent: 0, transferred: 0, total: 0 });
     });
     u.onProgress(function (p) {
-        show();
-        var percent = p && typeof p.percent === 'number' ? p.percent : 0;
-        setPct(percent);
-        var done = p && p.transferred ? (p.transferred / 1048576).toFixed(1) : '0';
-        var total = p && p.total ? (p.total / 1048576).toFixed(1) : '?';
-        sub.textContent = '正在下载更新包… ' + done + ' / ' + total + ' MB';
-        renderState({
-            status: 'downloading', percent: percent,
-            transferred: (p && p.transferred) || 0, total: (p && p.total) || 0,
-            version: (title.textContent || '').replace('发现新版本 v', '').replace('更新就绪 v', '')
+        applyUpdateState({
+            status: 'downloading',
+            percent: (p && typeof p.percent === 'number') ? p.percent : 0,
+            transferred: (p && p.transferred) || 0, total: (p && p.total) || 0
         });
     });
     u.onDownloaded(function (info) {
-        title.textContent = '更新就绪 v' + ((info && info.version) || '?');
-        sub.textContent = '下载完成，重启应用即可完成更新。';
-        setPct(100);
-        if (installBtn) installBtn.style.display = '';
-        if (laterBtn) laterBtn.style.display = '';
-        show();
-        renderState({ status: 'ready', version: (info && info.version) || '', percent: 100 });
+        applyUpdateState({ status: 'ready', version: (info && info.version) || '', percent: 100 });
     });
-    u.onNotAvailable(function () { /* 已是最新由原生对话框提示，避免重复 */ });
-    u.onError(function (msg) { showToast('检查更新失败：' + (msg || '未知错误')); renderState({ status: 'error', error: msg }); });
-    // 主进程状态变化推送：状态行实时刷新
-    if (u.onState) u.onState(renderState);
+    u.onNotAvailable(function () { /* 轮询会拉到 uptodate，设置页状态行会回显 */ });
+    u.onError(function (msg) {
+        showToast('检查更新失败：' + (msg || '未知错误'));
+        applyUpdateState({ status: 'error', error: msg });
+    });
+    if (u.onState) u.onState(applyUpdateState);
+
     var checkBtn = document.getElementById('appUpdateBtn');
     if (checkBtn) checkBtn.onclick = function () {
         try { u.check(); } catch (e) {}
-        renderState({ status: 'checking' });
+        applyUpdateState({ status: 'checking' });
     };
     var changelogBtn = document.getElementById('appChangelogBtn');
     if (changelogBtn) changelogBtn.onclick = function () { openChangelog(); };
 
-    // ⚠️ 关键补齐：页面监听注册晚于主进程的检查/下载时，早期事件会被 Electron 直接丢弃
-    //    （用户反馈「桌面端有更新但下载进度看不到」）。这里主动拉一次状态快照补齐。
+    // ⚠️ 根治关键：不再依赖「一次性事件是否送达」。主进程 updateState 是权威快照，
+    //    每秒主动拉一次；即使 update-available / download-progress / state 推送全部丢失，
+    //    浮条也照样实时显示百分比与 MB，下载完成后照样出现安装按钮。
     if (u.getState) {
-        try {
-            var pr = u.getState();
-            if (pr && typeof pr.then === 'function') {
-                pr.then(function (st) {
-                    renderState(st);
-                    // 若快照表明已下载完成/正在下载，把弹框也补上（用户没关过弹框时看不到）
-                    if (st && (st.status === 'downloading' || st.status === 'available')) {
-                        show();
-                        if (st.status === 'downloading') {
-                            title.textContent = '发现新版本 v' + (st.version || '?');
-                            sub.textContent = '正在下载更新包… ' + mb(st.transferred) + ' / ' + (st.total ? mb(st.total) : '?') + ' MB';
-                            setPct(st.percent || 0);
-                        }
-                    } else if (st && st.status === 'ready') {
-                        show();
-                        title.textContent = '更新就绪 v' + (st.version || '?');
-                        sub.textContent = '下载完成，重启应用即可完成更新。';
-                        setPct(100);
-                        if (installBtn) installBtn.style.display = '';
-                        if (laterBtn) laterBtn.style.display = '';
-                    }
-                });
-            }
-        } catch (e) { /* 忽略 */ }
+        var pollUpdateState = function () {
+            try {
+                var pr = u.getState();
+                if (pr && typeof pr.then === 'function') pr.then(applyUpdateState, function () {});
+            } catch (e) { /* 忽略单次失败，下一秒继续 */ }
+        };
+        pollUpdateState();
+        setInterval(pollUpdateState, 1000);
     }
 }
 
@@ -21185,6 +21270,19 @@ document.addEventListener('DOMContentLoaded', init);
     });
   }
 </script>
+<!-- 桌面端全局更新浮条：fixed 于窗口右下角，与所在页面/弹窗无关，任何时刻都能看到下载进度 -->
+<div id="globalUpdateBar" class="upd-global" role="status" aria-live="polite">
+    <span class="upd-global-dot"></span>
+    <div class="upd-global-main">
+        <div class="upd-global-title" id="gubTitle">—</div>
+        <div class="upd-global-sub" id="gubSub"></div>
+        <div class="upd-global-track" id="gubTrack"><div class="upd-global-fill" id="gubBar"></div></div>
+    </div>
+    <div class="upd-global-actions">
+        <button class="btn btn-primary btn-sm" id="gubInstall" type="button" style="display:none;">立即重启安装</button>
+        <button class="upd-global-close" id="gubClose" type="button" title="收起（状态变化时会再次出现）">&times;</button>
+    </div>
+</div>
 <!-- 桌面端自动更新下载框 -->
 <div class="modal-overlay" id="updateModal" data-page-node-id="KKeLiM0uVCdDv4TPQsZwLy">
     <div class="modal" style="width:400px;max-width:92vw;" data-page-node-id="ORTxiYpPDvtrUew5FKJDhD">
