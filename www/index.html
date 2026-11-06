@@ -3253,6 +3253,27 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
 .todo-tag-chip:hover { background: #e0e7ff; }
 .todo-tag-chip.active { background: #6366f1; color: #fff; }
 .todo-tag-chip .chip-count { font-size: 11px; opacity: .8; }
+
+/* 待办标签集中管理（v1.1.76） */
+.todo-tag-bar-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 0 6px; }
+.todo-tag-bar-label { font-size: 12px; color: var(--text-secondary); }
+.todo-tag-manage-btn { flex: 0 0 auto; font-size: 12px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--primary); cursor: pointer; }
+.todo-tag-manage-btn:hover { background: #eef2ff; }
+.ttm-row { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.ttm-dot { width: 8px; height: 8px; border-radius: 50%; background: #6366f1; flex: 0 0 auto; }
+.ttm-name { font-size: 13px; color: var(--text-primary); flex: 1 1 70px; min-width: 0; word-break: break-all; }
+.ttm-count { font-size: 12px; color: var(--text-secondary); flex: 0 0 auto; }
+.ttm-btn { flex: 0 0 auto; font-size: 11px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-secondary); cursor: pointer; }
+.ttm-btn.danger { color: #dc2626; }
+.ttm-btn.primary { color: var(--primary); }
+.ttm-edit { display: flex; gap: 6px; align-items: center; width: 100%; }
+.ttm-edit input { flex: 1 1 auto; min-width: 0; }
+.ttm-empty { font-size: 13px; color: var(--text-secondary); padding: 12px 0; }
+.ttm-merge { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.ttm-merge-title { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
+.ttm-merge-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.ttm-merge-row select { flex: 1 1 100px; min-width: 0; }
+.ttm-hint { font-size: 11px; color: var(--text-secondary); line-height: 1.6; margin-top: 6px; }
 .todo-group-head { display: flex; align-items: center; gap: 8px; margin: 16px 0 8px; }
 .todo-group-head:first-child { margin-top: 2px; }
 .todo-group-title { font-size: 13px; font-weight: 600; color: var(--text); }
@@ -4599,6 +4620,10 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                             <option value="not_urgent_not_important" data-page-node-id="Qd3XaoikMFvVvI6HHUxlNb">不重要不紧急</option>
                         </select>
                     </div>
+                    <div class="todo-tag-bar-head">
+                        <span class="todo-tag-bar-label">按标签筛选</span>
+                        <button type="button" class="todo-tag-manage-btn" onclick="window._crm.openTodoTagManage()">管理标签</button>
+                    </div>
                     <div class="todo-tag-bar" id="todoTagBar"></div>
                 </div>
                 <div class="todo-list" id="todoList" data-page-node-id="FQHEXTaETDCxUd9xcMz2Fq"></div>
@@ -5011,6 +5036,29 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                 <button class="btn btn-danger" id="deleteStatusBtn" style="display:none;" data-page-node-id="iyoxbrlOTHp3okHO9VUyDM">删除</button>
                 <button class="btn btn-secondary" id="cancelStatusEditBtn" data-page-node-id="eDTNL2QoNhPIOTjIaXS1tc">取消</button>
                 <button class="btn btn-primary" id="saveStatusEditBtn" data-page-node-id="HRifj5XQFnwQg2HXoYzQB7">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 待办标签管理弹窗：重命名 / 删除 / 合并 -->
+    <div class="modal-overlay" id="todoTagManageModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title">标签管理</h2>
+                <button class="modal-close" onclick="window._crm.closeTodoTagManage()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="ttm-hint" style="margin:0 0 10px;">重命名或删除会同步更新所有关联待办，待办本身保留</div>
+                <div id="todoTagManageList"></div>
+                <div class="ttm-merge" id="todoTagMergeBox">
+                    <div class="ttm-merge-title">合并标签</div>
+                    <div class="ttm-merge-row">
+                        <select id="todoTagMergeFrom"></select>
+                        <span style="font-size:12px;color:var(--text-secondary);">并入</span>
+                        <select id="todoTagMergeTo"></select>
+                        <button type="button" class="ttm-btn primary" onclick="window._crm.mergeTodoTags()">合并</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -6042,6 +6090,149 @@ function collectAllTodoTags() {
     });
     return Object.keys(set).sort();
 }
+// ==================== 待办标签集中管理（v1.1.76） ====================
+// 设计要点：标签仍内嵌在 todo.tags，不引入独立标签表、不改 DIFF_FIELDS / CONFLICT_FIELDS，
+// 因此不会改变冲突基准的字段集（历史事故：v1.1.74 加 tags 却没 bump SYNC_BASIS_FORMAT → 53 处误报）。
+// 重命名 / 删除 / 合并 = 批量改写受影响 todo 的 tags + bump updatedAt + recordChange，
+// 完全走既有的逐条同步 / 差异检测 / 冲突检测通道，无需新增 payload 字段。
+let _todoTagManageList = [];   // 面板当前展示的标签名（与行 data-i 下标对应，避免把标签名拼进 onclick）
+let _todoTagEditingIdx = -1;   // 正在重命名的行下标，-1 表示无
+
+// 批量改写标签：只对「命中」的 todo 动手；语义无变化时跳过（避免无意义 bump / 无限同步）
+function _todoTagRewrite(transform, hit) {
+    const now = new Date().toISOString();
+    let n = 0;
+    (state.todos || []).forEach(function (t) {
+        if (!t) return;
+        const prev = _todoTags(t);
+        if (!prev.some(hit)) return;
+        const next = _normalizeTags(transform(prev));
+        if (JSON.stringify(prev) === JSON.stringify(next)) return;
+        const prevTodo = _clone(t);
+        t.tags = next;
+        t.updatedAt = now;
+        recordChange('update', 'todo', t, t.title, prevTodo);
+        n++;
+    });
+    return n;
+}
+function _cleanTodoTagName(s) {
+    return String(s == null ? '' : s).trim().replace(/\s+/g, ' ').slice(0, 24);
+}
+// 改动后刷新所有展示待办标签的视图（标签栏/列表/看板/计划关联/编辑弹窗常用标签）
+function _refreshTodoTagViews() {
+    if (typeof renderTodos === 'function') renderTodos();
+    if (currentPage === 'dashboard' && typeof renderDashboard === 'function') renderDashboard();
+    if (typeof renderPlanRelated === 'function') renderPlanRelated();
+    if (typeof renderLastWeekRelated === 'function') renderLastWeekRelated();
+    const mgr = document.getElementById('todoTagManageModal');
+    if (mgr && mgr.classList.contains('show')) renderTodoTagManage();
+    const tm = document.getElementById('todoModal');
+    if (tm && tm.classList.contains('show') && typeof renderTodoTagEditor === 'function') renderTodoTagEditor();
+}
+// 重命名 / 合并共用的落地逻辑；返回受影响的待办条数
+function renameTodoTag(oldName, newName) {
+    const nn = _cleanTodoTagName(newName);
+    if (!oldName || !nn || nn === oldName) { showToast('请输入不同的新标签名'); return 0; }
+    const n = _todoTagRewrite(function (tags) {
+        return tags.map(function (x) { return x === oldName ? nn : x; });
+    }, function (x) { return x === oldName; });
+    if (!n) { showToast('没有待办使用该标签'); return 0; }
+    // 当前筛选正指向旧名时跟随改到新名，避免筛选被自动打回「全部」
+    if (todoTagFilter === oldName) todoTagFilter = nn;
+    _todoTagEditingIdx = -1;
+    saveData();
+    logOperation('待办标签改名：「' + oldName + '」→「' + nn + '」（' + n + ' 条待办已更新）', 'info');
+    _refreshTodoTagViews();
+    showToast('标签已改名，' + n + ' 条待办已更新');
+    return n;
+}
+function deleteTodoTag(tag) {
+    if (!tag) return 0;
+    const n = _todoTagRewrite(function (tags) {
+        return tags.filter(function (x) { return x !== tag; });
+    }, function (x) { return x === tag; });
+    if (!n) { showToast('没有待办使用该标签'); return 0; }
+    if (todoTagFilter === tag) todoTagFilter = 'all';
+    _todoTagEditingIdx = -1;
+    saveData();
+    logOperation('删除待办标签「' + tag + '」（从 ' + n + ' 条待办移除，待办保留）', 'warning');
+    _refreshTodoTagViews();
+    showToast('已从 ' + n + ' 条待办移除该标签');
+    return n;
+}
+function mergeTodoTags(from, to) {
+    // 不传参时读面板 select（供 inline onclick 使用）；传参时供测试/程序调用
+    if (from == null || to == null) {
+        const f = document.getElementById('todoTagMergeFrom');
+        const t = document.getElementById('todoTagMergeTo');
+        from = f && f.value;
+        to = t && t.value;
+    }
+    if (!from || !to || from === to) { showToast('请选择两个不同的标签'); return 0; }
+    return renameTodoTag(from, to);
+}
+function openTodoTagManage() {
+    _todoTagEditingIdx = -1;
+    renderTodoTagManage();
+    document.getElementById('todoTagManageModal').classList.add('show');
+}
+function closeTodoTagManage() {
+    const m = document.getElementById('todoTagManageModal');
+    if (m) m.classList.remove('show');
+    _todoTagEditingIdx = -1;
+}
+function renderTodoTagManage() {
+    const box = document.getElementById('todoTagManageList');
+    if (!box) return;
+    const counts = {};
+    let untagged = 0;
+    (state.todos || []).forEach(function (t) {
+        if (state._tombstones && state._tombstones.todos && state._tombstones.todos[t.id]) return;
+        const tags = _todoTags(t);
+        if (!tags.length) { untagged++; return; }
+        tags.forEach(function (x) { counts[x] = (counts[x] || 0) + 1; });
+    });
+    _todoTagManageList = Object.keys(counts).sort();
+    const tags = _todoTagManageList;
+    if (_todoTagEditingIdx >= tags.length) _todoTagEditingIdx = -1;
+    if (!tags.length) {
+        box.innerHTML = '<div class="ttm-empty">暂无标签。在待办里添加标签后，即可在这里统一管理。</div>';
+    } else {
+        box.innerHTML = tags.map(function (tag, i) {
+            if (i === _todoTagEditingIdx) {
+                return '<div class="ttm-row"><div class="ttm-edit">' +
+                    '<input type="text" id="todoTagRenameInput" maxlength="24" value="' + escapeAttr(tag) + '">' +
+                    '<button type="button" class="ttm-btn primary" data-ttm-act="save" data-i="' + i + '">保存</button>' +
+                    '<button type="button" class="ttm-btn" data-ttm-act="cancel" data-i="' + i + '">取消</button>' +
+                    '</div></div>';
+            }
+            return '<div class="ttm-row">' +
+                '<span class="ttm-dot"></span>' +
+                '<span class="ttm-name">' + escapeHtml(tag) + '</span>' +
+                '<span class="ttm-count">' + counts[tag] + ' 条待办</span>' +
+                '<button type="button" class="ttm-btn" data-ttm-act="rename" data-i="' + i + '">重命名</button>' +
+                '<button type="button" class="ttm-btn danger" data-ttm-act="delete" data-i="' + i + '">删除</button>' +
+                '</div>';
+        }).join('') + (untagged ? '<div class="ttm-hint">另有 ' + untagged + ' 条待办未分类（无需打标签）</div>' : '');
+    }
+    const from = document.getElementById('todoTagMergeFrom');
+    const to = document.getElementById('todoTagMergeTo');
+    const mergeBox = document.getElementById('todoTagMergeBox');
+    if (mergeBox) mergeBox.style.display = tags.length < 2 ? 'none' : '';
+    [from, to].forEach(function (sel) {
+        if (!sel) return;
+        const old = sel.value;
+        sel.innerHTML = tags.map(function (t) { return '<option value="' + escapeAttr(t) + '">' + escapeHtml(t) + '</option>'; }).join('');
+        if (tags.indexOf(old) >= 0) sel.value = old;
+    });
+    if (from && to && from.value === to.value && tags.length > 1) to.value = tags[1];
+    if (_todoTagEditingIdx >= 0) {
+        const input = document.getElementById('todoTagRenameInput');
+        if (input) { input.focus(); input.select(); }
+    }
+}
+
 let editingFollowupId = null; // 非空表示正在编辑已存在的跟进记录（否则为新增）
 let calendarYear, calendarMonth;
 
@@ -19250,6 +19441,42 @@ function bindEvents() {
         const addEl = e.target.closest('[data-todo-tag-add]');
         if (addEl) { e.preventDefault(); addTodoTag(addEl.getAttribute('data-todo-tag-add')); }
     });
+    // 标签管理面板：统一事件委托。标签名来自用户自由输入，绝不能拼进 onclick 字符串，
+    // 一律用行下标 data-i 反查 _todoTagManageList，避免引号/尖括号造成注入或属性截断。
+    const _ttmBox = document.getElementById('todoTagManageList');
+    if (_ttmBox) _ttmBox.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-ttm-act]');
+        if (!btn) return;
+        e.preventDefault();
+        const act = btn.getAttribute('data-ttm-act');
+        const i = parseInt(btn.getAttribute('data-i'), 10);
+        const tag = _todoTagManageList[i];
+        if (!tag && act !== 'cancel') return;
+        if (act === 'rename') { _todoTagEditingIdx = i; renderTodoTagManage(); }
+        else if (act === 'cancel') { _todoTagEditingIdx = -1; renderTodoTagManage(); }
+        else if (act === 'save') {
+            const input = document.getElementById('todoTagRenameInput');
+            const nn = _cleanTodoTagName(input && input.value);
+            if (!nn) { showToast('标签名不能为空'); return; }
+            if (nn !== tag && _todoTagManageList.indexOf(nn) >= 0) { showToast('已有同名标签，可用「合并标签」并入'); return; }
+            renameTodoTag(tag, nn);
+        } else if (act === 'delete') {
+            const cnt = (state.todos || []).filter(t => _todoTags(t).indexOf(tag) >= 0).length;
+            showConfirm('删除标签「' + tag + '」？将从 ' + cnt + ' 条待办移除该标签，待办本身保留。', function () {
+                deleteTodoTag(tag);
+            }, '删除标签', '确认删除', '取消');
+        }
+    });
+    if (_ttmBox) _ttmBox.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' || !e.target.id || e.target.id !== 'todoTagRenameInput') return;
+        e.preventDefault();
+        const i = _todoTagEditingIdx;
+        const tag = _todoTagManageList[i];
+        const nn = _cleanTodoTagName(e.target.value);
+        if (!nn) { showToast('标签名不能为空'); return; }
+        if (nn !== tag && _todoTagManageList.indexOf(nn) >= 0) { showToast('已有同名标签，可用「合并标签」并入'); return; }
+        renameTodoTag(tag, nn);
+    });
     // 待办列表中点击事件统一委托：完成按钮、客户名、其他区域
     document.getElementById('todoList').addEventListener('click', (e) => {
         // 优先级最高：完成切换按钮
@@ -19545,7 +19772,7 @@ function renderTodoTagBar(baseTodos) {
         todoTagFilter = 'all';
     }
     const chip = (label, val, count, active) =>
-        '<span class="todo-tag-chip' + (active ? ' active' : '') + '" data-todo-tag="' + escapeHtml(val) + '">' +
+        '<span class="todo-tag-chip' + (active ? ' active' : '') + '" data-todo-tag="' + escapeAttr(val) + '">' +
         escapeHtml(label) + (count == null ? '' : '<span class="chip-count">' + count + '</span>') + '</span>';
     let html = chip('全部', 'all', null, todoTagFilter === 'all');
     allTags.forEach(tag => { html += chip(tag, tag, counts[tag], todoTagFilter === tag); });
@@ -19938,13 +20165,13 @@ function renderTodoTagEditor() {
     hidden.value = _todoEditingTags.join('\u0001');
     chips.innerHTML = _todoEditingTags.map(x =>
         '<span class="tag-editor-chip">' + escapeHtml(x) +
-        '<span class="tag-editor-x" data-todo-tag-remove="' + escapeHtml(x) + '">&times;</span></span>'
+        '<span class="tag-editor-x" data-todo-tag-remove="' + escapeAttr(x) + '">&times;</span></span>'
     ).join('');
     if (suggest) {
         const used = collectAllTodoTags().filter(x => _todoEditingTags.indexOf(x) === -1);
         suggest.innerHTML = used.length
             ? '<span class="tag-suggest-empty">常用标签（点击添加）</span>' + used.map(x =>
-                '<span class="tag-suggest-chip" data-todo-tag-add="' + escapeHtml(x) + '">+ ' + escapeHtml(x) + '</span>').join('')
+                '<span class="tag-suggest-chip" data-todo-tag-add="' + escapeAttr(x) + '">+ ' + escapeHtml(x) + '</span>').join('')
             : '<span class="tag-suggest-empty">暂无常用标签，直接输入即可新建</span>';
     }
 }
@@ -20458,6 +20685,13 @@ window._crm = {
     addTodoTag,
     removeTodoTag,
     renderTodoTagEditor,
+    openTodoTagManage,
+    closeTodoTagManage,
+    renderTodoTagManage,
+    renameTodoTag,
+    deleteTodoTag,
+    mergeTodoTags,
+    _todoTagRewrite,
     deleteHistory,
     resolveAllConflicts,
     resolveMerge,
