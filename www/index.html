@@ -3274,6 +3274,9 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
 .ttm-merge-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .ttm-merge-row select { flex: 1 1 100px; min-width: 0; }
 .ttm-hint { font-size: 11px; color: var(--text-secondary); line-height: 1.6; margin-top: 6px; }
+.ttm-add { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 12px 0 6px; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.ttm-add input { flex: 1 1 140px; min-width: 0; }
+.ttm-unused { color: var(--text-tertiary, var(--text-secondary)); }
 .todo-group-head { display: flex; align-items: center; gap: 8px; margin: 16px 0 8px; }
 .todo-group-head:first-child { margin-top: 2px; }
 .todo-group-title { font-size: 13px; font-weight: 600; color: var(--text); }
@@ -5049,6 +5052,10 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
             </div>
             <div class="modal-body">
                 <div class="ttm-hint" style="margin:0 0 10px;">重命名或删除会同步更新所有关联待办，待办本身保留</div>
+                <div class="ttm-add">
+                    <input type="text" id="todoTagNewName" maxlength="24" placeholder="输入新标签名，如「客户拜访」" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                    <button type="button" class="ttm-btn primary" onclick="window._crm.addTodoTagByName()">+ 新建标签</button>
+                </div>
                 <div id="todoTagManageList"></div>
                 <div class="ttm-merge" id="todoTagMergeBox">
                     <div class="ttm-merge-title">合并标签</div>
@@ -6081,14 +6088,46 @@ function _todoTagsHtml(t) {
     if (!tags.length) return '';
     return tags.map(x => '<span class="todo-item-tag">' + escapeHtml(x) + '</span>').join('');
 }
-// 收集全部待办里用过的标签（供筛选栏与编辑弹窗「常用标签」使用）
+// 标签库：预建但暂时还没有任何待办使用的标签，存在 _meta 里按 At-LWW 跨端同步。
+// ⚠️ 这是「设置项」不是「同步实体」：buildSyncBasis 只按实体字段哈希，
+// 新增 _meta 字段不会改变 CONFLICT_FIELDS 字段集，无需 bump SYNC_BASIS_FORMAT。
+function getTodoTagLibrary() {
+    return _normalizeTags(state._meta && state._meta.todoTagLibrary);
+}
+function setTodoTagLibrary(list) {
+    state._meta = state._meta || {};
+    state._meta.todoTagLibrary = _normalizeTags(list);
+    state._meta.todoTagLibraryAt = Date.now();
+}
+// 收集全部标签 = 待办实际用过的 ∪ 标签库预建的（供管理面板与编辑弹窗「常用标签」使用）
 function collectAllTodoTags() {
     const set = {};
     (state.todos || []).forEach(t => {
         if (state._tombstones && state._tombstones.todos && state._tombstones.todos[t.id]) return;
         _todoTags(t).forEach(x => { set[x] = (set[x] || 0) + 1; });
     });
+    getTodoTagLibrary().forEach(x => { if (!(x in set)) set[x] = 0; });
     return Object.keys(set).sort();
+}
+function addTodoTagToLibrary(name) {
+    const s = _cleanTodoTagName(name);
+    if (!s) { showToast('请输入标签名'); return false; }
+    const lib = getTodoTagLibrary();
+    if (collectAllTodoTags().indexOf(s) >= 0) { showToast('标签已存在'); return false; }
+    lib.push(s);
+    setTodoTagLibrary(lib);
+    saveData(); pushSettingsDebounced();
+    logOperation('新增待办标签「' + s + '」', 'info');
+    _refreshTodoTagViews();
+    showToast('标签「' + s + '」已添加，编辑待办时可直接点选');
+    return true;
+}
+function addTodoTagByName() {
+    const el = document.getElementById('todoTagNewName');
+    if (!el) return false;
+    const ok = addTodoTagToLibrary(el.value);
+    if (ok) el.value = '';
+    return ok;
 }
 // ==================== 待办标签集中管理（v1.1.76） ====================
 // 设计要点：标签仍内嵌在 todo.tags，不引入独立标签表、不改 DIFF_FIELDS / CONFLICT_FIELDS，
@@ -6130,35 +6169,41 @@ function _refreshTodoTagViews() {
     const tm = document.getElementById('todoModal');
     if (tm && tm.classList.contains('show') && typeof renderTodoTagEditor === 'function') renderTodoTagEditor();
 }
-// 重命名 / 合并共用的落地逻辑；返回受影响的待办条数
+// 重命名 / 合并共用的落地逻辑；同时维护标签库，返回受影响待办条数
 function renameTodoTag(oldName, newName) {
     const nn = _cleanTodoTagName(newName);
     if (!oldName || !nn || nn === oldName) { showToast('请输入不同的新标签名'); return 0; }
+    const lib = getTodoTagLibrary();
+    const inLib = lib.indexOf(oldName) >= 0;
     const n = _todoTagRewrite(function (tags) {
         return tags.map(function (x) { return x === oldName ? nn : x; });
     }, function (x) { return x === oldName; });
-    if (!n) { showToast('没有待办使用该标签'); return 0; }
+    if (!n && !inLib) { showToast('标签不存在'); return 0; }
+    if (inLib) setTodoTagLibrary(lib.map(function (x) { return x === oldName ? nn : x; }));
     // 当前筛选正指向旧名时跟随改到新名，避免筛选被自动打回「全部」
     if (todoTagFilter === oldName) todoTagFilter = nn;
     _todoTagEditingIdx = -1;
-    saveData();
+    saveData(); pushSettingsDebounced();
     logOperation('待办标签改名：「' + oldName + '」→「' + nn + '」（' + n + ' 条待办已更新）', 'info');
     _refreshTodoTagViews();
-    showToast('标签已改名，' + n + ' 条待办已更新');
+    showToast(n ? '标签已改名，' + n + ' 条待办已更新' : '标签已改名');
     return n;
 }
 function deleteTodoTag(tag) {
     if (!tag) return 0;
+    const lib = getTodoTagLibrary();
+    const inLib = lib.indexOf(tag) >= 0;
     const n = _todoTagRewrite(function (tags) {
         return tags.filter(function (x) { return x !== tag; });
     }, function (x) { return x === tag; });
-    if (!n) { showToast('没有待办使用该标签'); return 0; }
+    if (!n && !inLib) { showToast('标签不存在'); return 0; }
+    if (inLib) setTodoTagLibrary(lib.filter(function (x) { return x !== tag; }));
     if (todoTagFilter === tag) todoTagFilter = 'all';
     _todoTagEditingIdx = -1;
-    saveData();
-    logOperation('删除待办标签「' + tag + '」（从 ' + n + ' 条待办移除，待办保留）', 'warning');
+    saveData(); pushSettingsDebounced();
+    logOperation('删除待办标签「' + tag + '」（' + (n ? '从 ' + n + ' 条待办移除' : '标签库中的未使用标签') + '，待办保留）', 'warning');
     _refreshTodoTagViews();
-    showToast('已从 ' + n + ' 条待办移除该标签');
+    showToast(n ? '已从 ' + n + ' 条待办移除该标签' : '已删除未使用的标签');
     return n;
 }
 function mergeTodoTags(from, to) {
@@ -6193,11 +6238,12 @@ function renderTodoTagManage() {
         if (!tags.length) { untagged++; return; }
         tags.forEach(function (x) { counts[x] = (counts[x] || 0) + 1; });
     });
-    _todoTagManageList = Object.keys(counts).sort();
+    // 标签库里预建但尚未被任何待办使用的标签也要列出（计数 0 → 显示「未使用」）
+    _todoTagManageList = collectAllTodoTags();
     const tags = _todoTagManageList;
     if (_todoTagEditingIdx >= tags.length) _todoTagEditingIdx = -1;
     if (!tags.length) {
-        box.innerHTML = '<div class="ttm-empty">暂无标签。在待办里添加标签后，即可在这里统一管理。</div>';
+        box.innerHTML = '<div class="ttm-empty">暂无标签。可在上方新建，或在待办里添加标签。</div>';
     } else {
         box.innerHTML = tags.map(function (tag, i) {
             if (i === _todoTagEditingIdx) {
@@ -6210,7 +6256,8 @@ function renderTodoTagManage() {
             return '<div class="ttm-row">' +
                 '<span class="ttm-dot"></span>' +
                 '<span class="ttm-name">' + escapeHtml(tag) + '</span>' +
-                '<span class="ttm-count">' + counts[tag] + ' 条待办</span>' +
+                (counts[tag] ? '<span class="ttm-count">' + counts[tag] + ' 条待办</span>'
+                             : '<span class="ttm-count ttm-unused">未使用</span>') +
                 '<button type="button" class="ttm-btn" data-ttm-act="rename" data-i="' + i + '">重命名</button>' +
                 '<button type="button" class="ttm-btn danger" data-ttm-act="delete" data-i="' + i + '">删除</button>' +
                 '</div>';
@@ -17142,6 +17189,9 @@ function getSyncPayload() {
             // 看板卡片顺序：此前从未进过 payload（注释称三端互通但实际没同步），现补上并按 At 时间戳 LWW
             dashboardOrder: (state._meta && Array.isArray(state._meta.dashboardOrder)) ? state._meta.dashboardOrder.slice() : [],
             dashboardOrderAt: (state._meta && state._meta.dashboardOrderAt) || 0,
+            // 待办标签库（预建但暂时未使用的标签）：At 时间戳 LWW 随设置跨设备同步
+            todoTagLibrary: getTodoTagLibrary(),
+            todoTagLibraryAt: (state._meta && state._meta.todoTagLibraryAt) || 0,
             deviceName: (state._meta && state._meta.deviceName) || null,
             statusRev: (state._meta && state._meta.statusRev) || 0,
             // 近期汇报客户版本号：必须随 payload 上传。
@@ -17684,6 +17734,8 @@ function applyRemoteData(remoteData) {
     const _localOrderAtSnap = (state._meta && state._meta.dashboardOrderAt) || 0;
     const _localFuTagsSnap = Array.isArray(state._meta && state._meta.followupTags) ? state._meta.followupTags.slice() : [];
     const _localFuTagsAtSnap = (state._meta && state._meta.followupTagsAt) || 0;
+    const _localTodoTagLibSnap = getTodoTagLibrary();
+    const _localTodoTagLibAtSnap = (state._meta && state._meta.todoTagLibraryAt) || 0;
     const _localDraftsSnap = Array.isArray(state._meta && state._meta.followupDrafts) ? state._meta.followupDrafts.slice() : [];
     const _localDraftsAtSnap = (state._meta && state._meta.followupDraftsAt) || 0;
     const _localColSnap = !!(state._meta && state._meta.followupCollapse);
@@ -17794,6 +17846,30 @@ function applyRemoteData(remoteData) {
         // 两端都还没编辑过：本地未定义时采纳远端（首个新设备接入场景）
         state._meta.followupTags = _remoteFuTags;
         state._meta.followupTagsAt = _remoteFuTagsAt;
+    }
+    // 待办标签库：数组 At-LWW（与 followupTags 同口径；快照取在上方 Object.assign 之前）
+    const _remoteTodoTagLib = _normalizeTags(remoteData._meta && remoteData._meta.todoTagLibrary);
+    const _remoteTodoTagLibAt = (remoteData._meta && remoteData._meta.todoTagLibraryAt) || 0;
+    let _todoTagLibChanged = false;
+    if (_remoteTodoTagLibAt > _localTodoTagLibAtSnap) {
+        state._meta.todoTagLibrary = _remoteTodoTagLib;
+        state._meta.todoTagLibraryAt = _remoteTodoTagLibAt;
+        _todoTagLibChanged = JSON.stringify(_remoteTodoTagLib) !== JSON.stringify(_localTodoTagLibSnap);
+    } else if (_localTodoTagLibAtSnap > 0) {
+        state._meta.todoTagLibrary = _localTodoTagLibSnap;
+        state._meta.todoTagLibraryAt = _localTodoTagLibAtSnap;
+    } else if (_remoteTodoTagLib.length) {
+        state._meta.todoTagLibrary = _remoteTodoTagLib;
+        state._meta.todoTagLibraryAt = _remoteTodoTagLibAt;
+        _todoTagLibChanged = true;
+    }
+    // 标签库只影响管理面板与编辑弹窗「常用标签」（筛选栏只显示真正被使用的标签），
+    // 因此这里直接重绘这两处，不往 changes 里塞伪实体记录。
+    if (_todoTagLibChanged) {
+        const mgr = document.getElementById('todoTagManageModal');
+        if (mgr && mgr.classList.contains('show')) renderTodoTagManage();
+        const tm = document.getElementById('todoModal');
+        if (tm && tm.classList.contains('show') && typeof renderTodoTagEditor === 'function') renderTodoTagEditor();
     }
     // 草稿箱：整表 At-LWW（临时数据量小，冲突代价低）
     {
@@ -19462,9 +19538,10 @@ function bindEvents() {
             renameTodoTag(tag, nn);
         } else if (act === 'delete') {
             const cnt = (state.todos || []).filter(t => _todoTags(t).indexOf(tag) >= 0).length;
-            showConfirm('删除标签「' + tag + '」？将从 ' + cnt + ' 条待办移除该标签，待办本身保留。', function () {
-                deleteTodoTag(tag);
-            }, '删除标签', '确认删除', '取消');
+            const msg = cnt
+                ? '删除标签「' + tag + '」？将从 ' + cnt + ' 条待办移除该标签，待办本身保留。'
+                : '删除标签「' + tag + '」？该标签尚未被任何待办使用，删除后将从标签库移除。';
+            showConfirm(msg, function () { deleteTodoTag(tag); }, '删除标签', '确认删除', '取消');
         }
     });
     if (_ttmBox) _ttmBox.addEventListener('keydown', (e) => {
@@ -19476,6 +19553,12 @@ function bindEvents() {
         if (!nn) { showToast('标签名不能为空'); return; }
         if (nn !== tag && _todoTagManageList.indexOf(nn) >= 0) { showToast('已有同名标签，可用「合并标签」并入'); return; }
         renameTodoTag(tag, nn);
+    });
+    const _ttmNew = document.getElementById('todoTagNewName');
+    if (_ttmNew) _ttmNew.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        addTodoTagByName();
     });
     // 待办列表中点击事件统一委托：完成按钮、客户名、其他区域
     document.getElementById('todoList').addEventListener('click', (e) => {
@@ -20692,6 +20775,10 @@ window._crm = {
     deleteTodoTag,
     mergeTodoTags,
     _todoTagRewrite,
+    getTodoTagLibrary,
+    setTodoTagLibrary,
+    addTodoTagToLibrary,
+    addTodoTagByName,
     deleteHistory,
     resolveAllConflicts,
     resolveMerge,
