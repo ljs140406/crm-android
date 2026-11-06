@@ -4481,18 +4481,6 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                     </div>
 
                     <div class="plan-section next-week" id="planSectionNext" hidden data-page-node-id="oRcHdEokzYeJxyGrNoEtg5">
-                        <div class="acc-block" data-acc data-page-node-id="x7lFI6G9Qe7FXACLbnaCfc">
-                            <div class="acc-head" onclick="window._crm.toggleAcc(this)" data-page-node-id="vyjXAjy6Vna4noLkMLHrIK">
-                                <div class="acc-left" data-page-node-id="2tYTdgAvvnt9apBNGDBni6"><span class="acc-icon" data-page-node-id="Nt39JYWFtfVFTxkrfVh5YD">🎯</span><span class="acc-title" data-page-node-id="Xmzc5LuCTyvmpTMhaxo5PW">下周计划</span><span class="week-label" id="nextWeekLabel" data-page-node-id="2B4KGBBvGPWlEzNH2rGLPf"></span></div>
-                                <span class="acc-chev" data-page-node-id="7U52a7U6EHq245kFPSDiSp">›</span>
-                            </div>
-                            <div class="acc-body" data-page-node-id="BHPCfgBz10ObvDxrxeDINf">
-                        <div class="plan-cell plan-focus" data-page-node-id="7aJH6WkisQnEGpWObwHqZm">
-                            <div class="plan-cell-label" data-page-node-id="uoTDgkE5c6CyQ00ethZdPS"><span data-page-node-id="XICEAd4SMwdCmh9fLNqUMN">下周重点</span><button type="button" class="focus-add-btn" data-period="next" data-page-node-id="9lRKsBDlesYmdD2u0kTI5A"><span class="focus-add-icon" data-page-node-id="sbV5MjlvKNcD2XPTMnY3WL">+</span>添加重点</button></div>
-                            <div class="focus-list" id="nextFocusList" data-page-node-id="1fBAudvK74LLluR3eGFH5R"></div>
-                        </div>
-                            </div><!-- /acc-body 下周计划 -->
-                        </div><!-- /acc-block 下周计划 -->
                         <div class="acc-block" data-acc data-page-node-id="A20HFZUSZrNpxt1icKB2H1">
                             <div class="acc-head" onclick="window._crm.toggleAcc(this)" data-page-node-id="JYNyXAfJHXZvCulUYPL4SG">
                                 <div class="acc-left" data-page-node-id="PHUOTo1a5eyFYqYoGcPPEo"><span class="acc-icon" data-page-node-id="WUBNLCzzP4XRerL7F5cMFe">📅</span><span class="acc-title" data-page-node-id="foLYmCfQvjHYNqRG7pic8K">每日计划</span></div>
@@ -4533,6 +4521,18 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                         <button type="button" class="weekend-toggle" onclick="window._crm.toggleWeekend()" data-page-node-id="BugwpJbn46tWbhSgC8TsNq">展开周末（周六/周日）</button>
                             </div><!-- /acc-body 每日计划 -->
                         </div><!-- /acc-block 每日计划 -->
+                        <div class="acc-block" data-acc data-page-node-id="x7lFI6G9Qe7FXACLbnaCfc">
+                            <div class="acc-head" onclick="window._crm.toggleAcc(this)" data-page-node-id="vyjXAjy6Vna4noLkMLHrIK">
+                                <div class="acc-left" data-page-node-id="2tYTdgAvvnt9apBNGDBni6"><span class="acc-icon" data-page-node-id="Nt39JYWFtfVFTxkrfVh5YD">🎯</span><span class="acc-title" data-page-node-id="Xmzc5LuCTyvmpTMhaxo5PW">下周计划</span><span class="week-label" id="nextWeekLabel" data-page-node-id="2B4KGBBvGPWlEzNH2rGLPf"></span></div>
+                                <span class="acc-chev" data-page-node-id="7U52a7U6EHq245kFPSDiSp">›</span>
+                            </div>
+                            <div class="acc-body" data-page-node-id="BHPCfgBz10ObvDxrxeDINf">
+                        <div class="plan-cell plan-focus" data-page-node-id="7aJH6WkisQnEGpWObwHqZm">
+                            <div class="plan-cell-label" data-page-node-id="uoTDgkE5c6CyQ00ethZdPS"><span data-page-node-id="XICEAd4SMwdCmh9fLNqUMN">下周重点</span><button type="button" class="focus-add-btn" data-period="next" data-page-node-id="9lRKsBDlesYmdD2u0kTI5A"><span class="focus-add-icon" data-page-node-id="sbV5MjlvKNcD2XPTMnY3WL">+</span>添加重点</button></div>
+                            <div class="focus-list" id="nextFocusList" data-page-node-id="1fBAudvK74LLluR3eGFH5R"></div>
+                        </div>
+                            </div><!-- /acc-body 下周计划 -->
+                        </div><!-- /acc-block 下周计划 -->
                     </div>
 
                     </div><!-- /plan-sections -->
@@ -14127,7 +14127,12 @@ function closeDynModal() {
 
 // ==================== 同步基准 & 冲突横幅 ====================
 // 记录最近一次成功同步时各记录的字段哈希；用于识别「两端都改过」的真实冲突，避免自动同步静默覆盖。
-const SYNC_BASIS_FORMAT = 2;
+// ⚠️ 铁律：只要 DIFF_FIELDS / CONFLICT_FIELDS 的字段集发生变化（新增/删除字段），必须 +1。
+// 否则旧基准是「旧字段集」算出的哈希，detectTrueConflicts 里 bh 与新算出的 lh/rh 永远不等，
+// 会把每条记录都误判成「两端都改过」→ 弹冲突横幅 → 自动同步 return 暂停 → 推不上去 → 云端永远是旧数据
+// → 每次同步继续误报（死锁）。v1.1.74 给 todo 加 tags 时漏改此处，实测误报 53 处，本版 bump 到 3 自动消解。
+// detectTrueConflicts 已有「格式不符 → 返回 [] 并在 applyRemoteData 末尾重建基准」的升级迁移机制。
+const SYNC_BASIS_FORMAT = 3;
 function _hashItem(entity, item, fieldsMap) {
     const map = fieldsMap || DIFF_FIELDS;
     const fields = (map && map[entity]) || Object.keys(item || {});
