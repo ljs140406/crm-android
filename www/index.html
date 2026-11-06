@@ -1506,6 +1506,8 @@ td.col-followup-content { position: relative; }
     .todo-view-btn { padding: 6px 12px; font-size: 12px; }
     .todo-filters { width: 100%; }
     .todo-filters select { flex: 1; min-width: 0; padding: 6px 10px; font-size: 12px; }
+    .todo-tag-bar { padding-bottom: 6px; margin-bottom: 8px; }
+    .todo-tag-chip { padding: 4px 10px; }
 
     /* 弹窗在移动端居中对齐 + 移除 backdrop-filter 减少 GPU 负担避免闪烁 */
     .modal-overlay { align-items: center; padding-left: 12px; padding-right: 12px; backdrop-filter: none; -webkit-backdrop-filter: none; }
@@ -3243,6 +3245,32 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
     min-width: 120px;
 }
 
+/* 待办标签：筛选栏 / 分组 / 徽章 / 编辑弹窗 */
+.todo-tag-bar { display: flex; gap: 6px; overflow-x: auto; flex-wrap: nowrap; padding: 2px 0 8px; margin-bottom: 0; border-bottom: 1px solid var(--border); -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+.todo-tag-bar::-webkit-scrollbar { height: 4px; }
+.todo-tag-bar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.todo-tag-chip { flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px; padding: 5px 11px; font-size: 12px; border-radius: 14px; background: #eef2ff; color: #6366f1; cursor: pointer; white-space: nowrap; border: 1px solid transparent; transition: background .15s, color .15s; }
+.todo-tag-chip:hover { background: #e0e7ff; }
+.todo-tag-chip.active { background: #6366f1; color: #fff; }
+.todo-tag-chip .chip-count { font-size: 11px; opacity: .8; }
+.todo-group-head { display: flex; align-items: center; gap: 8px; margin: 16px 0 8px; }
+.todo-group-head:first-child { margin-top: 2px; }
+.todo-group-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.todo-group-count { font-size: 11px; color: #6366f1; background: #eef2ff; padding: 1px 8px; border-radius: 10px; }
+.todo-group-muted .todo-group-title { color: var(--text-secondary); }
+.todo-group-muted .todo-group-count { color: var(--text-secondary); background: var(--gray-100); }
+.todo-item-tag { display: inline-flex; align-items: center; font-size: 10px; color: #6366f1; background: #eef2ff; padding: 1px 7px; border-radius: 10px; white-space: nowrap; }
+.overdue-item-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.tag-editor { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 7px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card-bg); min-height: 38px; }
+.tag-editor-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 3px 8px; border-radius: 10px; background: #eef2ff; color: #6366f1; }
+.tag-editor-x { cursor: pointer; font-size: 13px; line-height: 1; opacity: .7; }
+.tag-editor-x:hover { opacity: 1; }
+.tag-editor input.tag-editor-input { flex: 1 1 110px; min-width: 100px; border: none; outline: none; background: transparent; color: var(--text); font-size: 13px; padding: 2px 0; box-shadow: none; }
+.tag-suggest { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; align-items: center; }
+.tag-suggest-chip { font-size: 12px; padding: 3px 9px; border-radius: 10px; background: var(--gray-100); color: var(--text-secondary); cursor: pointer; }
+.tag-suggest-chip:hover { background: #e0e7ff; color: #6366f1; }
+.tag-suggest-empty { font-size: 12px; color: var(--text-tertiary); }
+
 /* 待办列表项 */
 .todo-item {
     display: flex;
@@ -4397,19 +4425,6 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                         <button type="button" class="btn btn-warning btn-sm" id="planWeekCarryArchive">归档本周</button>
                     </div>
                     <div class="plan-section this-week" id="planSectionThis" data-page-node-id="K0cDcQH5AvdTv1sHG0JrQp">
-                        <div class="acc-block" data-acc id="reportAccBlock"><div class="acc-head" onclick="window._crm.toggleAcc(this)"><div class="acc-left"><span class="acc-icon" style="background:#ECFDF5;color:#059669;">📊</span><span class="acc-title">近期汇报客户</span><span class="acc-meta" id="reportCountBadge"></span></div><button type="button" class="report-add-btn" onclick="event.stopPropagation();window._crm.addReportCustomer()">＋ 添加客户</button><span class="acc-chev">›</span></div><div class="acc-body"><div class="plan-cell plan-focus"><div class="focus-list" id="reportList" data-page-node-id="4qLnYNE6Nc8IXBitTQfgws"></div></div></div></div>
-                        <div class="acc-block" data-acc data-page-node-id="rhr99CrwlCrtla7a9a91cW">
-                            <div class="acc-head" onclick="window._crm.toggleAcc(this)" data-page-node-id="uekNCjnuMdDpqa3dR90hts">
-                                <div class="acc-left" data-page-node-id="LzX6qicd8lyZIEXGOAvEfI"><span class="acc-icon" data-page-node-id="ClCtEHFJRuJIVG2JEESEka">🎯</span><span class="acc-title" data-page-node-id="0Wl14itN2n5AmClLcPWEM2">本周计划</span><span class="week-label" id="thisWeekLabel" data-page-node-id="8lpmCEyvyl3wDtPYSXmwVQ"></span></div>
-                                <span class="acc-chev" data-page-node-id="fdSP6zOBEyhXwEHmqdCqBt">›</span>
-                            </div>
-                            <div class="acc-body" data-page-node-id="PBSIFXeDazWk3kROAP4jMV">
-                        <div class="plan-cell plan-focus" data-page-node-id="Mkdu2DPfChLG0BOI1hfkjo">
-                            <div class="plan-cell-label" data-page-node-id="wAevFBJwv4l01CwazPwfgT"><span data-page-node-id="vAgsl5pJFEEMreR4Nh9Uh7">本周重点</span><button type="button" class="focus-add-btn" data-period="this" data-page-node-id="maJobI0UzGpdChYIeVDQxl"><span class="focus-add-icon" data-page-node-id="C9tt42gzhj6vefL4cGSxHA">+</span>添加重点</button></div>
-                            <div class="focus-list" id="thisFocusList" data-page-node-id="dyaHcvvUwb3s5Hbnn4Acvq"></div>
-                        </div>
-                            </div><!-- /acc-body 本周计划 -->
-                        </div><!-- /acc-block 本周计划 -->
                         <div class="acc-block" data-acc data-page-node-id="QXgIAvyG76RerGZ31WPrNH">
                             <div class="acc-head" onclick="window._crm.toggleAcc(this)" data-page-node-id="2mFTWDaI2obA9z75lRLrgz">
                                 <div class="acc-left" data-page-node-id="P76zJiBmMUMZAs14yoPeEA"><span class="acc-icon" data-page-node-id="GCAaHOxG1ZFOl87PoS3dZj">📅</span><span class="acc-title" data-page-node-id="OqoPsHNXphAiqr9FHC0UFW">每日计划</span></div>
@@ -4450,6 +4465,19 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                         <button type="button" class="weekend-toggle" onclick="window._crm.toggleWeekend()" data-page-node-id="NjvNJuESz8DHLfBX4fMIUy">展开周末（周六/周日）</button>
                             </div><!-- /acc-body 每日计划 -->
                         </div><!-- /acc-block 每日计划 -->
+                        <div class="acc-block" data-acc id="reportAccBlock"><div class="acc-head" onclick="window._crm.toggleAcc(this)"><div class="acc-left"><span class="acc-icon" style="background:#ECFDF5;color:#059669;">📊</span><span class="acc-title">近期汇报客户</span><span class="acc-meta" id="reportCountBadge"></span></div><button type="button" class="report-add-btn" onclick="event.stopPropagation();window._crm.addReportCustomer()">＋ 添加客户</button><span class="acc-chev">›</span></div><div class="acc-body"><div class="plan-cell plan-focus"><div class="focus-list" id="reportList" data-page-node-id="4qLnYNE6Nc8IXBitTQfgws"></div></div></div></div>
+                        <div class="acc-block" data-acc data-page-node-id="rhr99CrwlCrtla7a9a91cW">
+                            <div class="acc-head" onclick="window._crm.toggleAcc(this)" data-page-node-id="uekNCjnuMdDpqa3dR90hts">
+                                <div class="acc-left" data-page-node-id="LzX6qicd8lyZIEXGOAvEfI"><span class="acc-icon" data-page-node-id="ClCtEHFJRuJIVG2JEESEka">🎯</span><span class="acc-title" data-page-node-id="0Wl14itN2n5AmClLcPWEM2">本周计划</span><span class="week-label" id="thisWeekLabel" data-page-node-id="8lpmCEyvyl3wDtPYSXmwVQ"></span></div>
+                                <span class="acc-chev" data-page-node-id="fdSP6zOBEyhXwEHmqdCqBt">›</span>
+                            </div>
+                            <div class="acc-body" data-page-node-id="PBSIFXeDazWk3kROAP4jMV">
+                        <div class="plan-cell plan-focus" data-page-node-id="Mkdu2DPfChLG0BOI1hfkjo">
+                            <div class="plan-cell-label" data-page-node-id="wAevFBJwv4l01CwazPwfgT"><span data-page-node-id="vAgsl5pJFEEMreR4Nh9Uh7">本周重点</span><button type="button" class="focus-add-btn" data-period="this" data-page-node-id="maJobI0UzGpdChYIeVDQxl"><span class="focus-add-icon" data-page-node-id="C9tt42gzhj6vefL4cGSxHA">+</span>添加重点</button></div>
+                            <div class="focus-list" id="thisFocusList" data-page-node-id="dyaHcvvUwb3s5Hbnn4Acvq"></div>
+                        </div>
+                            </div><!-- /acc-body 本周计划 -->
+                        </div><!-- /acc-block 本周计划 -->
                     </div>
 
                     <div class="plan-section next-week" id="planSectionNext" hidden data-page-node-id="oRcHdEokzYeJxyGrNoEtg5">
@@ -4549,6 +4577,10 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="75APIAiVxpf03EIthM2d3R"><rect x="3" y="4" width="18" height="18" rx="2" data-page-node-id="UG0N3o52Trl9YRc6KTiCnn"/><line x1="16" y1="2" x2="16" y2="6" data-page-node-id="OEeFNivYVEe1QtKC0QWGYt"/><line x1="8" y1="2" x2="8" y2="6" data-page-node-id="hH3gHscT7dwQq0jzgCXrMX"/><line x1="3" y1="10" x2="21" y2="10" data-page-node-id="cCdSFSTHG7yv0348lDAcL4"/></svg>
                             日历
                         </button>
+                        <button class="todo-view-btn" data-view="group" id="todoGroupViewBtn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                            分组
+                        </button>
                     </div>
                     <div class="todo-filters" data-page-node-id="sBdvcu03ajNGo39emvw8NO">
                         <select id="todoStatusFilter" data-page-node-id="5O0Rbqve2lyDRDcsFGH8ra">
@@ -4567,6 +4599,7 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                             <option value="not_urgent_not_important" data-page-node-id="Qd3XaoikMFvVvI6HHUxlNb">不重要不紧急</option>
                         </select>
                     </div>
+                    <div class="todo-tag-bar" id="todoTagBar"></div>
                 </div>
                 <div class="todo-list" id="todoList" data-page-node-id="FQHEXTaETDCxUd9xcMz2Fq"></div>
                 <div class="todo-calendar hidden" id="todoCalendar" data-page-node-id="Pt6tzo78WPH4EaE6mkV0YC"></div>
@@ -4998,6 +5031,15 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                     <label data-page-node-id="C1w3EDHl3SXCAmS8BwX81k">描述（可选）</label>
                     <textarea id="todoDesc" rows="2" placeholder="待办详情..." oninput="window._crm.autoResizeTextarea(this)"></textarea>
                 </div>
+                <div class="form-group">
+                    <label>标签（可多选）</label>
+                    <div class="tag-editor" id="todoTagEditor">
+                        <div id="todoTagChips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+                        <input type="text" class="tag-editor-input" id="todoTagInput" placeholder="输入标签后回车添加" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                    </div>
+                    <input type="hidden" id="todoTagsValue" value="">
+                    <div class="tag-suggest" id="todoTagSuggest"></div>
+                </div>
                 <div class="form-row" data-page-node-id="sxWB2oPFDjrDyWgsI3uy6s">
                     <div class="form-group" style="flex:1;" data-page-node-id="yP1ECmclT72qtXBaeooCF6">
                         <label data-page-node-id="8zLnaJcg0g6u5Kgjy78WxO">截止日期</label>
@@ -5201,6 +5243,12 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                         <button class="btn btn-secondary btn-sm" id="appUpdateBtn" type="button" data-page-node-id="un5fZhjTtyTthY07KVBKDW">检查更新</button>
                         <button class="btn btn-ghost btn-sm" id="appChangelogBtn" type="button" data-page-node-id="appChangelogBtn">更新日志</button>
                         <span class="form-tip" style="margin:0;" data-page-node-id="cXuxDE9BXChCA0eR9MJ3du">桌面版可在线检查并下载新版本</span>
+                    </div>
+                    <!-- ⚠️ 常驻更新状态行：下载进度/更新就绪必须一直看得见，不能只靠那个一次性小弹框
+                         （旧实现：关闭弹框后完全失去可见性 → 用户反馈「下载进度看不到了」）。 -->
+                    <div id="appUpdateStatusWrap" style="display:none;margin-top:10px;align-items:center;gap:10px;flex-wrap:wrap;" data-page-node-id="appUpdateStatusWrap">
+                        <span id="appUpdateStatus" class="form-tip" style="margin:0;flex:1;min-width:180px;" data-page-node-id="appUpdateStatus">—</span>
+                        <button class="btn btn-primary btn-sm" id="appUpdateInstallBtn" type="button" style="display:none;" data-page-node-id="appUpdateInstallBtn">立即重启安装</button>
                     </div>
                     </div><!-- /appUpdateRow -->
                 </div><!-- /sync-section secAppUpdate -->
@@ -5950,12 +5998,50 @@ const TODO_PRIORITY = {
 };
 
 // 待办视图和筛选
-let todoView = 'list'; // 'list' | 'calendar'
+let todoView = 'list'; // 'list' | 'calendar' | 'group'
+const TODO_UNTAGGED = '__untagged__';
+let todoTagFilter = 'all'; // 'all' | TODO_UNTAGGED | 具体标签名
+let _todoEditingTags = []; // 编辑弹窗中临时的标签集合（保存前不写入 state）
 // 默认展示「活跃」待办（待开始/进行中/已逾期），隐藏已完成；'all' 才显示全部
 let todoStatusFilter = 'active';
 let todoPriorityFilter = 'all';
 let todoCustomerFilter = 'all'; // 从客户总表跳转时的客户名筛选
 let editingTodoId = null;
+
+// 标签统一规范化：去空白 / 去空项 / 去重 / 排序。
+// 排序是同步稳定性的关键：_isSameItem / _hashItem / normVal 对数组字段都用 JSON.stringify 比较，
+// 若两端标签顺序不同会被误判「内容有变更」→ 每轮都推送/合并 → 无限乒乓（历史踩坑）。
+// 这里刻意用 Array.sort() 的 UTF-16 默认序而非 localeCompare：后者依赖 ICU 版本，
+// 桌面 Electron / 安卓 WebView 排序结果可能不同，反而会破坏两端序列化一致性。
+function _normalizeTags(raw) {
+    const arr = Array.isArray(raw) ? raw : (typeof raw === 'string' ? raw.split(/[,，;；]/) : []);
+    const out = [];
+    arr.forEach(x => {
+        const s = String(x == null ? '' : x).trim().replace(/\s+/g, ' ');
+        if (s && out.indexOf(s) === -1) out.push(s);
+    });
+    out.sort();
+    return out;
+}
+// 读取单条待办的标签（兼容旧数据：无 tags 字段 → 空数组）
+function _todoTags(t) {
+    return _normalizeTags(t && t.tags);
+}
+// 生成标签徽章 HTML（列表/日历/客户详情/今日待办/仪表盘/搜索结果复用）
+function _todoTagsHtml(t) {
+    const tags = _todoTags(t);
+    if (!tags.length) return '';
+    return tags.map(x => '<span class="todo-item-tag">' + escapeHtml(x) + '</span>').join('');
+}
+// 收集全部待办里用过的标签（供筛选栏与编辑弹窗「常用标签」使用）
+function collectAllTodoTags() {
+    const set = {};
+    (state.todos || []).forEach(t => {
+        if (state._tombstones && state._tombstones.todos && state._tombstones.todos[t.id]) return;
+        _todoTags(t).forEach(x => { set[x] = (set[x] || 0) + 1; });
+    });
+    return Object.keys(set).sort();
+}
 let editingFollowupId = null; // 非空表示正在编辑已存在的跟进记录（否则为新增）
 let calendarYear, calendarMonth;
 
@@ -6784,6 +6870,7 @@ function navigateTo(page, opts) {
 
     // 处理导航参数（筛选、状态跳转等）
     if (opts) {
+        todoTagFilter = 'all'; // 从看板/客户总表跳转时清掉标签筛选，避免目标待办被隐藏
         if (opts.todoStatus !== undefined) {
             todoStatusFilter = opts.todoStatus;
             // 按状态跳转时，不锁定客户
@@ -6800,6 +6887,7 @@ function navigateTo(page, opts) {
         todoStatusFilter = 'active';
         todoPriorityFilter = 'all';
         todoCustomerFilter = 'all';
+        todoTagFilter = 'all';
     }
 
     // 同步下拉框显示
@@ -7547,6 +7635,7 @@ function renderDashboardTodos() {
                     <div class="info">
                         <div class="name">${escapeHtml(t.title)}</div>
                         ${t.dueDate ? `<div class="days" style="color:${sc.days};">${formatDateStr(t.dueDate)}</div>` : ''}
+                        ${_todoTagsHtml(t) ? '<div class="overdue-item-tags">' + _todoTagsHtml(t) + '</div>' : ''}
                     </div>
                     <span class="todo-status-badge ${st.cssClass}" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;">
                         <span class="dot" style="width:6px;height:6px;border-radius:50%;background:${pri.color};display:inline-block;"></span>
@@ -8622,6 +8711,7 @@ function openCustomerTodos(customerName) {
                     <span class="priority-badge priority-${pri.cssClass}"><span style="width:6px;height:6px;border-radius:50%;background:${pri.color};display:inline-block;"></span>${pri.name}</span>
                     <span class="todo-status-badge ${st.cssClass}">${st.name}</span>
                     ${dueDisplay ? `<span class="todo-item-date${isOverdue ? ' overdue-date' : ''}">${dueDisplay}</span>` : ''}
+                    ${_todoTagsHtml(t)}
                 </div>
             </div>
         </div>`;
@@ -8927,6 +9017,7 @@ function openCustomerDetail(id) {
                         '<div class="detail-todo-meta">' +
                         '<span class="todo-status-badge ' + st.cssClass + '">' + st.name + '</span>' +
                         (due ? '<span class="detail-todo-due' + (es === 'overdue' ? ' overdue' : '') + '">' + due + '</span>' : '') +
+                        _todoTagsHtml(t) +
                         '</div></div>';
                 }).join('')}
             </div>
@@ -10378,6 +10469,12 @@ function toggleFuCollapseAll() { setFuCollapseAll(!_fuCollapseAll); }
 // 1) 从 _meta 恢复「按客户折叠」默认态；2) 一次性把无标签的历史跟进记录补默认标签「日常跟进」（幂等，防重复迁移）
 function _afterDataLoaded() {
     state._meta = state._meta || {};
+    // 待办标签：读入即规范化（去空白 / 去重 / 稳定排序）。
+    // 旧版本、手工导入或云端乱序数据若原样留在 state，会与已规范化的同步基准在
+    // _isSameItem / _hashItem 比较里被误判为「内容有变更」→ 每轮都推送 → 无限乒乓。
+    if (Array.isArray(state.todos)) {
+        state.todos.forEach(function (t) { if (t) t.tags = _normalizeTags(t.tags); });
+    }
     _fuCollapseAll = !!state._meta.followupCollapse;
     _fuExpandedCustomers = {};
     if (!state._meta.fuTagMigrated) {
@@ -13213,7 +13310,7 @@ function performSearch(query) {
             return `
             <div class="search-result-item" onclick="window._crm.closeSearch();window._crm.navigateTo('todos');window._crm.openTodoModal('${t.id}')">
                 <div class="name">${highlightText(t.title || '(无标题)', query)}</div>
-                <div class="meta"><span class="todo-status-badge ${st.cssClass}">${st.name}</span>${t.customerName ? ' · ' + highlightText(t.customerName, query) : ''}${t.dueDate ? ' · ' + formatDateStr(t.dueDate) : ''}</div>
+                <div class="meta"><span class="todo-status-badge ${st.cssClass}">${st.name}</span>${t.customerName ? ' · ' + highlightText(t.customerName, query) : ''}${t.dueDate ? ' · ' + formatDateStr(t.dueDate) : ''}${_todoTagsHtml(t)}</div>
                 ${t.desc ? `<div class="search-result-snippet">${highlightText(t.desc, query)}</div>` : ''}
             </div>`;
         }).join('');
@@ -16862,7 +16959,9 @@ function getSyncPayload() {
         },
         customers: state.customers,
         followups: state.followups,
-        todos: state.todos,
+        // tags 输出前再规范化一次：即使本地 state 里混入了历史乱序标签（旧版本 / 手工导入），
+        // 两端 payload 也逐字节一致，避免 _isSameItem / _hashItem 误判「内容有变更」而无限乒乓。
+        todos: (state.todos || []).map(t => { const o = Object.assign({}, t); o.tags = _normalizeTags(o.tags); return o; }),
         // ⚠️ 计划部分必须输出「规范化」结果：
         //   · workPlan 剔除设备态字段（_rev/_deviceId）→ 两端在内容一致时产出逐字节相同的 payload
         //     → 云端 ETag 稳定 → 不再每轮都判「云端有更新」→ 终止无限乒乓。
@@ -17229,6 +17328,8 @@ function applyRemoteData(remoteData) {
     state.customers = unionMerge(state.customers, remoteCustomers, 'customer', tsMapC);
     state.followups = unionMerge(state.followups, remoteFollowups, 'followup', tsMapF);
     state.todos = unionMerge(state.todos, remoteTodos, 'todo', tsMapT);
+    // 合并落地即规范化标签顺序，保证本地 state 与云端口径一致（远端可能是旧版本 / 乱序数据）
+    state.todos.forEach(t => { if (t) t.tags = _normalizeTags(t.tags); });
     state.history = unionMerge(state.history, remoteHistory, 'history', tsMapH);
     // 快照合并前的镜像（用于判断是否存在「未落盘的内存修改」）
     const _dpBefore = state.dailyPlans || [];
@@ -17759,7 +17860,7 @@ const FIELD_LABELS = {
     remark: '备注', last_followup: '最后跟进', last_followup_time: '跟进时间',
     customFields: '自定义字段',
     customer: '客户', content: '内容', time: '时间',
-    title: '标题', desc: '描述', priority: '优先级',
+    title: '标题', desc: '描述', priority: '优先级', tags: '标签',
     dueDate: '截止日期', dueTime: '截止时间', customerName: '关联客户',
     completedAt: '完成时间', manualStatus: '手动状态标记',
     week: '周次', data: '内容', statuses: '状态列表',
@@ -17771,7 +17872,7 @@ const FIELD_LABELS = {
 const DIFF_FIELDS = {
     customer: ['name', 'status', 'city', 'contact', 'remark', 'last_followup', 'last_followup_time', 'customFields', 'starred', 'updatedAt'],
     followup: ['customer', 'content', 'tag', 'time', 'updatedAt'],
-    todo: ['title', 'desc', 'priority', 'status', 'dueDate', 'dueTime', 'customerName', 'completedAt', 'manualStatus', 'updatedAt'],
+    todo: ['title', 'desc', 'priority', 'status', 'dueDate', 'dueTime', 'customerName', 'completedAt', 'manualStatus', 'tags', 'updatedAt'],
     history: ['week', 'data', 'updatedAt'],
     dailyPlan: ['text', 'customer', 'customerId', 'updatedAt'],
     focus: ['text', 'completed', 'starred', 'updatedAt'],
@@ -19115,6 +19216,35 @@ function bindEvents() {
     document.getElementById('todoCalendarViewBtn').addEventListener('click', () => toggleTodoView('calendar'));
     document.getElementById('todoStatusFilter').addEventListener('change', (e) => { todoStatusFilter = e.target.value; renderTodos(); });
     document.getElementById('todoPriorityFilter').addEventListener('change', (e) => { todoPriorityFilter = e.target.value; renderTodos(); });
+    const _groupBtn = document.getElementById('todoGroupViewBtn');
+    if (_groupBtn) _groupBtn.addEventListener('click', () => toggleTodoView('group'));
+    // 标签筛选栏：事件委托绑在 bar 自身（innerHTML 会被重绘，绑在子元素上会失效）
+    const _tagBar = document.getElementById('todoTagBar');
+    if (_tagBar) _tagBar.addEventListener('click', (e) => {
+        const chip = e.target.closest('[data-todo-tag]');
+        if (chip) setTodoTagFilter(chip.getAttribute('data-todo-tag'));
+    });
+    // 标签编辑区：回车/逗号成标签；组字态（中文输入法）不拦截；退格删末尾
+    const _tagInput = document.getElementById('todoTagInput');
+    if (_tagInput) _tagInput.addEventListener('keydown', (e) => {
+        if (e.isComposing || e.keyCode === 229) return;
+        if (e.key === 'Enter' || e.key === ',' || e.key === '，') {
+            e.preventDefault();
+            addTodoTag(_tagInput.value);
+        } else if (e.key === 'Backspace' && !_tagInput.value && _todoEditingTags.length) {
+            removeTodoTag(_todoEditingTags[_todoEditingTags.length - 1]);
+        }
+    });
+    const _tagEditor = document.getElementById('todoTagEditor');
+    if (_tagEditor) _tagEditor.addEventListener('click', (e) => {
+        const rm = e.target.closest('[data-todo-tag-remove]');
+        if (rm) { e.preventDefault(); removeTodoTag(rm.getAttribute('data-todo-tag-remove')); }
+    });
+    const _tagSuggest = document.getElementById('todoTagSuggest');
+    if (_tagSuggest) _tagSuggest.addEventListener('click', (e) => {
+        const addEl = e.target.closest('[data-todo-tag-add]');
+        if (addEl) { e.preventDefault(); addTodoTag(addEl.getAttribute('data-todo-tag-add')); }
+    });
     // 待办列表中点击事件统一委托：完成按钮、客户名、其他区域
     document.getElementById('todoList').addEventListener('click', (e) => {
         // 优先级最高：完成切换按钮
@@ -19285,30 +19415,33 @@ function renderTodos() {
     updateTodoOverdueBadge();
     renderTodoStats();
 
-    // 根据筛选条件过滤
-    let filtered = state.todos.filter(t => {
-        // 墓碑检查
-        if (state._tombstones && state._tombstones.todos && state._tombstones.todos[t.id]) return false;
+    // 基础集合：仅排除墓碑
+    const base = state.todos.filter(t => !(state._tombstones && state._tombstones.todos && state._tombstones.todos[t.id]));
+
+    // 状态 / 优先级 / 客户筛选
+    let filtered = base.filter(t => {
+        if (todoStatusFilter === 'active') {
+            if (effectiveStatus(t) === 'completed') return false;
+        } else if (todoStatusFilter !== 'all' && effectiveStatus(t) !== todoStatusFilter) return false;
+        if (todoPriorityFilter !== 'all' && t.priority !== todoPriorityFilter) return false;
+        if (todoCustomerFilter !== 'all' && t.customerName !== todoCustomerFilter) return false;
         return true;
     });
 
-    if (todoStatusFilter === 'active') {
-        // 默认视图：仅展示待开始 / 进行中 / 已逾期，隐藏已完成
-        filtered = filtered.filter(t => effectiveStatus(t) !== 'completed');
-    } else if (todoStatusFilter !== 'all') {
-        filtered = filtered.filter(t => effectiveStatus(t) === todoStatusFilter);
-    }
-    if (todoPriorityFilter !== 'all') {
-        filtered = filtered.filter(t => t.priority === todoPriorityFilter);
-    }
-    if (todoCustomerFilter !== 'all') {
-        filtered = filtered.filter(t => t.customerName === todoCustomerFilter);
+    // 标签筛选栏：计数基于「已应用状态/优先级/客户筛选、但尚未应用标签筛选」的集合，
+    // 这样选中某标签后其它标签的计数仍然可见，随时可切换。
+    renderTodoTagBar(filtered);
+
+    // 标签筛选（与状态/优先级 AND 叠加）
+    if (todoTagFilter === TODO_UNTAGGED) {
+        filtered = filtered.filter(t => _todoTags(t).length === 0);
+    } else if (todoTagFilter !== 'all') {
+        filtered = filtered.filter(t => _todoTags(t).indexOf(todoTagFilter) !== -1);
     }
 
-    // 排序：逾期>进行中>待开始>已完成，然后按截止日期，再按优先级
+    // 排序：逾期 > 进行中 > 待开始 > 已完成，然后按截止日期，再按优先级
     const statusOrder = { overdue: 0, in_progress: 1, pending: 2, completed: 3 };
     const priorityOrder = { urgent_important: 0, important_not_urgent: 1, urgent_not_important: 2, not_urgent_not_important: 3 };
-
     filtered.sort((a, b) => {
         const aEs = effectiveStatus(a), bEs = effectiveStatus(b);
         if (statusOrder[aEs] !== statusOrder[bEs]) return statusOrder[aEs] - statusOrder[bEs];
@@ -19318,54 +19451,106 @@ function renderTodos() {
         return priorityOrder[a.priority] - priorityOrder[b.priority];
     });
 
-    // 渲染视图
+    // 日历视图：容器独立，渲染完直接返回
     if (todoView === 'calendar') {
         renderTodoCalendar(filtered);
         document.getElementById('todoCalendar').classList.remove('hidden');
         document.getElementById('todoList').classList.add('hidden');
-    } else {
-        document.getElementById('todoCalendar').classList.add('hidden');
-        document.getElementById('todoList').classList.remove('hidden');
+        return;
     }
-
-    // 列表视图
+    document.getElementById('todoCalendar').classList.add('hidden');
     const container = document.getElementById('todoList');
+    container.classList.remove('hidden');
+
     if (filtered.length === 0) {
-        container.innerHTML = '<div class="empty-state"><div class="title">暂无待办事项</div><div class="desc">点击右下角 + 按钮添加待办</div></div>';
+        container.innerHTML = '<div class="empty-state"><div class="title">暂无待办事项</div><div class="desc">' +
+            (todoTagFilter !== 'all' ? '当前标签下没有待办，可切换其它标签' : '点击右下角 + 按钮添加待办') + '</div></div>';
         return;
     }
 
-    container.innerHTML = filtered.map(t => {
-        const es = effectiveStatus(t);
-        const pri = TODO_PRIORITY[t.priority] || TODO_PRIORITY.not_urgent_not_important;
-        const st = TODO_STATUS[es] || TODO_STATUS.pending;
-        const isDone = es === 'completed';
-        const isOverdue = es === 'overdue';
-        const dueDisplay = t.dueDate
-            ? (t.dueTime ? formatDateStr(t.dueDate) + ' ' + t.dueTime : formatDateStr(t.dueDate))
-            : '';
+    // 分组视图：按标签分段。一条待办若挂多个标签，会在所属各组都出现（计数为标签使用次数）。
+    if (todoView === 'group') {
+        const tagSet = {};
+        filtered.forEach(t => _todoTags(t).forEach(x => { tagSet[x] = 1; }));
+        const groups = [];
+        Object.keys(tagSet).sort().forEach(tag => {
+            groups.push({ title: tag, muted: false, items: filtered.filter(t => _todoTags(t).indexOf(tag) !== -1) });
+        });
+        const untagged = filtered.filter(t => _todoTags(t).length === 0);
+        if (untagged.length) groups.push({ title: '未分类', muted: true, items: untagged });
+        container.innerHTML = groups.map(g => {
+            const head = '<div class="todo-group-head' + (g.muted ? ' todo-group-muted' : '') + '">' +
+                '<span class="todo-group-title">' + escapeHtml(g.title) + '</span>' +
+                '<span class="todo-group-count">' + g.items.length + '</span></div>';
+            return head + g.items.map(t => todoItemHtml(t)).join('');
+        }).join('');
+        return;
+    }
 
-        return `
-            <div class="todo-item${isDone ? ' completed' : ''}" data-todo-id="${t.id}">
-                <div class="todo-item-check${isDone ? ' done' : ''}" data-todo-toggle="${t.id}">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                </div>
-                <div class="todo-item-content">
-                    <div class="todo-item-title">${escapeHtml(t.title)}</div>
-                    ${t.desc ? `<div class="todo-item-desc">${escapeHtml(t.desc)}</div>` : ''}
-                    <div class="todo-item-meta">
-                        <span class="priority-badge priority-${pri.cssClass}">
-                            <span style="width:6px;height:6px;border-radius:50%;background:${pri.color};display:inline-block;"></span>
-                            ${pri.name}
-                        </span>
-                        <span class="todo-status-badge ${st.cssClass}">${st.name}</span>
-                        ${dueDisplay ? `<span class="todo-item-date${isOverdue ? ' overdue-date' : ''}">${dueDisplay}</span>` : ''}
-                        ${t.customerName ? `<span class="todo-item-customer" data-todo-customer-name="${escapeHtml(t.customerName)}" title="点击查看客户详情">${escapeHtml(t.customerName)}</span>` : ''}
-                    </div>
+    container.innerHTML = filtered.map(t => todoItemHtml(t)).join('');
+}
+
+// 单条待办卡片（列表 / 分组视图复用）
+function todoItemHtml(t) {
+    const es = effectiveStatus(t);
+    const pri = TODO_PRIORITY[t.priority] || TODO_PRIORITY.not_urgent_not_important;
+    const st = TODO_STATUS[es] || TODO_STATUS.pending;
+    const isDone = es === 'completed';
+    const isOverdue = es === 'overdue';
+    const dueDisplay = t.dueDate
+        ? (t.dueTime ? formatDateStr(t.dueDate) + ' ' + t.dueTime : formatDateStr(t.dueDate))
+        : '';
+
+    return `
+        <div class="todo-item${isDone ? ' completed' : ''}" data-todo-id="${t.id}">
+            <div class="todo-item-check${isDone ? ' done' : ''}" data-todo-toggle="${t.id}">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div class="todo-item-content">
+                <div class="todo-item-title">${escapeHtml(t.title)}</div>
+                ${t.desc ? `<div class="todo-item-desc">${escapeHtml(t.desc)}</div>` : ''}
+                <div class="todo-item-meta">
+                    <span class="priority-badge priority-${pri.cssClass}">
+                        <span style="width:6px;height:6px;border-radius:50%;background:${pri.color};display:inline-block;"></span>
+                        ${pri.name}
+                    </span>
+                    <span class="todo-status-badge ${st.cssClass}">${st.name}</span>
+                    ${dueDisplay ? `<span class="todo-item-date${isOverdue ? ' overdue-date' : ''}">${dueDisplay}</span>` : ''}
+                    ${t.customerName ? `<span class="todo-item-customer" data-todo-customer-name="${escapeHtml(t.customerName)}" title="点击查看客户详情">${escapeHtml(t.customerName)}</span>` : ''}
+                    ${_todoTagsHtml(t)}
                 </div>
             </div>
-        `;
-    }).join('');
+        </div>`;
+}
+
+// 标签筛选栏：点 chip 切换筛选；再点当前 chip 回到「全部」
+function renderTodoTagBar(baseTodos) {
+    const bar = document.getElementById('todoTagBar');
+    if (!bar) return;
+    const counts = {};
+    let untagged = 0;
+    (baseTodos || []).forEach(t => {
+        const tags = _todoTags(t);
+        if (!tags.length) { untagged++; return; }
+        tags.forEach(x => { counts[x] = (counts[x] || 0) + 1; });
+    });
+    const allTags = Object.keys(counts).sort();
+    // 当前选中的标签已不存在（该标签的待办被删/改标签/已完成被隐藏）→ 自动回到「全部」
+    if (todoTagFilter !== 'all' && todoTagFilter !== TODO_UNTAGGED && allTags.indexOf(todoTagFilter) === -1) {
+        todoTagFilter = 'all';
+    }
+    const chip = (label, val, count, active) =>
+        '<span class="todo-tag-chip' + (active ? ' active' : '') + '" data-todo-tag="' + escapeHtml(val) + '">' +
+        escapeHtml(label) + (count == null ? '' : '<span class="chip-count">' + count + '</span>') + '</span>';
+    let html = chip('全部', 'all', null, todoTagFilter === 'all');
+    allTags.forEach(tag => { html += chip(tag, tag, counts[tag], todoTagFilter === tag); });
+    if (untagged) html += chip('未分类', TODO_UNTAGGED, untagged, todoTagFilter === TODO_UNTAGGED);
+    bar.innerHTML = html;
+}
+
+function setTodoTagFilter(tag) {
+    todoTagFilter = (todoTagFilter === tag && tag !== 'all') ? 'all' : tag;
+    renderTodos();
 }
 
 function renderTodoCalendar(filteredTodos) {
@@ -19491,6 +19676,7 @@ function renderTodayTodosStrip(filteredTodos, today) {
                     </span>
                     ${timeDisplay ? `<span class="todo-today-time">${timeDisplay}</span>` : ''}
                     ${t.customerName ? `<span class="todo-today-customer" data-today-todo-customer="${escapeHtml(t.customerName)}">${escapeHtml(t.customerName)}</span>` : ''}
+                    ${_todoTagsHtml(t)}
                 </div>
             </div>
         </div>`;
@@ -19558,6 +19744,7 @@ function showCalendarDay(dateStr) {
                         </span>
                         <span class="todo-status-badge ${st.cssClass}">${st.name}</span>
                         ${t.customerName ? `<span class="todo-item-customer" data-todo-customer-name="${escapeHtml(t.customerName)}">${escapeHtml(t.customerName)}</span>` : ''}
+                        ${_todoTagsHtml(t)}
                     </div>
                 </div>
             </div>`;
@@ -19694,6 +19881,7 @@ function isModalDirty(overlayId) {
 
 function openTodoModal(id, presetCustomerName) {
     editingTodoId = id;
+    _todoEditingTags = [];
 
     if (id) {
         const todo = state.todos.find(t => t.id === id);
@@ -19724,9 +19912,48 @@ function openTodoModal(id, presetCustomerName) {
             opt.classList.toggle('selected', opt.dataset.priority === 'not_urgent_not_important');
         });
     }
+    // 标签编辑区初始化（新增=空；编辑=该待办现有标签）。
+    // 必须在 snapshotModal 之前完成，否则隐藏字段的初值不对，模态框脏检查会漏判标签改动。
+    const _curTodo = id ? state.todos.find(t => t.id === id) : null;
+    _todoEditingTags = _todoTags(_curTodo);
+    renderTodoTagEditor();
     document.getElementById('todoModal').classList.add('show');
     autoResizeTextarea(document.getElementById('todoDesc'));
     snapshotModal('todoModal');
+}
+
+// 编辑弹窗标签区重绘：把当前标签集合写进 hidden input，供模态框脏检查感知改动。
+// hidden 用 \u0001 分隔，避免标签名本身含逗号时被误切。
+function renderTodoTagEditor() {
+    const chips = document.getElementById('todoTagChips');
+    const hidden = document.getElementById('todoTagsValue');
+    const suggest = document.getElementById('todoTagSuggest');
+    if (!chips || !hidden) return;
+    _todoEditingTags = _normalizeTags(_todoEditingTags);
+    hidden.value = _todoEditingTags.join('\u0001');
+    chips.innerHTML = _todoEditingTags.map(x =>
+        '<span class="tag-editor-chip">' + escapeHtml(x) +
+        '<span class="tag-editor-x" data-todo-tag-remove="' + escapeHtml(x) + '">&times;</span></span>'
+    ).join('');
+    if (suggest) {
+        const used = collectAllTodoTags().filter(x => _todoEditingTags.indexOf(x) === -1);
+        suggest.innerHTML = used.length
+            ? '<span class="tag-suggest-empty">常用标签（点击添加）</span>' + used.map(x =>
+                '<span class="tag-suggest-chip" data-todo-tag-add="' + escapeHtml(x) + '">+ ' + escapeHtml(x) + '</span>').join('')
+            : '<span class="tag-suggest-empty">暂无常用标签，直接输入即可新建</span>';
+    }
+}
+function addTodoTag(name) {
+    const s = String(name == null ? '' : name).trim().replace(/\s+/g, ' ');
+    if (!s) return;
+    if (_todoEditingTags.indexOf(s) === -1) _todoEditingTags.push(s);
+    renderTodoTagEditor();
+    const input = document.getElementById('todoTagInput');
+    if (input) { input.value = ''; input.focus(); }
+}
+function removeTodoTag(name) {
+    _todoEditingTags = _todoEditingTags.filter(x => x !== name);
+    renderTodoTagEditor();
 }
 
 function closeTodoModal() {
@@ -19833,6 +20060,12 @@ function saveTodo() {
     const desc = sanitizeInput(document.getElementById('todoDesc').value.trim());
     const customerName = sanitizeInput(document.getElementById('todoCustomer').value.trim());
     const manualStatus = document.getElementById('todoEditStatus').value || 'pending';
+    // 标签：以 hidden input 为真值；若输入框里还有没来得及按回车的文字，一并收进来。
+    const _tagVal = document.getElementById('todoTagsValue');
+    const _tagInput = document.getElementById('todoTagInput');
+    const _rawTags = _normalizeTags(_tagVal ? _tagVal.value.split('\u0001') : _todoEditingTags);
+    const _pendingTag = _tagInput ? _tagInput.value.trim() : '';
+    const tags = _pendingTag ? _normalizeTags(_rawTags.concat([_pendingTag])) : _rawTags;
 
     // 关联客户：名称已存在于客户表则关联其 id；不存在则自动新建客户并关联（新建时给出提示）
     let customerId = '';
@@ -19865,6 +20098,7 @@ function saveTodo() {
             todo.customerId = customerId;
             todo.status = status;
             todo.manualStatus = isManualStatus;
+            todo.tags = tags;
             todo.updatedAt = new Date().toISOString();
             if (status === 'completed' && !todo.completedAt) todo.completedAt = new Date().toISOString();
             if (status !== 'completed') todo.completedAt = null;
@@ -19883,6 +20117,7 @@ function saveTodo() {
             dueTime,
             customerName,
             customerId: customerId,
+            tags,
             createdAt: now,
             updatedAt: now,
             completedAt: status === 'completed' ? now : null
@@ -20206,6 +20441,18 @@ window._crm = {
     todoToday,
     showCalendarDay,
     setTodoStatusFilter,
+    setTodoTagFilter,
+    renderTodos,
+    renderTodoTagBar,
+    toggleTodoView,
+    saveTodo,
+    _normalizeTags,
+    _todoTags,
+    _todoTagsHtml,
+    collectAllTodoTags,
+    addTodoTag,
+    removeTodoTag,
+    renderTodoTagEditor,
     deleteHistory,
     resolveAllConflicts,
     resolveMerge,
@@ -20496,13 +20743,49 @@ function setupUpdaterUI() {
     var laterBtn = document.getElementById('updateLaterBtn');
     var closeBtn = document.getElementById('updateCloseBtn');
     var updateRow = document.getElementById('appUpdateRow');
+    // 常驻状态行（下载进度始终可见，不依赖一次性弹框）
+    var statusWrap = document.getElementById('appUpdateStatusWrap');
+    var statusText = document.getElementById('appUpdateStatus');
+    var statusInstallBtn = document.getElementById('appUpdateInstallBtn');
     if (updateRow) updateRow.style.display = '';
     function show() { if (modal) modal.classList.add('show'); }
     function hide() { if (modal) modal.classList.remove('show'); }
     function setPct(p) { var n = Math.max(0, Math.min(100, Math.round(p || 0))); if (bar) bar.style.width = n + '%'; if (pct) pct.textContent = n + '%'; }
+    function mb(v) { return (v ? (v / 1048576).toFixed(1) : '0'); }
+    // ---- 常驻状态行：任何时刻都能看到更新处于什么阶段 ----
+    function setStatus(text, showInstall) {
+        if (!statusWrap) return;
+        statusWrap.style.display = text ? 'flex' : 'none';
+        if (statusText) statusText.textContent = text || '';
+        if (statusInstallBtn) statusInstallBtn.style.display = showInstall ? '' : 'none';
+    }
     if (installBtn) installBtn.onclick = function () { try { u.install(); } catch (e) {} };
+    if (statusInstallBtn) statusInstallBtn.onclick = function () { try { u.install(); } catch (e) {} };
     if (laterBtn) laterBtn.onclick = hide;
+    // 关闭只收起弹框，状态行继续显示（进度/就绪状态不会失联）
     if (closeBtn) closeBtn.onclick = hide;
+
+    // ---- 统一状态渲染：事件与状态快照共用同一套渲染，保证表现一致 ----
+    function renderState(st) {
+        if (!st) return;
+        var s = st.status || 'idle';
+        var v = st.version || '';
+        if (s === 'checking') {
+            setStatus('正在检查更新…', false);
+        } else if (s === 'available') {
+            setStatus('发现新版本 v' + (v || '?') + '，正在下载…', false);
+        } else if (s === 'downloading') {
+            var p = Math.max(0, Math.min(100, Math.round(st.percent || 0)));
+            setStatus('正在下载 v' + (v || '?') + ' · ' + p + '%（' + mb(st.transferred) + ' / ' + (st.total ? mb(st.total) : '?') + ' MB）', false);
+        } else if (s === 'ready') {
+            setStatus('新版本 v' + (v || '?') + ' 已下载完成，点击右侧「立即重启安装」即可升级', true);
+        } else if (s === 'uptodate') {
+            setStatus('当前已是最新版本 v' + (v || '?'), false);
+        } else if (s === 'error') {
+            setStatus('检查更新失败：' + (st.error || '未知错误'), false);
+        }
+    }
+
     u.onAvailable(function (info) {
         show();
         title.textContent = '发现新版本 v' + ((info && info.version) || '?');
@@ -20510,6 +20793,7 @@ function setupUpdaterUI() {
         setPct(0);
         if (installBtn) installBtn.style.display = 'none';
         if (laterBtn) laterBtn.style.display = 'none';
+        renderState({ status: 'available', version: (info && info.version) || '' });
     });
     u.onProgress(function (p) {
         show();
@@ -20518,6 +20802,11 @@ function setupUpdaterUI() {
         var done = p && p.transferred ? (p.transferred / 1048576).toFixed(1) : '0';
         var total = p && p.total ? (p.total / 1048576).toFixed(1) : '?';
         sub.textContent = '正在下载更新包… ' + done + ' / ' + total + ' MB';
+        renderState({
+            status: 'downloading', percent: percent,
+            transferred: (p && p.transferred) || 0, total: (p && p.total) || 0,
+            version: (title.textContent || '').replace('发现新版本 v', '').replace('更新就绪 v', '')
+        });
     });
     u.onDownloaded(function (info) {
         title.textContent = '更新就绪 v' + ((info && info.version) || '?');
@@ -20525,13 +20814,49 @@ function setupUpdaterUI() {
         setPct(100);
         if (installBtn) installBtn.style.display = '';
         if (laterBtn) laterBtn.style.display = '';
+        show();
+        renderState({ status: 'ready', version: (info && info.version) || '', percent: 100 });
     });
     u.onNotAvailable(function () { /* 已是最新由原生对话框提示，避免重复 */ });
-    u.onError(function (msg) { showToast('检查更新失败：' + (msg || '未知错误')); });
+    u.onError(function (msg) { showToast('检查更新失败：' + (msg || '未知错误')); renderState({ status: 'error', error: msg }); });
+    // 主进程状态变化推送：状态行实时刷新
+    if (u.onState) u.onState(renderState);
     var checkBtn = document.getElementById('appUpdateBtn');
-    if (checkBtn) checkBtn.onclick = function () { try { u.check(); } catch (e) {} };
+    if (checkBtn) checkBtn.onclick = function () {
+        try { u.check(); } catch (e) {}
+        renderState({ status: 'checking' });
+    };
     var changelogBtn = document.getElementById('appChangelogBtn');
     if (changelogBtn) changelogBtn.onclick = function () { openChangelog(); };
+
+    // ⚠️ 关键补齐：页面监听注册晚于主进程的检查/下载时，早期事件会被 Electron 直接丢弃
+    //    （用户反馈「桌面端有更新但下载进度看不到」）。这里主动拉一次状态快照补齐。
+    if (u.getState) {
+        try {
+            var pr = u.getState();
+            if (pr && typeof pr.then === 'function') {
+                pr.then(function (st) {
+                    renderState(st);
+                    // 若快照表明已下载完成/正在下载，把弹框也补上（用户没关过弹框时看不到）
+                    if (st && (st.status === 'downloading' || st.status === 'available')) {
+                        show();
+                        if (st.status === 'downloading') {
+                            title.textContent = '发现新版本 v' + (st.version || '?');
+                            sub.textContent = '正在下载更新包… ' + mb(st.transferred) + ' / ' + (st.total ? mb(st.total) : '?') + ' MB';
+                            setPct(st.percent || 0);
+                        }
+                    } else if (st && st.status === 'ready') {
+                        show();
+                        title.textContent = '更新就绪 v' + (st.version || '?');
+                        sub.textContent = '下载完成，重启应用即可完成更新。';
+                        setPct(100);
+                        if (installBtn) installBtn.style.display = '';
+                        if (laterBtn) laterBtn.style.display = '';
+                    }
+                });
+            }
+        } catch (e) { /* 忽略 */ }
+    }
 }
 
 initTextareaResizeMemory();
