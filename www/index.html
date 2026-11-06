@@ -3254,29 +3254,6 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
 .todo-tag-chip.active { background: #6366f1; color: #fff; }
 .todo-tag-chip .chip-count { font-size: 11px; opacity: .8; }
 
-/* 待办标签集中管理（v1.1.76） */
-.todo-tag-bar-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 0 6px; }
-.todo-tag-bar-label { font-size: 12px; color: var(--text-secondary); }
-.todo-tag-manage-btn { flex: 0 0 auto; font-size: 12px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--primary); cursor: pointer; }
-.todo-tag-manage-btn:hover { background: #eef2ff; }
-.ttm-row { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-.ttm-dot { width: 8px; height: 8px; border-radius: 50%; background: #6366f1; flex: 0 0 auto; }
-.ttm-name { font-size: 13px; color: var(--text-primary); flex: 1 1 70px; min-width: 0; word-break: break-all; }
-.ttm-count { font-size: 12px; color: var(--text-secondary); flex: 0 0 auto; }
-.ttm-btn { flex: 0 0 auto; font-size: 11px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-secondary); cursor: pointer; }
-.ttm-btn.danger { color: #dc2626; }
-.ttm-btn.primary { color: var(--primary); }
-.ttm-edit { display: flex; gap: 6px; align-items: center; width: 100%; }
-.ttm-edit input { flex: 1 1 auto; min-width: 0; }
-.ttm-empty { font-size: 13px; color: var(--text-secondary); padding: 12px 0; }
-.ttm-merge { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
-.ttm-merge-title { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
-.ttm-merge-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.ttm-merge-row select { flex: 1 1 100px; min-width: 0; }
-.ttm-hint { font-size: 11px; color: var(--text-secondary); line-height: 1.6; margin-top: 6px; }
-.ttm-add { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 12px 0 6px; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
-.ttm-add input { flex: 1 1 140px; min-width: 0; }
-.ttm-unused { color: var(--text-tertiary, var(--text-secondary)); }
 .todo-group-head { display: flex; align-items: center; gap: 8px; margin: 16px 0 8px; }
 .todo-group-head:first-child { margin-top: 2px; }
 .todo-group-title { font-size: 13px; font-weight: 600; color: var(--text); }
@@ -4623,10 +4600,6 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                             <option value="not_urgent_not_important" data-page-node-id="Qd3XaoikMFvVvI6HHUxlNb">不重要不紧急</option>
                         </select>
                     </div>
-                    <div class="todo-tag-bar-head">
-                        <span class="todo-tag-bar-label">按标签筛选</span>
-                        <button type="button" class="todo-tag-manage-btn" onclick="window._crm.openTodoTagManage()">管理标签</button>
-                    </div>
                     <div class="todo-tag-bar" id="todoTagBar"></div>
                 </div>
                 <div class="todo-list" id="todoList" data-page-node-id="FQHEXTaETDCxUd9xcMz2Fq"></div>
@@ -5043,7 +5016,7 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
         </div>
     </div>
 
-    <!-- 待办标签管理弹窗：重命名 / 删除 / 合并 -->
+    <!-- 待办标签管理弹窗：与「跟进偏好」中的标签管理同款样式（无自定义 CSS） -->
     <div class="modal-overlay" id="todoTagManageModal">
         <div class="modal">
             <div class="modal-header">
@@ -5051,21 +5024,27 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                 <button class="modal-close" onclick="window._crm.closeTodoTagManage()">&times;</button>
             </div>
             <div class="modal-body">
-                <div class="ttm-hint" style="margin:0 0 10px;">重命名或删除会同步更新所有关联待办，待办本身保留</div>
-                <div class="ttm-add">
-                    <input type="text" id="todoTagNewName" maxlength="24" placeholder="输入新标签名，如「客户拜访」" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-                    <button type="button" class="ttm-btn primary" onclick="window._crm.addTodoTagByName()">+ 新建标签</button>
+                <div class="form-group">
+                    <label>待办标签（支持新建、改名、删除、合并）</label>
+                    <div id="todoTagManageList"></div>
+                    <div class="fu-pref-add">
+                        <input type="text" id="todoTagNewName" maxlength="24" placeholder="新标签名（最多 24 字）" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                        <button class="btn btn-sm btn-primary" onclick="window._crm.addTodoTagByName()">添加</button>
+                    </div>
+                    <div style="color:var(--text-secondary);font-size:12px;margin-top:4px;">重命名或删除会同步更新所有关联待办，待办本身保留。</div>
                 </div>
-                <div id="todoTagManageList"></div>
-                <div class="ttm-merge" id="todoTagMergeBox">
-                    <div class="ttm-merge-title">合并标签</div>
-                    <div class="ttm-merge-row">
-                        <select id="todoTagMergeFrom"></select>
-                        <span style="font-size:12px;color:var(--text-secondary);">并入</span>
-                        <select id="todoTagMergeTo"></select>
-                        <button type="button" class="ttm-btn primary" onclick="window._crm.mergeTodoTags()">合并</button>
+                <div class="form-group" id="todoTagMergeBox">
+                    <label>合并标签</label>
+                    <div class="fu-pref-row">
+                        <select id="todoTagMergeFrom" style="flex:1 1 auto;min-width:0;"></select>
+                        <span style="color:var(--text-secondary);font-size:12px;">并入</span>
+                        <select id="todoTagMergeTo" style="flex:1 1 auto;min-width:0;"></select>
+                        <button class="btn btn-sm btn-primary" onclick="window._crm.mergeTodoTags()">合并</button>
                     </div>
                 </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="window._crm.closeTodoTagManage()">关闭</button>
             </div>
         </div>
     </div>
@@ -6243,25 +6222,26 @@ function renderTodoTagManage() {
     const tags = _todoTagManageList;
     if (_todoTagEditingIdx >= tags.length) _todoTagEditingIdx = -1;
     if (!tags.length) {
-        box.innerHTML = '<div class="ttm-empty">暂无标签。可在上方新建，或在待办里添加标签。</div>';
+        box.innerHTML = '<div style="color:var(--text-secondary);font-size:12px;padding:4px 0;">暂无标签。可在上方新建，或在待办里添加标签。</div>';
     } else {
         box.innerHTML = tags.map(function (tag, i) {
+            // 与「跟进偏好」标签行同款：fu-pref-row / fu-pref-dot / input.fu-pref-name / fu-pref-del
             if (i === _todoTagEditingIdx) {
-                return '<div class="ttm-row"><div class="ttm-edit">' +
-                    '<input type="text" id="todoTagRenameInput" maxlength="24" value="' + escapeAttr(tag) + '">' +
-                    '<button type="button" class="ttm-btn primary" data-ttm-act="save" data-i="' + i + '">保存</button>' +
-                    '<button type="button" class="ttm-btn" data-ttm-act="cancel" data-i="' + i + '">取消</button>' +
-                    '</div></div>';
+                return '<div class="fu-pref-row">' +
+                    '<input type="text" class="fu-pref-name" id="todoTagRenameInput" maxlength="24" value="' + escapeAttr(tag) + '" style="flex:1 1 auto;min-width:0;">' +
+                    '<button type="button" class="btn btn-sm btn-primary" data-ttm-act="save" data-i="' + i + '">保存</button>' +
+                    '<button type="button" class="btn btn-sm btn-secondary" data-ttm-act="cancel" data-i="' + i + '">取消</button>' +
+                    '</div>';
             }
-            return '<div class="ttm-row">' +
-                '<span class="ttm-dot"></span>' +
-                '<span class="ttm-name">' + escapeHtml(tag) + '</span>' +
-                (counts[tag] ? '<span class="ttm-count">' + counts[tag] + ' 条待办</span>'
-                             : '<span class="ttm-count ttm-unused">未使用</span>') +
-                '<button type="button" class="ttm-btn" data-ttm-act="rename" data-i="' + i + '">重命名</button>' +
-                '<button type="button" class="ttm-btn danger" data-ttm-act="delete" data-i="' + i + '">删除</button>' +
+            const c = counts[tag] || 0;
+            return '<div class="fu-pref-row" style="flex-wrap:wrap;">' +
+                '<span class="fu-pref-dot" style="background:' + _fuTagColor(tag).fg + '"></span>' +
+                '<span data-ttm-name style="flex:1 1 70px;min-width:0;font-size:13px;color:var(--text-primary);word-break:break-all;">' + escapeHtml(tag) + '</span>' +
+                '<span style="flex:0 0 auto;color:var(--text-secondary);font-size:12px;">' + (c ? c + ' 条待办' : '未使用') + '</span>' +
+                '<button type="button" class="btn btn-sm" data-ttm-act="rename" data-i="' + i + '">重命名</button>' +
+                '<button type="button" class="fu-pref-del" data-ttm-act="delete" data-i="' + i + '">删除</button>' +
                 '</div>';
-        }).join('') + (untagged ? '<div class="ttm-hint">另有 ' + untagged + ' 条待办未分类（无需打标签）</div>' : '');
+        }).join('') + (untagged ? '<div style="color:var(--text-secondary);font-size:12px;margin-top:4px;">另有 ' + untagged + ' 条待办未分类（无需打标签）</div>' : '');
     }
     const from = document.getElementById('todoTagMergeFrom');
     const to = document.getElementById('todoTagMergeTo');
@@ -19493,6 +19473,7 @@ function bindEvents() {
     // 标签筛选栏：事件委托绑在 bar 自身（innerHTML 会被重绘，绑在子元素上会失效）
     const _tagBar = document.getElementById('todoTagBar');
     if (_tagBar) _tagBar.addEventListener('click', (e) => {
+        if (e.target.closest('[data-todo-tag-manage]')) { openTodoTagManage(); return; }
         const chip = e.target.closest('[data-todo-tag]');
         if (chip) setTodoTagFilter(chip.getAttribute('data-todo-tag'));
     });
@@ -19860,6 +19841,8 @@ function renderTodoTagBar(baseTodos) {
     let html = chip('全部', 'all', null, todoTagFilter === 'all');
     allTags.forEach(tag => { html += chip(tag, tag, counts[tag], todoTagFilter === tag); });
     if (untagged) html += chip('未分类', TODO_UNTAGGED, untagged, todoTagFilter === TODO_UNTAGGED);
+    // 「管理」入口与跟进筛选栏同款：标签栏末尾一个虚线 chip，不单独做标题行 / 按钮样式
+    html += '<span class="todo-tag-chip" data-todo-tag-manage style="background:transparent;color:var(--text-secondary);border-style:dashed;">管理标签</span>';
     bar.innerHTML = html;
 }
 
