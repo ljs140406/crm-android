@@ -17440,10 +17440,16 @@ function renderIntelStatusGrid() {
 }
 function openIntelRequestModal() {
     intelReqSel = {};
-    ['A', 'D', 'E'].forEach(function (c) { intelReqSel[c] = 1; });
+    // v1.1.81：默认勾选只在数据源真实存在的状态里生效，避免请求带「幽灵状态码」
+    _intelStatusOptions().forEach(function (s) {
+        if (['A', 'D', 'E'].indexOf(s.code) >= 0) intelReqSel[s.code] = 1;
+    });
     renderIntelStatusGrid();
     const m = document.getElementById('intelRequestModal');
-    if (m) m.classList.add('show');
+    if (!m) return;
+    // v1.1.81：幂等兜底，保证弹窗始终是 body 直接子元素，不被隐藏的父级透明化
+    if (m.parentElement !== document.body) document.body.appendChild(m);
+    m.classList.add('show');
 }
 function closeIntelRequestModal() {
     const m = document.getElementById('intelRequestModal');
@@ -17456,8 +17462,9 @@ function toggleIntelStatus(code) {
 }
 function setIntelStatusSelection(mode) {
     intelReqSel = {};
-    if (mode === 'all') _intelStatusOptions().forEach(function (s) { intelReqSel[s.code] = 1; });
-    else if (mode === 'core') ['A', 'B', 'D', 'E'].forEach(function (c) { intelReqSel[c] = 1; });
+    const _opts = _intelStatusOptions();
+    if (mode === 'all') _opts.forEach(function (s) { intelReqSel[s.code] = 1; });
+    else if (mode === 'core') _opts.forEach(function (s) { if (['A', 'B', 'D', 'E'].indexOf(s.code) >= 0) intelReqSel[s.code] = 1; });
     renderIntelStatusGrid();
 }
 function submitIntelRequest() {
@@ -17481,6 +17488,12 @@ function submitIntelRequest() {
     renderIntel();
 }
 function bindIntelEvents() {
+    // v1.1.81：本页 #syncModal 容器末尾未闭合，HTML 解析器把新增弹窗塞进它的 .modal-body；
+    // 父级 .modal-overlay 无 .show 时 opacity:0 / visibility:hidden / pointer-events:none，
+    // 子元素自己加 .show 也抵消不了父级 opacity → 「点立即抓取没反应」。
+    // 与 globalUpdateBar 同款：运行时重挂到 body，与隐藏容器彻底解耦（节点移动，事件监听不丢）。
+    const _irmBoot = document.getElementById('intelRequestModal');
+    if (_irmBoot && _irmBoot.parentElement !== document.body) document.body.appendChild(_irmBoot);
     document.addEventListener('click', function (e) {
         const t = e.target;
         if (!t || !t.closest) return;
