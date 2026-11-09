@@ -4164,6 +4164,10 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="t8KMZ6dLFru80CXNW3cFxv"><path d="M3 3v5h5" data-page-node-id="dRCD3JLXqvNxFmV0d5GS8g"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" data-page-node-id="Ynwb3dkWUdiAxJF2nz1wXX"/><path d="M12 7v5l4 2" data-page-node-id="9vLyieEVJdcXtjgDg6NtFV"/></svg>
                     <span data-page-node-id="TY3UKo1RyCgxMCekPVWZle">计划历史</span>
                 </li>
+                <li class="nav-item" data-page="intel">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/><path d="M3 12h2M19 12h2"/></svg>
+                    <span>企业情报</span>
+                </li>
             </ul>
             <div class="sidebar-footer" data-page-node-id="wK4tU69Q2PTmLRcOqUFeX5">
                 <div class="version-info" data-page-node-id="8ZmIzB2VKwb625RrSQgpS2">V1.0 数据本地存储</div>
@@ -4641,6 +4645,42 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
                 </div>
                 <div class="history-list" id="historyList" data-page-node-id="4V8uLsFAT3pcnz1oqJgifW"></div>
             </div>
+
+            <!-- 企业情报 V2：批次 / 情绪 / 客户状态筛选 + 桌面右栏按批次聚合 -->
+            <div class="page hidden" id="page-intel">
+                <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;">
+                    <div style="flex:1 1 340px;min-width:0;">
+                        <div class="usage-card" style="margin-bottom:10px;">
+                            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;">
+                                <div>
+                                    <div class="usage-card-title">企业情报（WebDAV 主同步体）</div>
+                                    <div class="usage-card-sub" id="intelReqStatus">已同步 WebDAV</div>
+                                </div>
+                                <button type="button" class="btn btn-primary btn-sm" data-intel-act="open-request">&#8635; 立即抓取情报</button>
+                            </div>
+                        </div>
+                        <div class="usage-card" style="margin-bottom:10px;">
+                            <div class="form-group" style="margin-bottom:8px;">
+                                <label>抓取批次（每次抓取独立成批，历史不覆盖、可回溯）</label>
+                                <select id="intelBatchSel" style="width:100%;margin-top:6px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text);font-size:12px;"></select>
+                            </div>
+                            <div class="usage-card-sub" id="intelBatchNote"></div>
+                            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;">
+                                <button type="button" class="btn btn-sm btn-primary" data-intel-sentiment="all">全部</button>
+                                <button type="button" class="btn btn-sm btn-secondary" data-intel-sentiment="positive">利好</button>
+                                <button type="button" class="btn btn-sm btn-secondary" data-intel-sentiment="negative">负面</button>
+                                <button type="button" class="btn btn-sm btn-secondary" data-intel-sentiment="neutral">中性</button>
+                            </div>
+                            <div class="form-group" style="margin:10px 0 0;">
+                                <label>查看时按客户状态过滤</label>
+                                <select id="intelStatusFilterSel" style="width:100%;margin-top:6px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--text);font-size:12px;"></select>
+                            </div>
+                        </div>
+                        <div id="intelList"></div>
+                    </div>
+                    <div style="flex:0 1 300px;min-width:250px;" id="intelRail"></div>
+                </div>
+            </div>
         </main>
 
         <!-- 底部导航栏（移动端） -->
@@ -4664,6 +4704,10 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
             <div class="bottom-nav-item" data-page="followups" data-page-node-id="NTHlHCQc8auxI0VP5WCS77">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="1ABwHAwGtN5dpmZPrxWvtO"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" data-page-node-id="nAJ390h8xtS7sCTILXD3C3"/></svg>
                 <span data-page-node-id="JVCCGiR9tNhhqyIkivz7O8">跟进</span>
+            </div>
+            <div class="bottom-nav-item" data-page="intel">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>
+                <span>情报</span>
             </div>
         </nav>
     </div>
@@ -5594,6 +5638,35 @@ button.fu-att-chip:hover { border-color: var(--primary-light); }
     </div>
 
     <!-- 同步冲突解决弹窗 -->
+    <!-- 企业情报：本次抓取状态勾选（App 只提交请求，真正的检索由 WorkBuddy 执行） -->
+    <div class="modal-overlay" id="intelRequestModal">
+        <div class="modal" style="width:460px;max-width:94vw;">
+            <div class="modal-header">
+                <h2 class="modal-title">本次抓取哪些状态的客户？</h2>
+                <button class="modal-close" type="button" data-intel-act="close-request">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>可多选，仅本次生效；所有状态始终在数据源中</label>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+                        <button type="button" class="btn btn-sm btn-secondary" data-intel-act="sel-all">全选</button>
+                        <button type="button" class="btn btn-sm btn-secondary" data-intel-act="sel-none">清空</button>
+                        <button type="button" class="btn btn-sm btn-secondary" data-intel-act="sel-core">仅核心状态</button>
+                    </div>
+                </div>
+                <div class="usage-grid" id="intelStatusGrid" style="grid-template-columns:repeat(2,1fr);"></div>
+                <div class="usage-card" id="intelReqSum" style="margin:10px 0;"></div>
+                <div class="usage-card" style="font-size:12px;color:var(--text-secondary);line-height:1.6;">
+                    App 是纯前端，<b>不会自己抓新闻</b>。提交后请求写入 WebDAV 同步体（含所选状态与批次号），由 WorkBuddy 执行联网检索与提炼后写回情报。
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-intel-act="close-request">取消</button>
+                <button type="button" class="btn btn-primary" data-intel-act="submit-request">提交抓取请求</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="syncConflictModal" data-page-node-id="yDSOvYW4SmXufJzpaCcZ7L">
         <div class="modal" style="max-width:520px;" data-page-node-id="qx8OtVYyp2JF5BtHEikl3c">
             <div class="modal-header" data-page-node-id="1FAJOO7Z0Ts4b8Ahw26ALQ">
@@ -5915,11 +5988,13 @@ let state = {
     // 重点客户（独立列表实体，逐条合并/冲突）
     focusItems: [],
     reportCustomers: [],
+    // 企业情报 V2：WorkBuddy 抓取后经 WebDAV 主同步体写入，App 只读展示（批次区分 / 客户关联）。
+    intel: [],
     reportDeleted: {},
     history: [],
     statuses: [],
     _meta: { lastModified: null, lastSyncedAt: null, deviceName: null },
-    _tombstones: { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} },
+    _tombstones: { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {}, intel: {} },
     _changeLog: [],  // 变更日志：每条 { id, type, entity, name, data, timestamp, synced }
     _operationLog: []  // 系统操作日志：每条 { time, action, type }
 };
@@ -6327,6 +6402,8 @@ function backfillCustomerIds() {
 
 function migrateData() {
     const now = new Date().toISOString();
+    // 企业情报：老数据没有该字段、或历史乱序 / 超量，统一规范化并按「10 批 / 500 条」裁剪。
+    state.intel = _pruneIntel(_normalizeIntel(state.intel || []));
     // 客户：初始化 customFields 和 updatedAt
     const configs = state.statuses || STATUS_CONFIG || [];
     const knownCodes = new Set(configs.map(s => s.code));
@@ -6456,10 +6533,13 @@ function loadData() {
             _mirrorPlanEntities();
             state.history = Array.isArray(data.history) ? data.history : [];
             state.reportCustomers = Array.isArray(data.reportCustomers) ? data.reportCustomers : [];
+            // 铁律#17 读写对称：saveData 持久化整个 state（含 intel），此处必须读回并确定性排序，
+            // 否则每次启动情报被清空 / 两端 payload 顺序不同导致无限乒乓。
+            state.intel = _normalizeIntel(Array.isArray(data.intel) ? data.intel : []);
                 state.statuses = data.statuses || INITIAL_DATA.statuses || STATUS_CONFIG;
                 state._meta = data._meta || { lastModified: null, lastSyncedAt: null, deviceName: null };
                 if (!state._meta.deviceName) state._meta.deviceName = defaultDeviceName();
-                state._tombstones = data._tombstones || { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
+                state._tombstones = data._tombstones || { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {}, intel: {} };
                 state._changeLog = data._changeLog || [];
                 state._operationLog = data._operationLog || [];
                 migrateData();
@@ -6486,10 +6566,12 @@ function loadData() {
             _mirrorPlanEntities();
                 state.history = Array.isArray(data.history) ? data.history : [];
                 state.reportCustomers = Array.isArray(data.reportCustomers) ? data.reportCustomers : [];
+                // 铁律#17 读写对称：saveData 持久化整个 state（含 intel），恢复路径同样必须读回。
+                state.intel = _normalizeIntel(Array.isArray(data.intel) ? data.intel : []);
                 state.statuses = data.statuses || INITIAL_DATA.statuses || STATUS_CONFIG;
                     state._meta = data._meta || { lastModified: null, lastSyncedAt: null, deviceName: null };
                 if (!state._meta.deviceName) state._meta.deviceName = defaultDeviceName();
-                    state._tombstones = data._tombstones || { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
+                    state._tombstones = data._tombstones || { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {}, intel: {} };
                 state._changeLog = data._changeLog || [];
                 state._operationLog = data._operationLog || [];
                 migrateData();
@@ -6530,10 +6612,13 @@ function loadData() {
             _mirrorPlanEntities();
             state.history = Array.isArray(data.history) ? data.history : [];
             state.reportCustomers = Array.isArray(data.reportCustomers) ? data.reportCustomers : [];
+            // 铁律#17 读写对称：saveData 持久化整个 state（含 intel），此处必须读回并确定性排序，
+            // 否则每次启动情报被清空 / 两端 payload 顺序不同导致无限乒乓。
+            state.intel = _normalizeIntel(Array.isArray(data.intel) ? data.intel : []);
                 state.statuses = data.statuses || INITIAL_DATA.statuses || STATUS_CONFIG;
                 state._meta = data._meta || { lastModified: null, lastSyncedAt: null, deviceName: null };
                 if (!state._meta.deviceName) state._meta.deviceName = defaultDeviceName();
-                state._tombstones = data._tombstones || { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
+                state._tombstones = data._tombstones || { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {}, intel: {} };
                 state._changeLog = data._changeLog || [];
                 state._operationLog = data._operationLog || [];
                 cleanTombstones();
@@ -6595,12 +6680,13 @@ function resetToInitial() {
     state.customers = INITIAL_DATA.customers.map((c, i) => ({ ...c, id: 'c' + (i + 1) }));
     state.followups = INITIAL_DATA.followups.map((f, i) => ({ ...f, id: 'f' + (i + 1) }));
     state.todos = [];
+    state.intel = [];
     state.workPlan = JSON.parse(JSON.stringify(INITIAL_DATA.workPlan));
     _mirrorPlanEntities();
     state.history = JSON.parse(JSON.stringify(INITIAL_DATA.history));
     state.statuses = JSON.parse(JSON.stringify(INITIAL_DATA.statuses || STATUS_CONFIG));
     state._meta = { lastModified: new Date().toISOString(), lastSyncedAt: null };
-    state._tombstones = { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
+    state._tombstones = { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {}, intel: {} };
     state._changeLog = [];
     state._operationLog = [];
 }
@@ -7050,7 +7136,8 @@ const PAGE_TITLES = {
     todos: '待办事项',
     plan: '工作计划',
     report: '近期汇报客户',
-    history: '计划历史'
+    history: '计划历史',
+    intel: '企业情报'
 };
 
 function navigateTo(page, opts) {
@@ -7158,6 +7245,7 @@ function navigateTo(page, opts) {
             case 'plan': renderPlan(); renderPlanRelated(); renderLastWeekRelated(); renderReportCustomers(); break;
             case 'report': renderReportCustomers(); break;
             case 'history': renderHistory(); break;
+            case 'intel': renderIntel(); break;
         }
     } catch (e) {
         console.error('页面渲染失败 [' + page + ']：', e);
@@ -10148,7 +10236,7 @@ function deleteCustomer() {
     showConfirm(`确定要删除客户"${customer.name}"吗？相关的跟进记录也会被删除。`, () => {
         const deletedName = customer.name;
         // 墓碑：记录被删除的客户和跟进
-        if (!state._tombstones) state._tombstones = { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
+        if (!state._tombstones) state._tombstones = { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {}, intel: {} };
         state._tombstones.customers[customer.id] = new Date().toISOString();
         const deletedFids = state.followups.filter(f => f.customer === customer.name).map(f => f.id);
         deletedFids.forEach(fid => {
@@ -12967,7 +13055,7 @@ function onPlanDel(e) {
             // 稳定 id 墓碑：直接用项自身稳定 id（data-id 已是完整 dp id，如 dp_next_mon_h…z），
             // 杜绝「重镜像时邻居前移被下标 id 误罩」的复活（铁律#16）。旧渲染无 data-id 时回退下标 id。
             const _dpId = (stableId && !_isLegacyPlanId(stableId)) ? stableId : _planItemId(wkey, day, idx);
-            if (!state._tombstones) state._tombstones = { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
+            if (!state._tombstones) state._tombstones = { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {}, intel: {} };
             if (!state._tombstones.dailyPlans) state._tombstones.dailyPlans = {};
             state._tombstones.dailyPlans[_dpId] = new Date().toISOString();
         }
@@ -13424,7 +13512,7 @@ function deleteHistory(idx) {
     const h = state.history[idx];
     if (!h) return;
     showConfirm(`确定要删除"${h.week}"的历史记录吗？`, () => {
-        if (!state._tombstones) state._tombstones = { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
+        if (!state._tombstones) state._tombstones = { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {}, intel: {} };
         if (!state._tombstones.history) state._tombstones.history = {};
         // 墓碑必须用记录 id（h.id）作 key，与 applyRemoteData 合并时按 h.id 过滤保持一致；
         // 之前用数组下标 idx 作 key，与合并过滤的 h.id 永不匹配，导致已删/已归档历史在下次同步被重新加回
@@ -13599,6 +13687,8 @@ function exportData(ext) {
         todos: state.todos,
         workPlan: state.workPlan,
         history: state.history,
+        // 情报走主同步体：输出前确定性排序 + 保留策略，保证两端 payload 逐字节一致（铁律#17）
+        intel: _normalizeIntel(state.intel || []),
         statuses: state.statuses,
         reportCustomers: state.reportCustomers,
         reportDeleted: state.reportDeleted || {},
@@ -13767,7 +13857,7 @@ function doImportData(data, counts, mode) {
             state.history = (data.history || []).map(h => ({ ...h }));
             state.statuses = (data.statuses && data.statuses.length) ? data.statuses : state.statuses;
             state.reportCustomers = (data.reportCustomers || []).map(r => ({ ...r }));
-            state._tombstones = data._tombstones || { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
+            state._tombstones = data._tombstones || { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {}, intel: {} };
             state._changeLog = data._changeLog || [];
             // _operationLog 保留本地（恢复业务数据但不清操作日志）
             state._meta = Object.assign({}, keepMeta, data._meta || {});
@@ -14377,7 +14467,9 @@ function closeDynModal() {
 // 会把每条记录都误判成「两端都改过」→ 弹冲突横幅 → 自动同步 return 暂停 → 推不上去 → 云端永远是旧数据
 // → 每次同步继续误报（死锁）。v1.1.74 给 todo 加 tags 时漏改此处，实测误报 53 处，本版 bump 到 3 自动消解。
 // detectTrueConflicts 已有「格式不符 → 返回 [] 并在 applyRemoteData 末尾重建基准」的升级迁移机制。
-const SYNC_BASIS_FORMAT = 3;
+const SYNC_BASIS_FORMAT = 4;
+// v1.1.80：新增独立实体 intel，buildSyncBasis / detectTrueConflicts 的 basis 形状变化 → +1 强制一次性重建基准，
+// 避免旧基准残留导致「两端都改过」误报（历史事故：v1.1.74 加 tags 漏 bump → 53 处冲突横幅 + 同步自锁）。
 function _hashItem(entity, item, fieldsMap) {
     const map = fieldsMap || DIFF_FIELDS;
     const fields = (map && map[entity]) || Object.keys(item || {});
@@ -14558,6 +14650,7 @@ function buildSyncBasis(src) {
         followup: _hashMap(src.followups, 'followup', CONFLICT_FIELDS),
         todo: _hashMap(src.todos, 'todo', CONFLICT_FIELDS),
         history: _hashMap(src.history, 'history', CONFLICT_FIELDS),
+        intel: _hashMap(src.intel || [], 'intel', CONFLICT_FIELDS),
         // 每日计划 / 重点客户：独立列表实体，逐条哈希（id 为稳定键），支持单条粒度冲突，避免整表互相覆盖
         dailyPlan: _hashMap(src.dailyPlans || [], 'dailyPlan', CONFLICT_FIELDS),
         focus: _hashMap(src.focusItems || [], 'focus', CONFLICT_FIELDS),
@@ -14573,6 +14666,7 @@ function _basisFromEntities(src) {
     try {
         return buildSyncBasis({
             customers: src.customers, followups: src.followups, todos: src.todos, history: src.history,
+            intel: src.intel || [],
             dailyPlans: src.dailyPlans || [], focusItems: src.focusItems || [],
             reportCustomers: src.reportCustomers || [], reportDeleted: src.reportDeleted || {},
             dashboardOrder: (src._meta && src._meta.dashboardOrder) || [],
@@ -14586,6 +14680,7 @@ function recordSyncBasis() {
         state._meta = state._meta || {};
         state._meta.syncBasis = buildSyncBasis({
             customers: state.customers, followups: state.followups, todos: state.todos, history: state.history,
+            intel: state.intel || [],
             dailyPlans: state.dailyPlans, focusItems: state.focusItems,
             reportCustomers: state.reportCustomers, reportDeleted: state.reportDeleted,
             dashboardOrder: (state._meta && state._meta.dashboardOrder) || [],
@@ -14606,7 +14701,8 @@ function detectTrueConflicts(remote) {
         ['todo', state.todos, (remote.todos || [])],
         ['history', state.history, (remote.history || [])],
         ['dailyPlan', state.dailyPlans || [], (remote.dailyPlans || [])],
-        ['focus', state.focusItems || [], (remote.focusItems || [])]
+        ['focus', state.focusItems || [], (remote.focusItems || [])],
+        ['intel', state.intel || [], (remote.intel || [])]
     ].forEach((ent) => {
         const [name, localArr, remoteArr] = ent;
         const bMap = basis[name] || {};
@@ -14749,7 +14845,7 @@ function pushSettingsDebounced() {
 // ==================== 墓碑清理 ====================
 function cleanTombstones() {
     if (!state._tombstones) {
-        state._tombstones = { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
+        state._tombstones = { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {}, intel: {} };
         return;
     }
     const cutoff = Date.now() - 30 * 24 * 3600 * 1000; // 30天
@@ -17054,7 +17150,7 @@ function unionTwoRemotes(list) {
         workPlan: primary.workPlan || { thisWeek: {}, nextWeek: {} },
         statuses: primary.statuses || [],
         reportCustomers: primary.reportCustomers || [],
-        _tombstones: { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} },
+        _tombstones: { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {}, intel: {} },
         _changeLog: [], operationLog: []
     };
     [['customers', 'customer'], ['followups', 'followup'], ['todos', 'todo'], ['history', 'history']].forEach(function (pair) {
@@ -17155,6 +17251,266 @@ function _canonicalWorkPlanForSync(wp) {
     });
     return out;
 }
+
+// ==================== 企业情报 V2：数据模型 / 渲染 / 抓取请求 ====================
+// 设计：情报由 WorkBuddy 联网检索后写入 WebDAV 主同步体，App 只读展示并支持按批次/情绪/客户状态筛选。
+// 铁律#17：数组确定性排序禁用 localeCompare（桌面/安卓 ICU 差异会导致两端 payload 不一致 → 无限乒乓）。
+const INTEL_MAX_BATCHES = 10;
+const INTEL_MAX_ITEMS = 500;
+const INTEL_SENTIMENTS = { positive: '利好', negative: '负面', neutral: '中性' };
+let intelBatchFilter = 'all';
+let intelSentimentFilter = 'all';
+let intelStatusFilter = 'all';
+let intelReqSel = {};
+
+function _intelSortKey(x) {
+    return [x.batchNo || 0, x.batchId || '', x.customerId || '', x.id || ''].join('|');
+}
+function _normalizeIntel(arr) {
+    // 同 id 重复时按「固定字段内容指纹的字典序」裁决，绝不能靠「先出现的赢」：
+    // 否则两端数组顺序不同会产出不同 payload → 云端 ETag 抖动 → 无限乒乓（铁律#17）。
+    const seen = {}, out = [];
+    (Array.isArray(arr) ? arr : []).forEach(function (x) {
+        if (!x || !x.id) return;
+        const o = Object.assign({}, x);
+        o.batchNo = parseInt(o.batchNo, 10) || 0;
+        o.sentiment = INTEL_SENTIMENTS[o.sentiment] ? o.sentiment : 'neutral';
+        ['batchId', 'batchAt', 'customerId', 'company', 'statusCode', 'city', 'title',
+         'summary', 'source', 'sourceUrl', 'publishedAt', 'updatedAt'].forEach(function (k) {
+            if (o[k] == null) o[k] = '';
+        });
+        // 指纹按固定字段顺序拼接，不依赖对象 key 的插入顺序（JSON.stringify 会受序列化顺序影响）。
+        const fp = [o.id, o.batchNo, o.batchId, o.batchAt, o.customerId, o.company,
+                    o.statusCode, o.city, o.sentiment, o.title, o.summary, o.source,
+                    o.sourceUrl, o.publishedAt, o.updatedAt].join('\u0001');
+        if (!seen[o.id]) { seen[o.id] = { fp: fp, idx: out.length }; out.push(o); return; }
+        if (fp < seen[o.id].fp) { out[seen[o.id].idx] = o; seen[o.id].fp = fp; }
+    });
+    out.sort(function (a, b) {
+        const ka = _intelSortKey(a), kb = _intelSortKey(b);
+        return ka < kb ? 1 : (ka > kb ? -1 : 0);
+    });
+    return out;
+}
+function _normalizeIntelBatches(arr) {
+    const seen = {}, out = [];
+    (Array.isArray(arr) ? arr : []).forEach(function (x) {
+        if (!x || !x.batchId || seen[x.batchId]) return;
+        seen[x.batchId] = 1;
+        const codes = Array.isArray(x.statusCodes) ? x.statusCodes.filter(Boolean).slice().sort() : [];
+        out.push({
+            batchId: String(x.batchId), batchNo: parseInt(x.batchNo, 10) || 0,
+            createdAt: x.createdAt || '', statusCodes: codes,
+            customerCount: parseInt(x.customerCount, 10) || 0,
+            itemCount: parseInt(x.itemCount, 10) || 0
+        });
+    });
+    out.sort(function (a, b) { return b.batchNo - a.batchNo || (a.batchId < b.batchId ? 1 : -1); });
+    return out;
+}
+// 用户确认的保留策略：最近 10 个批次 / 最多 500 条，超出按批次从旧到新裁剪。
+function _pruneIntel(arr) {
+    let list = _normalizeIntel(arr);
+    const bs = _normalizeIntelBatches(list.map(function (x) {
+        return { batchId: x.batchId, batchNo: x.batchNo, createdAt: x.batchAt };
+    }));
+    const keep = {};
+    bs.slice(0, INTEL_MAX_BATCHES).forEach(function (b) { keep[b.batchId] = 1; });
+    list = list.filter(function (x) { return keep[x.batchId]; });
+    return list.slice(0, INTEL_MAX_ITEMS);
+}
+function getIntelBatches() { return _normalizeIntelBatches((state._meta && state._meta.intelBatches) || []); }
+function getIntelFetchRequest() { return (state._meta && state._meta.intelFetchRequest) || null; }
+function getIntelItems(batchId) {
+    const all = _normalizeIntel(state.intel || []);
+    if (!batchId || batchId === 'all') return all;
+    return all.filter(function (x) { return x.batchId === batchId; });
+}
+function _intelStatusOptions() {
+    const defs = (state.statuses && state.statuses.length) ? state.statuses : (STATUS_CONFIG || []);
+    return (defs || []).map(function (d) {
+        const code = d.code || '';
+        const n = (state.customers || []).filter(function (c) { return c.status === code; }).length;
+        return { code: code, name: d.name || code, count: n };
+    });
+}
+function _intelStatusName(code) {
+    const d = _intelStatusOptions().filter(function (x) { return x.code === code; })[0];
+    return d ? d.name : (code || '');
+}
+function jumpToIntelCustomer(id, company) {
+    if (id && (state.customers || []).some(function (c) { return c.id === id; })) { openCustomerDetail(id); return; }
+    if (company) { openCustomerDetailByName(company); return; }
+    showToast('未找到关联客户');
+}
+function renderIntelRail(items) {
+    const rail = document.getElementById('intelRail');
+    if (!rail) return;
+    const byCust = {};
+    (items || []).forEach(function (x) {
+        const k = x.company || '（未命名企业）';
+        if (!byCust[k]) byCust[k] = { customerId: x.customerId, batches: {}, total: 0 };
+        byCust[k].total++;
+        const bn = x.batchNo || 0;
+        byCust[k].batches[bn] = (byCust[k].batches[bn] || 0) + 1;
+    });
+    const keys = Object.keys(byCust).sort();
+    rail.innerHTML = '<div class="usage-card-title" style="margin-bottom:8px;">按客户 · 批次聚合（' + keys.length + ' 家）</div>' +
+        (keys.length ? keys.map(function (k) {
+            const g = byCust[k];
+            const bs = Object.keys(g.batches).sort(function (a, b) { return Number(b) - Number(a); });
+            return '<div class="usage-card" style="margin-bottom:8px;cursor:pointer;" data-intel-jump="1" data-intel-cust="' + escapeAttr(g.customerId) + '" data-intel-company="' + escapeAttr(k) + '">' +
+                '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;"><b style="font-size:13px;">' + escapeHtml(k) + '</b>' +
+                '<span class="status-badge" style="color:var(--primary);background:var(--primary-bg);">共 ' + g.total + ' 条</span></div>' +
+                '<div class="usage-card-sub">' + bs.map(function (b) { return '第 ' + b + ' 次 ' + g.batches[b] + ' 条'; }).join(' · ') + '</div></div>';
+        }).join('') : '<div class="usage-card-sub">当前筛选下没有情报</div>');
+}
+function renderIntel() {
+    const listEl = document.getElementById('intelList');
+    if (!listEl) return;
+    const batches = getIntelBatches();
+    const batchSel = document.getElementById('intelBatchSel');
+    if (batchSel) {
+        batchSel.innerHTML = '<option value="all">全部批次</option>' + batches.map(function (b) {
+            return '<option value="' + escapeAttr(b.batchId) + '">第 ' + b.batchNo + ' 次 · ' + escapeHtml(String(b.createdAt || '').slice(5, 16)) + '</option>';
+        }).join('');
+        batchSel.value = intelBatchFilter;
+        if (!batchSel.value) { intelBatchFilter = 'all'; batchSel.value = 'all'; }
+    }
+    document.querySelectorAll('[data-intel-sentiment]').forEach(function (el) {
+        el.className = 'btn btn-sm ' + (el.getAttribute('data-intel-sentiment') === intelSentimentFilter ? 'btn-primary' : 'btn-secondary');
+    });
+    const statusSel = document.getElementById('intelStatusFilterSel');
+    if (statusSel) {
+        statusSel.innerHTML = '<option value="all">全部客户状态</option>' + _intelStatusOptions().map(function (s) {
+            return '<option value="' + escapeAttr(s.code) + '">' + escapeHtml(s.name) + '（' + s.count + ' 家）</option>';
+        }).join('');
+        statusSel.value = intelStatusFilter;
+    }
+    let items = getIntelItems(intelBatchFilter);
+    if (intelSentimentFilter !== 'all') items = items.filter(function (x) { return x.sentiment === intelSentimentFilter; });
+    if (intelStatusFilter !== 'all') items = items.filter(function (x) { return x.statusCode === intelStatusFilter; });
+    const note = document.getElementById('intelBatchNote');
+    if (note) {
+        const b = batches.filter(function (x) { return x.batchId === intelBatchFilter; })[0];
+        note.innerHTML = b
+            ? '当前查看<b>第 ' + b.batchNo + ' 次</b>抓取（' + escapeHtml(b.createdAt || '') + '）· ' + items.length + ' 条 · 历史批次独立保存、不覆盖'
+            : '共 <b>' + items.length + '</b> 条情报，来自 <b>' + batches.length + '</b> 个抓取批次；历史不覆盖、可回溯';
+    }
+    const req = getIntelFetchRequest();
+    const reqEl = document.getElementById('intelReqStatus');
+    if (reqEl) reqEl.textContent = (req && req.status === 'pending')
+        ? '第 ' + req.batchNo + ' 次抓取请求已提交，等待 WorkBuddy 执行…'
+        : (batches.length ? '已同步 WebDAV · 最近第 ' + batches[0].batchNo + ' 次抓取' : '已同步 WebDAV');
+    const colors = { positive: '#10b981', negative: '#ef4444', neutral: '#9ca3af' };
+    const bgs = { positive: '#ecfdf5', negative: '#fef2f2', neutral: '#f9fafb' };
+    listEl.innerHTML = items.length ? items.map(function (x) {
+        const col = colors[x.sentiment] || colors.neutral;
+        const bg = bgs[x.sentiment] || bgs.neutral;
+        const stName = _intelStatusName(x.statusCode);
+        return '<div class="usage-card" data-intel-cust="' + escapeAttr(x.customerId) + '" data-intel-company="' + escapeAttr(x.company) + '" style="border-left:3px solid ' + col + ';margin-bottom:10px;">' +
+            '<div class="usage-card-head"><span class="usage-card-value" style="font-size:15px;">' + escapeHtml(x.company || '（未命名企业）') + '</span>' +
+            '<span class="status-badge" style="color:' + col + ';background:' + bg + '">' + escapeHtml(INTEL_SENTIMENTS[x.sentiment] || '中性') + '</span></div>' +
+            '<div class="usage-card-title">第 ' + x.batchNo + ' 次抓取' + (stName ? ' · ' + escapeHtml(stName) : '') + (x.city ? ' · ' + escapeHtml(x.city) : '') + '</div>' +
+            '<div style="font-size:13px;font-weight:600;margin:6px 0 4px;">' + escapeHtml(x.title || '（无标题）') + '</div>' +
+            '<div class="usage-card-sub" style="font-size:12px;line-height:1.6;">' + escapeHtml(x.summary || '') + '</div>' +
+            '<div class="usage-card-sub" style="display:flex;justify-content:space-between;gap:8px;margin-top:8px;flex-wrap:wrap;">' +
+            '<span>' + escapeHtml(x.source || '来源未标注') + ' · ' + escapeHtml(x.publishedAt || '日期未标注') + '</span>' +
+            '<span data-intel-jump="1" style="color:var(--primary);font-weight:600;cursor:pointer;">查看客户 →</span></div></div>';
+    }).join('') : '<div class="empty-state" style="padding:24px;">暂无企业情报。点「立即抓取情报」提交抓取请求，由 WorkBuddy 检索后写回。</div>';
+    renderIntelRail(items);
+}
+function renderIntelStatusGrid() {
+    const g = document.getElementById('intelStatusGrid');
+    if (!g) return;
+    const opts = _intelStatusOptions();
+    g.innerHTML = opts.map(function (s) {
+        const on = !!intelReqSel[s.code];
+        return '<div class="usage-card" data-intel-status="' + escapeAttr(s.code) + '" style="cursor:pointer;padding:9px 10px;margin:0;' + (on ? 'border-color:var(--primary);background:var(--primary-bg);' : '') + '">' +
+            '<div style="display:flex;align-items:center;gap:7px;font-size:12px;">' +
+            '<span style="width:15px;height:15px;border-radius:4px;flex-shrink:0;border:1px solid ' + (on ? 'var(--primary)' : 'var(--border)') + ';background:' + (on ? 'var(--primary)' : '#fff') + ';color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;">' + (on ? '✓' : '') + '</span>' +
+            '<b style="flex:1;">' + escapeHtml(s.name) + '</b><span style="color:var(--text-secondary);">' + s.count + ' 家</span></div></div>';
+    }).join('');
+    const sum = document.getElementById('intelReqSum');
+    if (sum) {
+        const codes = Object.keys(intelReqSel).filter(function (k) { return intelReqSel[k]; });
+        const n = opts.reduce(function (a, s) { return a + (intelReqSel[s.code] ? s.count : 0); }, 0);
+        sum.innerHTML = '已选 <b>' + codes.length + '</b> 个状态 · 预计 <b>' + n + '</b> 家客户';
+    }
+}
+function openIntelRequestModal() {
+    intelReqSel = {};
+    ['A', 'D', 'E'].forEach(function (c) { intelReqSel[c] = 1; });
+    renderIntelStatusGrid();
+    const m = document.getElementById('intelRequestModal');
+    if (m) m.classList.add('show');
+}
+function closeIntelRequestModal() {
+    const m = document.getElementById('intelRequestModal');
+    if (m) m.classList.remove('show');
+}
+function toggleIntelStatus(code) {
+    if (!code) return;
+    intelReqSel[code] = !intelReqSel[code];
+    renderIntelStatusGrid();
+}
+function setIntelStatusSelection(mode) {
+    intelReqSel = {};
+    if (mode === 'all') _intelStatusOptions().forEach(function (s) { intelReqSel[s.code] = 1; });
+    else if (mode === 'core') ['A', 'B', 'D', 'E'].forEach(function (c) { intelReqSel[c] = 1; });
+    renderIntelStatusGrid();
+}
+function submitIntelRequest() {
+    const codes = Object.keys(intelReqSel).filter(function (k) { return intelReqSel[k]; }).sort();
+    if (!codes.length) { showToast('请至少选择一个状态'); return; }
+    const cnt = _intelStatusOptions().reduce(function (a, s) { return a + (intelReqSel[s.code] ? s.count : 0); }, 0);
+    const batches = getIntelBatches();
+    const batchNo = ((batches[0] && batches[0].batchNo) || 0) + 1;
+    const now = Date.now();
+    const batchId = 'b' + new Date(now).toISOString().replace(/\D/g, '').slice(0, 14);
+    state._meta = state._meta || {};
+    state._meta.intelFetchRequest = {
+        batchId: batchId, batchNo: batchNo, statusCodes: codes, customerCount: cnt,
+        requestedAt: new Date(now).toISOString(), at: now, status: 'pending', deviceId: DEVICE_ID || ''
+    };
+    state._meta.intelFetchRequestAt = now;
+    closeIntelRequestModal();
+    saveData();
+    logOperation('提交第 ' + batchNo + ' 次企业情报抓取请求：' + codes.length + ' 个状态 / ' + cnt + ' 家客户', 'info');
+    showToast('已提交第 ' + batchNo + ' 次抓取请求，等待 WorkBuddy 执行');
+    renderIntel();
+}
+function bindIntelEvents() {
+    document.addEventListener('click', function (e) {
+        const t = e.target;
+        if (!t || !t.closest) return;
+        const st = t.closest('[data-intel-status]');
+        if (st) { toggleIntelStatus(st.getAttribute('data-intel-status')); return; }
+        const act = t.closest('[data-intel-act]');
+        if (act) {
+            const a = act.getAttribute('data-intel-act');
+            if (a === 'open-request') openIntelRequestModal();
+            else if (a === 'close-request') closeIntelRequestModal();
+            else if (a === 'sel-all') setIntelStatusSelection('all');
+            else if (a === 'sel-none') setIntelStatusSelection('none');
+            else if (a === 'sel-core') setIntelStatusSelection('core');
+            else if (a === 'submit-request') submitIntelRequest();
+            return;
+        }
+        const chip = t.closest('[data-intel-sentiment]');
+        if (chip) { intelSentimentFilter = chip.getAttribute('data-intel-sentiment') || 'all'; renderIntel(); return; }
+        const jump = t.closest('[data-intel-jump]');
+        if (jump) {
+            const card = jump.closest('[data-intel-cust]') || jump;
+            jumpToIntelCustomer(card.getAttribute('data-intel-cust'), card.getAttribute('data-intel-company'));
+        }
+    });
+    const bs = document.getElementById('intelBatchSel');
+    if (bs) bs.addEventListener('change', function () { intelBatchFilter = this.value || 'all'; renderIntel(); });
+    const ss = document.getElementById('intelStatusFilterSel');
+    if (ss) ss.addEventListener('change', function () { intelStatusFilter = this.value || 'all'; renderIntel(); });
+}
+
 function getSyncPayload() {
     cleanTombstones();
     cleanupChangeLog();
@@ -17199,6 +17555,13 @@ function getSyncPayload() {
             // 待办标签库（预建但暂时未使用的标签）：At 时间戳 LWW 随设置跨设备同步
             todoTagLibrary: getTodoTagLibrary(),
             todoTagLibraryAt: (state._meta && state._meta.todoTagLibraryAt) || 0,
+            // 企业情报 V2：intelSchema 是「双端都已升级」的闸门标记。旧版 App 的 payload 是字段白名单，
+            // push 整包时会把 intel 抹掉；写回脚本检测此标记缺失即拒写（防止旧端静默清空情报）。
+            intelSchema: 1,
+            intelBatches: _normalizeIntelBatches(state._meta && state._meta.intelBatches),
+            intelBatchesAt: (state._meta && state._meta.intelBatchesAt) || 0,
+            intelFetchRequest: (state._meta && state._meta.intelFetchRequest) || null,
+            intelFetchRequestAt: (state._meta && state._meta.intelFetchRequestAt) || 0,
             deviceName: (state._meta && state._meta.deviceName) || null,
             statusRev: (state._meta && state._meta.statusRev) || 0,
             // 近期汇报客户版本号：必须随 payload 上传。
@@ -17223,6 +17586,8 @@ function getSyncPayload() {
         dailyPlans: _normalizePlanEntities(state.dailyPlans || [], false),
         focusItems: _normalizePlanEntities(state.focusItems || [], true),
         history: state.history,
+        // 情报走主同步体：输出前确定性排序 + 保留策略，保证两端 payload 逐字节一致（铁律#17）
+        intel: _normalizeIntel(state.intel || []),
         statuses: state.statuses,
         reportCustomers: state.reportCustomers,
         reportDeleted: state.reportDeleted || {},
@@ -17349,15 +17714,16 @@ function parseRemoteGist(gist) {
 
 function applyRemoteData(remoteData) {
     // 合并墓碑：本地墓碑优先
-    const localTombstones = state._tombstones || { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
-    const remoteTombstones = remoteData._tombstones || { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
+    const localTombstones = state._tombstones || { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {}, intel: {} };
+    const remoteTombstones = remoteData._tombstones || { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {}, intel: {} };
     const mergedTombstones = {
         customers: { ...remoteTombstones.customers, ...localTombstones.customers },
         followups: { ...remoteTombstones.followups, ...localTombstones.followups },
         todos: { ...remoteTombstones.todos, ...localTombstones.todos },
         history: { ...remoteTombstones.history, ...localTombstones.history },
         dailyPlans: { ...remoteTombstones.dailyPlans, ...localTombstones.dailyPlans },
-        focusItems: { ...remoteTombstones.focusItems, ...localTombstones.focusItems }
+        focusItems: { ...remoteTombstones.focusItems, ...localTombstones.focusItems },
+        intel: { ...remoteTombstones.intel, ...localTombstones.intel }
     };
 
     // 旧端兼容：派生 dailyPlans/focusItems（并规范 workPlan 只含 focus），再过滤墓碑
@@ -17368,6 +17734,7 @@ function applyRemoteData(remoteData) {
     const remoteFollowups = (remoteData.followups || []).filter(f => !mergedTombstones.followups[f.id]);
     const remoteTodos = (remoteData.todos || []).filter(t => !mergedTombstones.todos[t.id]);
     const remoteHistory = (remoteData.history || []).filter(h => !mergedTombstones.history[h.id]);
+    const remoteIntel = (remoteData.intel || []).filter(x => !mergedTombstones.intel[x.id]);
     const remoteWorkPlan = remoteData.workPlan || { thisWeek: { focus: '' }, nextWeek: { focus: '' } };
     const remoteDailyPlans = (remoteData.dailyPlans || []).filter(x => !mergedTombstones.dailyPlans[x.id]);
     const remoteFocusItems = (remoteData.focusItems || []).filter(x => !mergedTombstones.focusItems[x.id]);
@@ -17378,18 +17745,20 @@ function applyRemoteData(remoteData) {
         customer: _indexBy(state.customers, 'id'),
         followup: _indexBy(state.followups, 'id'),
         todo: _indexBy(state.todos, 'id'),
-        history: _indexBy(state.history, 'id')
+        history: _indexBy(state.history, 'id'),
+        intel: _indexBy(state.intel || [], 'id')
     };
     const remoteById = {
         customer: _indexBy(remoteCustomers, 'id'),
         followup: _indexBy(remoteFollowups, 'id'),
         todo: _indexBy(remoteTodos, 'id'),
-        history: _indexBy(remoteHistory, 'id')
+        history: _indexBy(remoteHistory, 'id'),
+        intel: _indexBy(remoteIntel, 'id')
     };
 
     const changes = [];
-    const _tsKeyMap = { customer: 'customers', followup: 'followups', todo: 'todos', history: 'history' };
-    ['customer', 'followup', 'todo', 'history'].forEach(entity => {
+    const _tsKeyMap = { customer: 'customers', followup: 'followups', todo: 'todos', history: 'history', intel: 'intel' };
+    ['customer', 'followup', 'todo', 'history', 'intel'].forEach(entity => {
         const tsKey = _tsKeyMap[entity];
         const localMap = localById[entity];
         const remoteMap = remoteById[entity];
@@ -17429,6 +17798,8 @@ function applyRemoteData(remoteData) {
             }
         });
     });
+    // 情报条目含 summary/source，体积大：只保留条目标识用于触发重绘与日志文案，不把整条塞进 _changeLog。
+    changes.forEach(c => { if (c.entity === 'intel') { c.data = null; c.prev = null; } });
     // 状态 / 计划 / 历史等差异
     // ⚠️ 整表条目（statuses / workPlan / reportCustomers / dailyPlans / focusItems）**不要**把整份数组
     // 塞进 data/prev！这些条目随后会被 `changes.forEach` 追加进 state._changeLog，而 _changeLog 会
@@ -17508,6 +17879,9 @@ function applyRemoteData(remoteData) {
                 // 仅远端有：添加
                 result.push(_clone(remote));
             } else if (remote && local) {
+                // 企业情报是「WorkBuddy 写、App 只读」的实体：本端永远不产生内容修改，
+                // 同 id 一律采纳云端，避免本地残留旧批次把新情报反超回去。
+                if (entityName === 'intel') { result.push(_clone(remote)); return; }
                 // 双方都有
                 if (pending && (pending.type === 'add' || pending.type === 'update')) {
                     // 本地有未同步的修改 → 用本地版本
@@ -17577,6 +17951,7 @@ function applyRemoteData(remoteData) {
     const tsMapH = mergedTombstones.history || {};
     const tsMapDP = mergedTombstones.dailyPlans || {};
     const tsMapFI = mergedTombstones.focusItems || {};
+    const tsMapI = mergedTombstones.intel || {};
 
     state.customers = unionMerge(state.customers, remoteCustomers, 'customer', tsMapC);
     state.followups = unionMerge(state.followups, remoteFollowups, 'followup', tsMapF);
@@ -17584,6 +17959,7 @@ function applyRemoteData(remoteData) {
     // 合并落地即规范化标签顺序，保证本地 state 与云端口径一致（远端可能是旧版本 / 乱序数据）
     state.todos.forEach(t => { if (t) t.tags = _normalizeTags(t.tags); });
     state.history = unionMerge(state.history, remoteHistory, 'history', tsMapH);
+    state.intel = _pruneIntel(_normalizeIntel(unionMerge(state.intel || [], remoteIntel, 'intel', tsMapI)));
     // 快照合并前的镜像（用于判断是否存在「未落盘的内存修改」）
     const _dpBefore = state.dailyPlans || [];
     const _fiBefore = state.focusItems || [];
@@ -17747,6 +18123,11 @@ function applyRemoteData(remoteData) {
     const _localDraftsAtSnap = (state._meta && state._meta.followupDraftsAt) || 0;
     const _localColSnap = !!(state._meta && state._meta.followupCollapse);
     const _localColAtSnap = (state._meta && state._meta.followupCollapseAt) || 0;
+    // 企业情报：批次清单 / 抓取请求同样必须在 Object.assign 覆盖前取本地快照（铁律#6）
+    const _localIntelBatchesSnap = _normalizeIntelBatches(state._meta && state._meta.intelBatches);
+    const _localIntelBatchesAtSnap = (state._meta && state._meta.intelBatchesAt) || 0;
+    const _localIntelReqSnap = (state._meta && state._meta.intelFetchRequest) || null;
+    const _localIntelReqAtSnap = (state._meta && state._meta.intelFetchRequestAt) || 0;
     const _remoteFilter = Array.isArray(remoteData._meta && remoteData._meta.customerStatusFilter) ? remoteData._meta.customerStatusFilter.slice() : [];
     const _remoteFilterAt = (remoteData._meta && remoteData._meta.customerStatusFilterAt) || 0;
     state._meta = Object.assign({}, (state._meta || {}), (remoteData._meta || {}), {
@@ -17768,8 +18149,35 @@ function applyRemoteData(remoteData) {
         // 本端的新数据将无法传播到其他设备。
         reportRev: Math.max(localReportRev, remoteReportRev),
         reportOrderAt: Math.max((state._meta && state._meta.reportOrderAt) || 0, (remoteData._meta && remoteData._meta.reportOrderAt) || 0),
-        lastSyncedAt: new Date().toISOString()
+        lastSyncedAt: new Date().toISOString(),
+        intelSchema: 1
     });
+    // 企业情报：批次清单 / 抓取请求，数字毫秒 At-LWW（与 crm_intel_writeback.py 口径一致，勿用 ISO 字符串）
+    {
+        const _rbAt = (remoteData._meta && remoteData._meta.intelBatchesAt) || 0;
+        const _rb = _normalizeIntelBatches(remoteData._meta && remoteData._meta.intelBatches);
+        if (_rbAt > _localIntelBatchesAtSnap) {
+            state._meta.intelBatches = _rb;
+            state._meta.intelBatchesAt = _rbAt;
+        } else if (_localIntelBatchesAtSnap > 0) {
+            state._meta.intelBatches = _localIntelBatchesSnap;
+            state._meta.intelBatchesAt = _localIntelBatchesAtSnap;
+        } else if (_rb.length) {
+            state._meta.intelBatches = _rb;
+            state._meta.intelBatchesAt = _rbAt;
+        }
+    }
+    {
+        const _rrAt = (remoteData._meta && remoteData._meta.intelFetchRequestAt) || 0;
+        const _rr = (remoteData._meta && remoteData._meta.intelFetchRequest) || null;
+        if (_rrAt > _localIntelReqAtSnap) {
+            state._meta.intelFetchRequest = _rr;
+            state._meta.intelFetchRequestAt = _rrAt;
+        } else {
+            state._meta.intelFetchRequest = _localIntelReqSnap;
+            state._meta.intelFetchRequestAt = _localIntelReqAtSnap;
+        }
+    }
     // 客户总表状态筛选 & 看板卡片顺序：改为「按元素并集合并」（不再整表 LWW 覆盖），
     // 使双端并发改筛选 / 顺序时不会互相抹掉另一端的选择。
     const _localOrder = _localOrderSnap.slice();
@@ -17978,6 +18386,7 @@ function _displayName(entity, item) {
     if (entity === 'followup') return (item.customer || '?') + ' / ' + (item.time || '');
     if (entity === 'todo') return item.title || '(未命名待办)';
     if (entity === 'history') return item.week || '(历史)';
+    if (entity === 'intel') return item.company || item.title || '(未命名情报)';
     return item.id || '(无名)';
 }
 
@@ -18125,7 +18534,7 @@ async function pushToGistSilent() {
 // 格式化单条变更用于日志展示（短版本）
 function formatChangeForLog(change) {
     const typeMap = { add: '新增', update: '修改', delete: '删除' };
-    const entityMap = { customer: '客户', followup: '跟进', todo: '待办', history: '历史', plan: '计划', status: '状态' };
+    const entityMap = { customer: '客户', followup: '跟进', todo: '待办', history: '历史', plan: '计划', status: '状态', intel: '情报' };
     const type = typeMap[change.type] || change.type;
     const entity = entityMap[change.entity] || change.entity;
     const name = change.name || change.id;
@@ -18144,7 +18553,10 @@ const FIELD_LABELS = {
     completedAt: '完成时间', manualStatus: '手动状态标记',
     week: '周次', data: '内容', statuses: '状态列表',
     text: '内容', customerId: '客户ID', completed: '已完成',
-    thisWeek: '本周计划', nextWeek: '下周计划', focus: '重点'
+    thisWeek: '本周计划', nextWeek: '下周计划', focus: '重点',
+    company: '企业', sentiment: '情绪', summary: '摘要', source: '来源',
+    sourceUrl: '来源链接', publishedAt: '发布日期', batchNo: '抓取批次',
+    batchId: '批次ID', statusCode: '客户状态', batchAt: '抓取时间'
 };
 
 // 不同实体的可比较字段
@@ -18156,7 +18568,8 @@ const DIFF_FIELDS = {
     dailyPlan: ['text', 'customer', 'customerId', 'updatedAt'],
     focus: ['text', 'completed', 'starred', 'updatedAt'],
     status: ['statuses'],
-    report: ['note', 'starred']
+    report: ['note', 'starred'],
+    intel: ['batchId', 'batchNo', 'customerId', 'company', 'statusCode', 'city', 'sentiment', 'title', 'summary', 'source', 'sourceUrl', 'publishedAt', 'updatedAt']
 };
 // 冲突检测专用字段集：去掉 updatedAt（元数据时间戳，每次保存都刷新，
 // 会导致「两端都重新保存同一记录、内容其实没变」被误判为内容冲突）。
@@ -18169,7 +18582,8 @@ const CONFLICT_FIELDS = {
     history: DIFF_FIELDS.history.filter(f => f !== 'updatedAt'),
     dailyPlan: DIFF_FIELDS.dailyPlan.filter(f => f !== 'updatedAt'),
     focus: DIFF_FIELDS.focus.filter(f => f !== 'updatedAt'),
-    status: DIFF_FIELDS.status
+    status: DIFF_FIELDS.status,
+    intel: DIFF_FIELDS.intel.filter(f => f !== 'updatedAt')
 };
 
 // 截断文本，避免单条日志过长
@@ -18182,7 +18596,7 @@ function _truncate(s, n) {
 // 生成单条 update 变更的详细描述
 function formatChangeDetail(change) {
     const typeMap = { add: '新增', update: '修改', delete: '删除' };
-    const entityMap = { customer: '客户', followup: '跟进', todo: '待办', history: '历史', plan: '计划', status: '状态' };
+    const entityMap = { customer: '客户', followup: '跟进', todo: '待办', history: '历史', plan: '计划', status: '状态', intel: '情报' };
     const type = typeMap[change.type] || change.type;
     const entity = entityMap[change.entity] || change.entity;
     const name = change.name || change.id || '(无名)';
@@ -18244,6 +18658,7 @@ function refreshCurrentPage() {
         case 'plan': renderPlan(); renderPlanRelated(); renderLastWeekRelated(); renderReportCustomers(); break;
         case 'report': renderReportCustomers(); break;
         case 'history': renderHistory(); break;
+        case 'intel': renderIntel(); break;
     }
 }
 
@@ -18488,7 +18903,7 @@ function clearLocalData() {
             state.workPlan = { thisWeek: {}, nextWeek: {} };
             state.history = [];
             state._meta = { lastModified: new Date().toISOString(), lastSyncedAt: null };
-            state._tombstones = { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
+            state._tombstones = { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {}, intel: {} };
             state._changeLog = [];
             state._operationLog = state._operationLog || []; // 保留操作日志
             // 清空同步基准，防止随后误同步把空数据覆盖云端
@@ -18648,7 +19063,8 @@ function buildConflictRecords(local, remote) {
     const entities = [
         { name: 'customer', list: local.customers, rlist: remote.customers || [], fields: DIFF_FIELDS.customer, label: '客户' },
         { name: 'followup', list: local.followups, rlist: remote.followups || [], fields: DIFF_FIELDS.followup, label: '跟进' },
-        { name: 'todo', list: local.todos, rlist: remote.todos || [], fields: DIFF_FIELDS.todo, label: '待办' }
+        { name: 'todo', list: local.todos, rlist: remote.todos || [], fields: DIFF_FIELDS.todo, label: '待办' },
+        { name: 'intel', list: local.intel || [], rlist: remote.intel || [], fields: DIFF_FIELDS.intel, label: '企业情报' }
     ];
     const records = [];
     entities.forEach(ent => {
@@ -18819,6 +19235,7 @@ async function resolveMerge() {
         state.customers = reapplyFieldChoices(state.customers, snap.customers, remote.customers || [], 'customer');
         state.followups = reapplyFieldChoices(state.followups, snap.followups, remote.followups || [], 'followup');
         state.todos = reapplyFieldChoices(state.todos, snap.todos, remote.todos || [], 'todo');
+        state.intel = reapplyFieldChoices(state.intel || [], snap.intel || [], remote.intel || [], 'intel');
         // 工作计划（本周重点 / 每日计划）：已改为逐条+字段级独立实体，
         // 由下方 reapplyFieldChoices(dailyPlans/focusItems) + _planEntitiesToWorkPlan 写回处理，不再整体二选一。
         // 近期汇报客户：逐条字段级合并（note / starred），删除经墓碑生效
@@ -18885,6 +19302,9 @@ function bindEvents() {
             navigateTo(item.dataset.page);
         });
     });
+
+    // 企业情报页：统一事件委托（自由文本不拼进 onclick 字符串，铁律#20）
+    try { bindIntelEvents(); } catch (e) { console.error('[intel] 事件绑定失败', e); }
 
     // 统计卡片下钻
     document.querySelectorAll('.stat-card[data-drill]').forEach(card => {
@@ -20467,7 +20887,7 @@ function deleteTodo() {
 
     showConfirm(`确定要删除待办"${todo.title}"吗？`, () => {
         // 墓碑记录
-        if (!state._tombstones) state._tombstones = { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {} };
+        if (!state._tombstones) state._tombstones = { customers: {}, followups: {}, todos: {}, history: {}, dailyPlans: {}, focusItems: {}, intel: {} };
         if (!state._tombstones.todos) state._tombstones.todos = {};
         state._tombstones.todos[editingTodoId] = new Date().toISOString();
         recordChange('delete', 'todo', editingTodoId, todo.title);
@@ -20851,7 +21271,25 @@ window._crm = {
     syncReportFocusLinks,
     syncNow: function (force) { return doSync(force); },
     getState: function () { return state; },
-    getCurrentFilter: function () { return currentFilter; }
+    getCurrentFilter: function () { return currentFilter; },
+    // 企业情报 V2（专项测试驱动）
+    renderIntel,
+    renderIntelRail,
+    renderIntelStatusGrid,
+    getIntelBatches,
+    getIntelFetchRequest,
+    getIntelItems,
+    _normalizeIntel,
+    _normalizeIntelBatches,
+    _pruneIntel,
+    _intelStatusOptions,
+    openIntelRequestModal,
+    closeIntelRequestModal,
+    toggleIntelStatus,
+    setIntelStatusSelection,
+    submitIntelRequest,
+    jumpToIntelCustomer,
+    bindIntelEvents
 };
 
 // ---------- 更新日志（历次版本更新内容，桌面/安卓/网页随时可查）----------
