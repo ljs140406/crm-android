@@ -17613,21 +17613,37 @@ function setIntelStatusSelection(mode) {
 function submitIntelRequest() {
     const codes = Object.keys(intelReqSel).filter(function (k) { return intelReqSel[k]; }).sort();
     if (!codes.length) { showToast('请至少选择一个状态'); return; }
-    const cnt = _intelStatusOptions().reduce(function (a, s) { return a + (intelReqSel[s.code] ? s.count : 0); }, 0);
+    // 1.1.85：把所选状态的真实客户清单直接内嵌进请求，云电脑无需再读云端/本地 store 反推客户，
+    // 彻底杜绝"假客户"（消费端见 crm_intel_writeback.py do_emit_request，优先用内嵌清单）。
+    const _selSet = {};
+    codes.forEach(function (c) { _selSet[c] = 1; });
+    const _embedCustomers = (state.customers || []).filter(function (c) {
+        return c && c.status && _selSet[c.status];
+    }).map(function (c) {
+        return {
+            customerId: c.id,
+            company: (c.name || '').trim(),
+            statusCode: c.status,
+            statusName: _intelStatusName(c.status),
+            city: c.city || ''
+        };
+    }).filter(function (x) { return x.company; });
     const batches = getIntelBatches();
     const batchNo = ((batches[0] && batches[0].batchNo) || 0) + 1;
     const now = Date.now();
     const batchId = 'b' + new Date(now).toISOString().replace(/\D/g, '').slice(0, 14);
     state._meta = state._meta || {};
     state._meta.intelFetchRequest = {
-        batchId: batchId, batchNo: batchNo, statusCodes: codes, customerCount: cnt,
+        batchId: batchId, batchNo: batchNo, statusCodes: codes,
+        customerCount: _embedCustomers.length,
+        customers: _embedCustomers,
         requestedAt: new Date(now).toISOString(), at: now, status: 'pending', deviceId: DEVICE_ID || ''
     };
     state._meta.intelFetchRequestAt = now;
     closeIntelRequestModal();
     saveData();
     scheduleAutoSync();
-    logOperation('提交第 ' + batchNo + ' 次企业情报抓取请求：' + codes.length + ' 个状态 / ' + cnt + ' 家客户', 'info');
+    logOperation('提交第 ' + batchNo + ' 次企业情报抓取请求：' + codes.length + ' 个状态 / ' + _embedCustomers.length + ' 家客户', 'info');
     showToast('已提交第 ' + batchNo + ' 次抓取请求，等待 WorkBuddy 执行');
     renderIntel();
 }
