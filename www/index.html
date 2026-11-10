@@ -17446,8 +17446,8 @@ function renderIntel() {
         const c = CAT_COLOR[cat] || CAT_COLOR.company;
         return '<span class="intel-cat-badge" style="background:' + c + '">' + (CAT_LABEL[cat] || CAT_LABEL.company) + '</span>';
     };
-    const _pill = function (lbl, n, col, bg) {
-        return '<span class="intel-cust-pill" style="color:' + col + ';background:' + bg + '">' + lbl + ' ' + n + '</span>';
+    const _pill = function (lbl, n, col, bg, sent) {
+        return '<span class="intel-cust-pill"' + (sent ? ' data-intel-sentiment-pill="' + sent + '"' : '') + ' style="color:' + col + ';background:' + bg + '">' + lbl + ' ' + n + '</span>';
     };
     const _itemHtml = function (x) {
         const col = colors[x.sentiment] || colors.neutral;
@@ -17465,7 +17465,7 @@ function renderIntel() {
         const custName = cust ? cust.name : '';
         listEl.innerHTML =
             '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">' +
-                '<button type="button" class="btn btn-sm btn-secondary" onclick="window._crm.openCustomerDetail(\'' + escapeAttr(intelCustomerFilter) + '\')">← 返回「' + escapeHtml(custName || '客户') + '」详情</button>' +
+                '<button type="button" class="btn btn-sm btn-secondary" onclick="window._crm.navigateTo(\'customers\');window._crm.openCustomerDetail(\'' + escapeAttr(intelCustomerFilter) + '\')">← 返回「' + escapeHtml(custName || '客户') + '」详情</button>' +
                 '<div class="intel-filter-chip" data-intel-cust-filter="1">← 查看全部客户</div>' +
             '</div>' +
             (items.length ? '<div class="intel-group-items">' + items.map(_itemHtml).join('') + '</div>'
@@ -17501,7 +17501,7 @@ function renderIntel() {
                 '<span style="margin-left:auto;color:var(--text-secondary);font-size:12px;">' + g.items.length + ' 条 ▸</span>' +
             '</div>' +
             '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px;">' +
-                _pill('利好', pos, colors.positive, bgs.positive) + _pill('负面', neg, colors.negative, bgs.negative) + _pill('中性', neu, colors.neutral, bgs.neutral) +
+                _pill('利好', pos, colors.positive, bgs.positive, 'positive') + _pill('负面', neg, colors.negative, bgs.negative, 'negative') + _pill('中性', neu, colors.neutral, bgs.neutral, 'neutral') +
             '</div>' +
         '</div>';
     }).join('') + '</div>'
@@ -17546,7 +17546,7 @@ function renderIntelCustomer() {
     el.innerHTML =
         '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">' +
             '<button type="button" class="btn btn-sm btn-secondary" onclick="window._crm.navigateTo(\'intel\')">← 返回情报</button>' +
-            (cust ? '<button type="button" class="btn btn-sm btn-primary" onclick="window._crm.openCustomerDetail(\'' + escapeAttr(id) + '\')">查看客户详情</button>' : '') +
+            (cust ? '<button type="button" class="btn btn-sm btn-primary" onclick="window._crm.navigateTo(\'customers\');window._crm.openCustomerDetail(\'' + escapeAttr(id) + '\')">查看客户详情</button>' : '') +
         '</div>' +
         '<div class="usage-card" style="margin-bottom:10px;">' +
             '<div class="usage-card-value" style="font-size:16px;">' + escapeHtml(custName) + '</div>' +
@@ -17658,6 +17658,8 @@ function bindIntelEvents() {
         if (chip) { intelSentimentFilter = chip.getAttribute('data-intel-sentiment') || 'all'; renderIntel(); return; }
         const catBtn = t.closest('[data-intel-cat]');
         if (catBtn) { intelCategoryFilter = catBtn.getAttribute('data-intel-cat') || 'all'; renderIntel(); return; }
+        const sp = t.closest('[data-intel-sentiment-pill]');
+        if (sp) { intelSentimentFilter = sp.getAttribute('data-intel-sentiment-pill') || 'all'; renderIntel(); return; }
         const co = t.closest('[data-intel-cust-open]');
         if (co) { openIntelCustomerPage(co.getAttribute('data-intel-cust-open'), co.getAttribute('data-intel-company')); return; }
         const cf = t.closest('[data-intel-cust-filter]');
